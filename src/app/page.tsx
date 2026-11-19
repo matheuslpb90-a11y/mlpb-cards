@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { ProductTile } from "@/components/ProductTile";
+import { CardFan } from "@/components/CardFan";
 import { CONDITIONS, LANGUAGES } from "@/lib/catalog";
 import { whatsappLink } from "@/lib/whatsapp";
 import { getSettings, youtubeId } from "@/lib/settings";
@@ -10,8 +11,13 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const available = { active: true, stock: { gt: 0 } };
-  const [s, featured, newCards, newProducts] = await Promise.all([
+  const [s, fanCards, featured, newCards, newProducts] = await Promise.all([
     getSettings(),
+    db.card.findMany({
+      where: { ...available, kind: "CARTA", imageUrl: { not: "" } },
+      orderBy: [{ featured: "desc" }, { updatedAt: "desc" }],
+      take: 3,
+    }),
     db.card.findMany({ where: { ...available, featured: true }, orderBy: { updatedAt: "desc" }, take: 10 }),
     db.card.findMany({ where: { ...available, kind: "CARTA" }, orderBy: { createdAt: "desc" }, take: 10 }),
     db.card.findMany({ where: { ...available, kind: "PRODUTO" }, orderBy: { createdAt: "desc" }, take: 5 }),
@@ -22,7 +28,7 @@ export default async function HomePage() {
       {/* Banner principal (textos e imagem editáveis em Painel → Aparência e links) */}
       <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-[#1a1008] via-black to-[#140b04] p-8 sm:p-12">
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand/25 blur-3xl" />
-        <div className="relative grid items-center gap-8 md:grid-cols-[1.3fr_1fr]">
+        <div className="relative grid items-center gap-8 lg:grid-cols-[1.1fr_1fr]">
           <div>
             <h1 className="text-4xl font-black tracking-tight text-white sm:text-6xl">{s.heroTitle}</h1>
             <p className="mt-4 max-w-xl text-lg leading-relaxed text-slate-700">{s.heroText}</p>
@@ -40,9 +46,13 @@ export default async function HomePage() {
               )}
             </div>
           </div>
-          {s.heroImageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={s.heroImageUrl} alt="" className="mx-auto max-h-80 w-auto drop-shadow-[0_0_40px_rgba(255,122,0,0.35)]" />
+          {fanCards.length > 0 ? (
+            <CardFan cards={fanCards} />
+          ) : (
+            s.heroImageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={s.heroImageUrl} alt="" className="mx-auto max-h-80 w-auto drop-shadow-[0_0_40px_rgba(255,122,0,0.35)]" />
+            )
           )}
         </div>
       </section>

@@ -8,7 +8,7 @@ export default async function NewCardPage({ searchParams }: { searchParams: Prom
       <h1 className="text-2xl font-bold">{kind === "PRODUTO" ? "Novo produto" : "Nova carta avulsa"}</h1>
       <CardForm
         key={kind}
-        initial={{ kind, category: "", featured: false, name: "", game: "Pokémon", setName: "", number: "", rarity: "", condition: "NM", language: "Português", price: "", stock: 1, imageUrl: "", description: "", active: true }}
+        initial={{ kind, category: "", featured: false, name: "", game: "Pokémon", setName: "", number: "", rarity: "", condition: "NM", finish: "Normal", language: "Português", price: "", compareAt: "", stock: 1, imageUrl: "", description: "", active: true }}
       />
     </div>
   );

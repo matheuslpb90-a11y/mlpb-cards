@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { saveCardAction, uploadImageAction } from "@/app/admin/actions";
 import { CardImage } from "@/components/CardImage";
-import { CONDITIONS, LANGUAGES, PRODUCT_CATEGORIES } from "@/lib/catalog";
+import { CONDITIONS, FINISHES, LANGUAGES, PRODUCT_CATEGORIES } from "@/lib/catalog";
 import { CardLookup, type LookupResult } from "./CardLookup";
 import { shrinkImage } from "./ImageUploadField";
 
@@ -18,8 +18,10 @@ export type CardFormValues = {
   number: string;
   rarity: string;
   condition: string;
+  finish: string;
   language: string;
   price: string;
+  compareAt: string;
   stock: number;
   imageUrl: string;
   description: string;
@@ -87,6 +89,9 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
               <div><label className="label">Estado</label>
                 <select className="input" {...bind("condition")}>{CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}</select>
               </div>
+              <div><label className="label">Tipo</label>
+                <select className="input" {...bind("finish")}>{FINISHES.map((f) => <option key={f} value={f}>{f}</option>)}</select>
+              </div>
             </>
           ) : (
             <>
@@ -104,6 +109,7 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
             <select className="input" {...bind("language")}>{LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.flag} {l.value}</option>)}</select>
           </div>
           <div><label className="label">Preço (R$)</label><input className="input" required inputMode="decimal" placeholder="12,50" {...bind("price")} /></div>
+          <div><label className="label">Preço original “de” (opcional — mostra desconto)</label><input className="input" inputMode="decimal" placeholder="ex.: 15,00" {...bind("compareAt")} /></div>
           <div><label className="label">Estoque</label><input className="input" type="number" min={0} required {...bind("stock")} /></div>
 
           <div className="space-y-2 sm:col-span-2">

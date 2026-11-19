@@ -45,9 +45,11 @@ model Card {
   setName     String      // coleção / edição
   number      String      @default("")
   rarity      String      @default("")
-  condition   String      @default("NM") // NM, SP, MP, HP, DMG
+  condition   String      @default("NM") // M, NM, SP, MP, HP, DMG
+  finish      String      @default("Normal") // Normal, Foil, Reverse Foil, Promo
   language    String      @default("Português")
   priceCents  Int
+  compareAtCents Int?     // preço original ("de"), para mostrar desconto
   stock       Int         @default(1)
   imageUrl    String      @default("")
   description String      @default("")

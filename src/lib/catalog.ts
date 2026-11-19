@@ -6,6 +6,7 @@ export const KINDS = [
 ] as const;
 
 export const CONDITIONS = [
+  { value: "M", label: "M — Mint (perfeita)" },
   { value: "NM", label: "NM — Near Mint (praticamente nova)" },
   { value: "SP", label: "SP — Slightly Played (pouco usada)" },
   { value: "MP", label: "MP — Moderately Played (usada)" },
@@ -14,11 +15,13 @@ export const CONDITIONS = [
 ] as const;
 
 export const LANGUAGES = [
-  { value: "Português", flag: "🇧🇷" },
-  { value: "Inglês", flag: "🇺🇸" },
-  { value: "Japonês", flag: "🇯🇵" },
-  { value: "Chinês", flag: "🇨🇳" },
+  { value: "Chinês", flag: "🇨🇳", short: "CH" },
+  { value: "Inglês", flag: "🇺🇸", short: "ENG" },
+  { value: "Japonês", flag: "🇯🇵", short: "JP" },
+  { value: "Português", flag: "🇧🇷", short: "PT-BR" },
 ] as const;
+
+export const FINISHES = ["Normal", "Foil", "Reverse Foil", "Promo"] as const;
 
 export const PRODUCT_CATEGORIES = [
   "Booster",

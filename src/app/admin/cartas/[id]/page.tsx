@@ -20,8 +20,9 @@ export default async function EditCardPage({ params }: { params: Promise<{ id: s
       </div>
       <CardForm
         initial={{
-          id: c.id, kind: c.kind as "CARTA" | "PRODUTO", category: c.category, featured: c.featured, name: c.name, game: c.game, setName: c.setName, number: c.number, rarity: c.rarity, condition: c.condition === "D" ? "DMG" : c.condition,
-          language: c.language, price: (c.priceCents / 100).toFixed(2).replace(".", ","), stock: c.stock, imageUrl: c.imageUrl,
+          id: c.id, kind: c.kind as "CARTA" | "PRODUTO", category: c.category, featured: c.featured, name: c.name, game: c.game, setName: c.setName, number: c.number, rarity: c.rarity, condition: c.condition === "D" ? "DMG" : c.condition, finish: c.finish,
+          language: c.language, price: (c.priceCents / 100).toFixed(2).replace(".", ","),
+          compareAt: c.compareAtCents ? (c.compareAtCents / 100).toFixed(2).replace(".", ",") : "", stock: c.stock, imageUrl: c.imageUrl,
           description: c.description, active: c.active,
         }}
       />

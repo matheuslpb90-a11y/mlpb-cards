@@ -16,3 +16,34 @@ body { @apply bg-slate-50 text-slate-900; }
   .label { @apply mb-1 block text-sm font-medium text-slate-700; }
   .card { @apply rounded-xl border border-slate-200 bg-panel shadow-sm; }
 }
+
+/* Leque de cartas do banner da tela de início */
+.fan-card {
+  --spread: 62px;
+  --tx: calc(var(--d) * var(--spread));
+  --ty: calc(var(--ad) * 12px);
+  --rot: calc(var(--d) * 9deg);
+  transform: translateX(var(--tx)) translateY(var(--ty)) rotate(var(--rot));
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.fan-card:hover,
+.fan-card:focus-visible {
+  transform: translateX(var(--tx)) translateY(calc(var(--ty) - 28px)) rotate(0deg) scale(1.08);
+  z-index: 50 !important;
+  box-shadow: 0 0 40px -6px rgba(255, 122, 0, 0.7);
+}
+@media (min-width: 640px) {
+  .fan-card { --spread: 105px; }
+}
+
+/* Faixa de preço com duas alças */
+.range-thumb { appearance: none; background: transparent; pointer-events: none; }
+.range-thumb::-webkit-slider-thumb {
+  appearance: none; pointer-events: auto; height: 20px; width: 20px; border-radius: 9999px;
+  background: #fff; border: 3px solid #ff7a00; cursor: pointer;
+}
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto; height: 16px; width: 16px; border-radius: 9999px;
+  background: #fff; border: 3px solid #ff7a00; cursor: pointer;
+}
+.range-thumb::-moz-range-track { background: transparent; }

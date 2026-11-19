@@ -21,9 +21,11 @@ const cardSchema = z.object({
   setName: z.string().trim().default(""),
   number: z.string().trim().default(""),
   rarity: z.string().trim().default(""),
-  condition: z.string().trim().default("NM"),
+  condition: z.enum(["M", "NM", "SP", "MP", "HP", "DMG"]).default("NM"),
+  finish: z.enum(["Normal", "Foil", "Reverse Foil", "Promo"]).default("Normal"),
   language: z.string().trim().default("Português"),
   price: z.string(),
+  compareAt: z.string().default(""),
   stock: z.coerce.number().int("Estoque inválido").min(0, "Estoque inválido"),
   imageUrl: z.string().trim().default(""),
   description: z.string().trim().default(""),
@@ -34,15 +36,17 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
   await requireAdmin();
   const parsed = cardSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { price, active, featured, ...data } = parsed.data;
+  const { price, compareAt, active, featured, ...data } = parsed.data;
   if (data.kind === "CARTA" && !data.setName) return { error: "Informe a coleção da carta" };
   if (data.kind === "PRODUTO" && !data.category) return { error: "Escolha a categoria do produto" };
   const priceCents = parseBRLToCents(price);
   if (priceCents === null) return { error: "Preço inválido. Use o formato 12,50" };
+  const compareAtCents = compareAt.trim() ? parseBRLToCents(compareAt) : null;
+  if (compareAt.trim() && compareAtCents === null) return { error: "Preço original inválido. Use o formato 15,00" };
   if (data.imageUrl && !/^(https?:\/\/|\/api\/imagens\/)/.test(data.imageUrl)) return { error: "A imagem deve ser um link http(s) ou uma foto enviada." };
 
   const id = String(form.get("id") ?? "");
-  const payload = { ...data, priceCents, active: active === "on", featured: featured === "on" };
+  const payload = { ...data, priceCents, compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null, active: active === "on", featured: featured === "on" };
   if (id) await db.card.update({ where: { id }, data: payload });
   else await db.card.create({ data: payload });
   revalidatePath("/");
@@ -116,9 +120,11 @@ export async function importCsvAction(_: State, form: FormData): Promise<State> 
       setName: get(r, "colecao") || (kind === "CARTA" ? "—" : ""),
       number: get(r, "numero"),
       rarity: get(r, "raridade"),
-      condition: cond === "D" ? "DMG" : cond || "NM",
+      condition: cond === "D" ? "DMG" : ["M", "NM", "SP", "MP", "HP", "DMG"].includes(cond) ? cond : "NM",
+      finish: (["Normal", "Foil", "Reverse Foil", "Promo"].find((f) => f.toLowerCase() === get(r, "acabamento").toLowerCase()) ?? "Normal"),
       language: get(r, "idioma") || "Português",
       priceCents,
+      compareAtCents: (() => { const v = parseBRLToCents(get(r, "preco_original")); return v && v > priceCents ? v : null; })(),
       stock: Number.isFinite(stock) && stock >= 0 ? stock : 1,
       imageUrl: get(r, "imagem"),
       description: get(r, "descricao"),

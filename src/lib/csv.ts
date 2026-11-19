@@ -26,4 +26,4 @@ export function parseCSV(text: string): string[][] {
   return rows;
 }
 
-export const CSV_COLUMNS = ["tipo", "nome", "categoria", "destaque", "jogo", "colecao", "numero", "raridade", "condicao", "idioma", "preco", "estoque", "imagem", "descricao"] as const;
+export const CSV_COLUMNS = ["tipo", "nome", "categoria", "destaque", "jogo", "colecao", "numero", "raridade", "condicao", "acabamento", "idioma", "preco", "preco_original", "estoque", "imagem", "descricao"] as const;

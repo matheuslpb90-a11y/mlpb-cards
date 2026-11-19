@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <header className="sticky top-0 z-30 border-b border-slate-200 bg-black/90 backdrop-blur">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2">
               <Link href="/" className="mr-4"><Logo url={s.logoUrl} /></Link>
-              <nav className="flex flex-1 flex-wrap items-center gap-1 text-sm font-semibold">
+              <nav className="order-last -mx-1 flex w-full items-center gap-1 overflow-x-auto whitespace-nowrap text-sm font-semibold md:order-none md:mx-0 md:w-auto md:flex-1">
                 <Link href="/" className={navLink}>Início</Link>
                 <Link href="/catalogo?tipo=cartas" className={navLink}>Cartas Avulsas</Link>
                 <Link href="/catalogo?tipo=selados" className={navLink}>Selados</Link>
@@ -39,7 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   </a>
                 )}
               </nav>
-              <div className="flex items-center gap-1 text-sm font-semibold">
+              <div className="ml-auto flex items-center gap-1 text-sm font-semibold">
                 <CartBadge />
                 {user ? (
                   <>

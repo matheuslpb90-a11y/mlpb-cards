@@ -26,6 +26,12 @@ async function main() {
     console.log(`Usuário ${email} promovido a admin`);
   }
 
+  // Texto antigo do banner → versão mais curta (só se ainda estiver o texto original)
+  await db.setting.updateMany({
+    where: { key: "heroText", value: { startsWith: "A MLPB Cards nasceu para aproximar quem vive o hobby de verdade." } },
+    data: { value: "Cartas Pokémon avulsas, selados e leilões para quem vive o hobby de verdade." },
+  });
+
   if ((await db.card.count()) === 0 && process.env.SEED_SAMPLE_CARDS === "1") {
     await db.card.createMany({
       data: [

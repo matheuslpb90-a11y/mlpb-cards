@@ -15,3 +15,9 @@ export function parseBRLToCents(input: string): number | null {
 export function onlyDigits(s: string): string {
   return s.replace(/\D/g, "");
 }
+
+/** Desconto em % (inteiro) quando há preço original maior que o atual. */
+export function discountPct(priceCents: number, compareAtCents?: number | null): number {
+  if (!compareAtCents || compareAtCents <= priceCents) return 0;
+  return Math.round(((compareAtCents - priceCents) / compareAtCents) * 100);
+}
