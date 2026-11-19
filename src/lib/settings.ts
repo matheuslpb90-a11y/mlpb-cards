@@ -3,7 +3,7 @@ import { cache } from "react";
 import { db } from "./db";
 
 export const SETTING_DEFAULTS = {
-  logoUrl: "",
+  logoUrl: "/logo.png",
   heroImageUrl: "",
   heroTitle: "MLPB Cards",
   heroText:
