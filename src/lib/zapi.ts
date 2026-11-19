@@ -60,12 +60,43 @@ export async function sendPoll(phone: string, message: string, options: string[]
 
 export type ZGroup = { phone: string; name: string };
 
-export async function listGroups(): Promise<ZGroup[]> {
-  const data = await call<unknown>("groups?page=1&pageSize=100");
-  const arr = Array.isArray(data) ? data : ((data as { groups?: unknown[] })?.groups ?? []);
+function toGroups(data: unknown): ZGroup[] {
+  const obj = data as Record<string, unknown>;
+  const arr = Array.isArray(data) ? data : ((obj?.groups ?? obj?.chats ?? obj?.data ?? []) as unknown[]);
   return (arr as Record<string, unknown>[])
-    .map((g) => ({ phone: String(g.phone ?? g.id ?? ""), name: String(g.name ?? g.subject ?? "") }))
+    .filter((g) => g && (g.isGroup === true || String(g.phone ?? g.id ?? "").includes("-group") || String(g.phone ?? g.id ?? "").includes("@g.us")))
+    .map((g) => ({ phone: String(g.phone ?? g.id ?? ""), name: String(g.name ?? g.subject ?? g.chatName ?? "") }))
     .filter((g) => g.phone);
+}
+
+/** Lista os grupos da instância. Tenta "groups" e, se vier vazio, "chats". */
+export async function listGroups(): Promise<ZGroup[]> {
+  const errors: string[] = [];
+  for (const path of ["groups?page=1&pageSize=100", "chats?page=1&pageSize=300"]) {
+    try {
+      const g = toGroups(await call<unknown>(path));
+      if (g.length) return g;
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : String(e));
+    }
+  }
+  if (errors.length) throw new Error(errors.join(" | "));
+  return [];
+}
+
+/** Grupos vistos nas mensagens recebidas pelo webhook (registro do bot). */
+export async function groupsFromLogs(): Promise<ZGroup[]> {
+  const logs = await db.botLog.findMany({ where: { kind: "evento" }, orderBy: { createdAt: "desc" }, take: 300 });
+  const map = new Map<string, string>();
+  for (const l of logs) {
+    try {
+      const b = JSON.parse(l.payload) as Record<string, unknown>;
+      const phone = String(b.phone ?? b.chatId ?? "");
+      if (b.isGroup === true || phone.includes("-group") || phone.includes("@g.us"))
+        if (!map.has(phone)) map.set(phone, String(b.chatName ?? b.groupName ?? b.subject ?? ""));
+    } catch {}
+  }
+  return [...map].map(([phone, name]) => ({ phone, name }));
 }
 
 export async function connectionStatus(): Promise<{ connected: boolean; detail: string }> {

@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { priceItem } from "@/lib/auction-pricing";
 import { brt, reaisToCents, type AuctionDraft } from "@/lib/auction-draft";
 import { closeAuction, markInvoicePaid, sendInvoice, startAuction } from "@/lib/auctions";
-import { listGroups, sendText, connectionStatus } from "@/lib/zapi";
+import { listGroups, groupsFromLogs, sendText, connectionStatus } from "@/lib/zapi";
 import { logActivity } from "@/lib/activity";
 
 export async function saveAuctionAction(d: AuctionDraft): Promise<{ id?: string; error?: string }> {
@@ -192,10 +192,14 @@ export async function invoiceCommandAction(id: string, cmd: "reenviar" | "pago" 
 
 export async function botGroupsAction() {
   await requireAdmin();
+  const status = await connectionStatus();
+  const fromLogs = await groupsFromLogs().catch(() => []);
   try {
-    return { groups: await listGroups(), status: await connectionStatus() };
+    const groups = await listGroups();
+    const all = [...groups, ...fromLogs.filter((g) => !groups.some((x) => x.phone === g.phone))];
+    return { groups: all, status };
   } catch (e) {
-    return { error: e instanceof Error ? e.message : String(e) };
+    return { groups: fromLogs, status, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
