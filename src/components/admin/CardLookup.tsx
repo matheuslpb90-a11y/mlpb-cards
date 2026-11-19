@@ -2,81 +2,70 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
-
-// Busca de cartas Pokémon na TCGdex (https://tcgdex.dev) — API aberta e gratuita,
-// com nomes em português. A consulta é feita direto do navegador do administrador.
-const API = "https://api.tcgdex.net/v2";
-const LANGS = ["pt-br", "pt", "en"];
+import type { LookupCard } from "@/app/api/admin/buscar-carta/route";
 
 export type LookupResult = { name: string; setName: string; number: string; rarity: string; imageUrl: string };
-
-type Brief = { id: string; localId: string; name: string; image?: string; lang: string };
 
 export function CardLookup({ onPick }: { onPick: (r: LookupResult) => void }) {
   const [q, setQ] = useState("");
   const [num, setNum] = useState("");
-  const [results, setResults] = useState<Brief[]>([]);
+  const [results, setResults] = useState<LookupCard[]>([]);
   const [status, setStatus] = useState("");
+  const [busy, setBusy] = useState(false);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
     if (!q.trim()) return;
+    setBusy(true);
     setStatus("Buscando…");
     setResults([]);
-    for (const lang of LANGS) {
-      try {
-        const r = await fetch(`${API}/${lang}/cards?name=${encodeURIComponent(q.trim())}`);
-        if (!r.ok) continue;
-        const data = (await r.json()) as Omit<Brief, "lang">[];
-        let list = Array.isArray(data) ? data.filter((c) => c.image) : [];
-        if (num.trim()) list = list.filter((c) => c.localId.replace(/^0+/, "") === num.trim().split("/")[0].replace(/^0+/, ""));
-        if (list.length) {
-          setResults(list.slice(0, 60).map((c) => ({ ...c, lang })));
-          setStatus(`${list.length} resultado(s)${lang === "en" ? " (em inglês)" : ""}. Clique na carta certa.`);
-          return;
-        }
-      } catch {
-        /* tenta o próximo idioma */
-      }
+    try {
+      const r = await fetch(`/api/admin/buscar-carta?q=${encodeURIComponent(q.trim())}&num=${encodeURIComponent(num.trim())}`);
+      const d = (await r.json()) as { results?: LookupCard[]; source?: string; message?: string; error?: string };
+      const list = d.results ?? [];
+      setResults(list);
+      setStatus(list.length ? `${list.length} resultado(s) — fonte: ${d.source}. Clique na carta certa.` : d.message ?? d.error ?? "Nada encontrado.");
+    } catch {
+      setStatus("Erro de conexão ao buscar. Tente de novo.");
+    } finally {
+      setBusy(false);
     }
-    setStatus("Nada encontrado. Confira o nome ou preencha manualmente.");
   }
 
-  async function pick(c: Brief) {
-    setStatus("Carregando detalhes…");
-    try {
-      const r = await fetch(`${API}/${c.lang}/cards/${encodeURIComponent(c.id)}`);
-      const d = await r.json();
-      const total = d?.set?.cardCount?.official;
-      onPick({
-        name: d.name ?? c.name,
-        setName: d?.set?.name ?? "",
-        number: total ? `${c.localId}/${total}` : c.localId,
-        rarity: d.rarity ?? "",
-        imageUrl: `${c.image}/high.webp`,
-      });
-      setStatus("Dados preenchidos! Confira, defina preço/estoque e salve.");
-    } catch {
-      onPick({ name: c.name, setName: "", number: c.localId, rarity: "", imageUrl: `${c.image}/high.webp` });
-      setStatus("Imagem preenchida. Complete os outros dados.");
+  async function pick(c: LookupCard) {
+    const base = { name: c.name, setName: c.setName, number: c.number, rarity: c.rarity, imageUrl: c.imageLarge };
+    onPick(base);
+    setStatus("Imagem preenchida! Confira os dados, defina preço e estoque e salve.");
+    if (c.source === "tcgdex" && c.tcgdexId) {
+      try {
+        const r = await fetch(`/api/admin/buscar-carta?tcgdex=${encodeURIComponent(c.tcgdexId)}&lang=${c.lang}`);
+        if (r.ok) {
+          const d = await r.json();
+          onPick({ ...base, name: d.name || base.name, setName: d.setName || base.setName, number: d.number || base.number, rarity: d.rarity || base.rarity });
+        }
+      } catch {
+        /* mantém o que já foi preenchido */
+      }
     }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
     <div className="card space-y-3 p-5">
-      <h2 className="font-semibold">Buscar carta Pokémon (preenche imagem e dados)</h2>
+      <h2 className="font-semibold">1. Buscar carta Pokémon (preenche imagem e dados)</h2>
       <form onSubmit={search} className="flex flex-wrap gap-2">
-        <input className="input flex-1" placeholder="Nome da carta (ex.: Charizard ex)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input min-w-0 flex-1" placeholder="Nome da carta (ex.: Pikachu)" value={q} onChange={(e) => setQ(e.target.value)} />
         <input className="input w-28" placeholder="Nº (opcional)" value={num} onChange={(e) => setNum(e.target.value)} />
-        <button className="btn-outline">Buscar</button>
+        <button className="btn-primary" disabled={busy}>{busy ? "Buscando…" : "Buscar"}</button>
       </form>
-      {status && <p className="text-sm text-slate-500">{status}</p>}
+      {status && <p className="rounded bg-slate-50 p-2 text-sm text-slate-700">{status}</p>}
       {results.length > 0 && (
-        <div className="grid max-h-96 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-5 lg:grid-cols-6">
+        <div className="grid max-h-[28rem] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4 lg:grid-cols-6">
           {results.map((c) => (
-            <button type="button" key={`${c.lang}-${c.id}`} onClick={() => pick(c)} className="rounded-lg p-1 text-left hover:bg-brand-light" title={c.id}>
-              <img src={`${c.image}/low.webp`} alt={c.name} loading="lazy" className="w-full rounded" />
-              <span className="block truncate text-[11px]">{c.name} · {c.id}</span>
+            <button type="button" key={c.key} onClick={() => pick(c)} className="rounded-lg p-1 text-left hover:bg-brand-light">
+              <img src={c.imageSmall} alt={c.name} loading="lazy" className="w-full rounded" />
+              <span className="block truncate text-[11px] font-medium">{c.name}</span>
+              <span className="block truncate text-[10px] text-slate-500">{c.setName || c.tcgdexId} · {c.number}</span>
             </button>
           ))}
         </div>

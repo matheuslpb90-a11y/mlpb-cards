@@ -51,9 +51,10 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
+    <div className="grid gap-6 lg:grid-cols-[1fr_220px]">
       <div className="space-y-6">
         <CardLookup onPick={applyLookup} />
+        <h2 className="font-semibold">2. Dados da carta</h2>
         <form action={action} className="card grid gap-3 p-5 sm:grid-cols-2">
           {v.id && <input type="hidden" name="id" value={v.id} />}
           <div className="sm:col-span-2"><label className="label">Nome da carta</label><input className="input" required {...bind("name")} /></div>
@@ -82,9 +83,9 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
           <button className="btn-primary sm:col-span-2" disabled={pending}>{pending ? "Salvando…" : "Salvar carta"}</button>
         </form>
       </div>
-      <aside className="space-y-2">
+      <aside className="order-first space-y-2 lg:order-none">
         <p className="text-sm font-semibold text-slate-500">Pré-visualização</p>
-        <CardImage src={v.imageUrl} alt={v.name} />
+        <div className="mx-auto w-40 lg:w-full"><CardImage src={v.imageUrl} alt={v.name} /></div>
       </aside>
     </div>
   );
