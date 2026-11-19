@@ -97,6 +97,13 @@ export async function GET(req: Request) {
     }
   }
 
+  // Busca pelo código impresso na carta: "094/083", "TG12/TG30", "SVP053"
+  const codigo = (url.searchParams.get("codigo") ?? "").trim().toUpperCase();
+  if (codigo) {
+    const idioma = url.searchParams.get("idioma") ?? "Português";
+    return NextResponse.json(await searchByCode(codigo, idioma));
+  }
+
   const q = (url.searchParams.get("q") ?? "").trim();
   const num = (url.searchParams.get("num") ?? "").trim();
   if (q.length < 2) return NextResponse.json({ results: [], message: "Digite pelo menos 2 letras." });
@@ -140,4 +147,54 @@ export async function GET(req: Request) {
     results: [],
     message: errors.length > langs.length ? `Não foi possível consultar as bases de cartas (${errors[0]}).` : "Nenhuma carta encontrada com esse nome/número.",
   });
+}
+
+const CODE_LANGS: Record<string, string[]> = {
+  Português: ["pt-br", "pt", "en"],
+  Inglês: ["en"],
+  Japonês: ["ja", "en"],
+  Chinês: ["zh-tw", "zh-cn", "en"],
+};
+
+async function searchByCode(codigo: string, idioma: string): Promise<{ results: LookupCard[]; source?: string; message?: string }> {
+  const [numPart, totalPart] = codigo.replace(/\s/g, "").split("/");
+  const promo = numPart.match(/^([A-Z-]+?)(\d+)$/); // ex.: SVP053, SWSH020
+  const errors: string[] = [];
+
+  for (const lang of CODE_LANGS[idioma] ?? ["en"]) {
+    try {
+      // todas as coleções do idioma (para casar o total "/083" e prefixos de promo)
+      const sets = (await getJson(`${TCGDEX}/${lang}/sets`)) as { id: string; name: string; cardCount?: { official?: number; total?: number } }[];
+      const candidates = new Set<string>();
+      if (totalPart) {
+        const total = Number(totalPart.replace(/\D/g, ""));
+        for (const s of sets) if (s.cardCount?.official === total) candidates.add(s.id);
+      }
+      const localIds = new Set([numPart, numPart.replace(/^0+/, ""), numPart.padStart(3, "0")]);
+      if (promo) {
+        localIds.add(promo[2]);
+        localIds.add(promo[2].padStart(3, "0"));
+        localIds.add(numPart);
+      }
+      const found: LookupCard[] = [];
+      const setList = candidates.size ? [...candidates] : promo ? sets.filter((s) => s.id.toUpperCase().replace(/[^A-Z]/g, "").startsWith(promo[1].replace(/-/g, ""))).map((s) => s.id) : [];
+      for (const setId of setList.slice(0, 12)) {
+        const set = (await getJson(`${TCGDEX}/${lang}/sets/${encodeURIComponent(setId)}`)) as {
+          name: string; cardCount?: { official?: number }; cards?: { id: string; localId: string; name: string; image?: string }[];
+        };
+        for (const c of set.cards ?? []) {
+          if (!localIds.has(c.localId.toUpperCase()) || !c.image) continue;
+          found.push({
+            key: `code-${lang}-${c.id}`, source: "tcgdex", tcgdexId: c.id, lang, name: c.name, setName: set.name,
+            number: set.cardCount?.official ? `${c.localId}/${String(set.cardCount.official).padStart(c.localId.length, "0")}` : c.localId,
+            rarity: "", imageSmall: `${c.image}/low.webp`, imageLarge: `${c.image}/high.webp`,
+          });
+        }
+      }
+      if (found.length) return { results: found, source: `TCGdex (${lang})` };
+    } catch (e) {
+      errors.push(`${lang}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return { results: [], message: errors.length ? `Não foi possível consultar a base (${errors[0]}).` : "Nenhuma carta com esse código. Confira ou use “Manual”." };
 }

@@ -36,27 +36,27 @@ model Session {
 }
 
 model Card {
-  id          String      @id @default(cuid())
-  kind        String      @default("CARTA") // CARTA (avulsa) | PRODUTO (selado/acessório)
-  category    String      @default("") // para produtos: Booster, Box, ETB, Acessórios...
-  featured    Boolean     @default(false) // aparece em "Destaques" na tela de início
-  name        String
-  game        String      @default("Pokémon") // Pokémon, Magic, Yu-Gi-Oh!, One Piece...
-  setName     String      // coleção / edição
-  number      String      @default("")
-  rarity      String      @default("")
-  condition   String      @default("NM") // M, NM, SP, MP, HP, DMG
-  finish      String      @default("Normal") // Normal, Foil, Reverse Foil, Promo
-  language    String      @default("Português")
-  priceCents  Int
-  compareAtCents Int?     // preço original ("de"), para mostrar desconto
-  stock       Int         @default(1)
-  imageUrl    String      @default("")
-  description String      @default("")
-  active      Boolean     @default(true) // false = retirada do catálogo
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  orderItems  OrderItem[]
+  id             String      @id @default(cuid())
+  kind           String      @default("CARTA") // CARTA (avulsa) | PRODUTO (selado/acessório)
+  category       String      @default("") // para produtos: Booster, Box, ETB, Acessórios...
+  featured       Boolean     @default(false) // aparece em "Destaques" na tela de início
+  name           String
+  game           String      @default("Pokémon") // Pokémon, Magic, Yu-Gi-Oh!, One Piece...
+  setName        String // coleção / edição
+  number         String      @default("")
+  rarity         String      @default("")
+  condition      String      @default("NM") // M, NM, SP, MP, HP, DMG
+  finish         String      @default("Normal") // Normal, Foil, Reverse Foil, Promo
+  language       String      @default("Português")
+  priceCents     Int
+  compareAtCents Int? // preço original ("de"), para mostrar desconto
+  stock          Int         @default(1)
+  imageUrl       String      @default("")
+  description    String      @default("")
+  active         Boolean     @default(true) // false = retirada do catálogo
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  orderItems     OrderItem[]
 }
 
 model Order {
@@ -66,7 +66,7 @@ model Order {
   user           User        @relation(fields: [userId], references: [id])
   // AGUARDANDO_PAGAMENTO | PAGO | ACUMULANDO | ENVIADO | CANCELADO
   status         String      @default("AGUARDANDO_PAGAMENTO")
-  shippingMethod String      // PAC | SEDEX | ACUMULAR
+  shippingMethod String // PAC | SEDEX | ACUMULAR
   shippingCents  Int
   subtotalCents  Int
   totalCents     Int
@@ -102,4 +102,117 @@ model Image {
 model Setting {
   key   String @id
   value String
+}
+
+// ---------------- Leilões (enquete no grupo do WhatsApp via Z-API) ----------------
+
+model Auction {
+  id                String       @id @default(cuid())
+  code              Int          @unique // número do leilão (1º, 2º...)
+  name              String
+  description       String       @default("")
+  imageUrl          String       @default("")
+  startsAt          DateTime
+  endsAt            DateTime
+  paymentDays       Int          @default(3)
+  // fórmulas: inicial = mercado - initialPct%; arremate = mercado + buyoutPct%
+  initialPct        Int          @default(20)
+  buyoutPct         Int          @default(30)
+  defaultStepCents  Int? // vazio = automático pela faixa de valor
+  oneReal           Boolean      @default(false) // todos os lotes começam em R$ 1,00
+  infinitepayHandle String       @default("") // vazio = conta padrão da loja
+  // AGENDADO | ATIVO | ENCERRADO | CANCELADO
+  status            String       @default("AGENDADO")
+  visible           Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  lots              AuctionLot[]
+  invoices          Invoice[]
+}
+
+model AuctionLot {
+  id         String        @id @default(cuid())
+  auctionId  String
+  auction    Auction       @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  position   Int
+  title      String
+  imageUrl   String        @default("") // imagem spoiler do lote
+  oneReal    Boolean       @default(false)
+  hideMarket Boolean       @default(false)
+  hideBuyout Boolean       @default(false)
+  items      AuctionItem[]
+}
+
+// Cada carta do lote vira uma enquete no grupo
+model AuctionItem {
+  id             String        @id @default(cuid())
+  lotId          String
+  lot            AuctionLot    @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  position       Int
+  cardId         String? // carta do estoque (opcional)
+  name           String
+  number         String        @default("")
+  finish         String        @default("Normal") // variante: Normal, Foil, Reverse Foil, Promo
+  condition      String        @default("NM")
+  language       String        @default("Português")
+  graded         Boolean       @default(false) // Raw x Graduada
+  note           String        @default("") // referência (slab, eBay, riscos...)
+  costCents      Int?
+  marketCents    Int           @default(0)
+  startOverride  Int? // inicial manual
+  buyoutOverride Int? // arremate manual
+  stepOverride   Int? // incremento manual
+  hideMarket     Boolean       @default(false)
+  hideBuyout     Boolean       @default(false)
+  imageUrl       String        @default("")
+  mediaJson      String        @default("[]") // [{url, type: "image" | "video"}]
+  // calculados ao salvar
+  startCents     Int           @default(100)
+  stepCents      Int           @default(100)
+  buyoutCents    Int           @default(0)
+  optionsJson    String        @default("[]")
+  pollMessageId  String        @default("")
+  winnerPhone    String        @default("")
+  winnerName     String        @default("")
+  winningCents   Int?
+  votes          AuctionVote[]
+}
+
+model AuctionVote {
+  id          String      @id @default(cuid())
+  itemId      String
+  item        AuctionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  phone       String
+  name        String      @default("")
+  optionCents Int
+  votedAt     DateTime    @default(now())
+
+  @@unique([itemId, phone])
+}
+
+model Invoice {
+  id             String    @id @default(cuid())
+  code           Int       @unique
+  auctionId      String?
+  auction        Auction?  @relation(fields: [auctionId], references: [id], onDelete: SetNull)
+  phone          String
+  name           String    @default("")
+  itemsJson      String // [{title, cents}]
+  totalCents     Int
+  // PENDENTE | PAGO | CANCELADO
+  status         String    @default("PENDENTE")
+  dueAt          DateTime
+  paymentUrl     String    @default("")
+  transactionNsu String    @default("")
+  receiptUrl     String    @default("")
+  createdAt      DateTime  @default(now())
+  paidAt         DateTime?
+  sentAt         DateTime?
+}
+
+// Registro das chamadas recebidas da Z-API (para conferência no painel)
+model BotLog {
+  id        String   @id @default(cuid())
+  kind      String
+  payload   String
+  createdAt DateTime @default(now())
 }

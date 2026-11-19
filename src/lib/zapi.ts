@@ -1,0 +1,95 @@
+import "server-only";
+import { db } from "./db";
+
+// Integração com a Z-API (https://z-api.io) — conexão do WhatsApp da loja.
+// Variáveis (na Vercel): ZAPI_INSTANCE_ID, ZAPI_TOKEN, ZAPI_CLIENT_TOKEN (token de segurança da conta).
+// IMPORTANTE: confira os nomes dos campos com a documentação atual da Z-API no primeiro teste
+// (a tela Painel → Bot WhatsApp mostra o que a Z-API enviou ao site).
+
+const INSTANCE = process.env.ZAPI_INSTANCE_ID ?? "";
+const TOKEN = process.env.ZAPI_TOKEN ?? "";
+const CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN ?? "";
+const BASE = process.env.ZAPI_BASE_URL || "https://api.z-api.io";
+
+export function zapiEnabled() {
+  return Boolean(INSTANCE && TOKEN);
+}
+
+async function call<T = unknown>(path: string, body?: unknown, method = body ? "POST" : "GET"): Promise<T> {
+  if (!zapiEnabled()) throw new Error("Z-API não configurada (ZAPI_INSTANCE_ID / ZAPI_TOKEN).");
+  const res = await fetch(`${BASE}/instances/${INSTANCE}/token/${TOKEN}/${path}`, {
+    method,
+    headers: { "Content-Type": "application/json", ...(CLIENT_TOKEN ? { "Client-Token": CLIENT_TOKEN } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store",
+    signal: AbortSignal.timeout(20000),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    await log("erro-envio", { path, status: res.status, body: text.slice(0, 1000) });
+    throw new Error(`Z-API ${path} respondeu ${res.status}: ${text.slice(0, 200)}`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return text as T;
+  }
+}
+
+/** Id da mensagem enviada (a Z-API devolve zaapId e messageId). */
+type SendResult = { zaapId?: string; messageId?: string; id?: string };
+const msgId = (r: SendResult) => r?.messageId ?? r?.id ?? r?.zaapId ?? "";
+
+export async function sendText(phone: string, message: string) {
+  return msgId(await call<SendResult>("send-text", { phone, message }));
+}
+
+export async function sendImage(phone: string, image: string, caption: string) {
+  return msgId(await call<SendResult>("send-image", { phone, image, caption }));
+}
+
+export async function sendVideo(phone: string, video: string, caption: string) {
+  return msgId(await call<SendResult>("send-video", { phone, video, caption }));
+}
+
+export async function sendPoll(phone: string, message: string, options: string[]) {
+  return msgId(
+    await call<SendResult>("send-poll", { phone, message, poll: options.map((name) => ({ name })), pollMaxOptions: 1 }),
+  );
+}
+
+export type ZGroup = { phone: string; name: string };
+
+export async function listGroups(): Promise<ZGroup[]> {
+  const data = await call<unknown>("groups?page=1&pageSize=100");
+  const arr = Array.isArray(data) ? data : ((data as { groups?: unknown[] })?.groups ?? []);
+  return (arr as Record<string, unknown>[])
+    .map((g) => ({ phone: String(g.phone ?? g.id ?? ""), name: String(g.name ?? g.subject ?? "") }))
+    .filter((g) => g.phone);
+}
+
+export async function connectionStatus(): Promise<{ connected: boolean; detail: string }> {
+  try {
+    const s = await call<{ connected?: boolean; error?: string; smartphoneConnected?: boolean }>("status");
+    return { connected: Boolean(s?.connected), detail: s?.error ?? (s?.connected ? "Conectado" : "Desconectado") };
+  } catch (e) {
+    return { connected: false, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function log(kind: string, payload: unknown) {
+  try {
+    await db.botLog.create({ data: { kind, payload: JSON.stringify(payload).slice(0, 20000) } });
+    // mantém só os 300 mais recentes
+    const old = await db.botLog.findMany({ orderBy: { createdAt: "desc" }, skip: 300, select: { id: true } });
+    if (old.length) await db.botLog.deleteMany({ where: { id: { in: old.map((o) => o.id) } } });
+  } catch {
+    /* registro é opcional */
+  }
+}
+
+/** Normaliza telefone para só dígitos com DDI (55...). */
+export function normalizePhone(p: string) {
+  const d = p.replace(/\D/g, "");
+  return d.startsWith("55") || d.length > 11 ? d : `55${d}`;
+}

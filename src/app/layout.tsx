@@ -28,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/" className={navLink}>Início</Link>
                 <Link href="/catalogo?tipo=cartas" className={navLink}>Cartas Avulsas</Link>
                 <Link href="/catalogo?tipo=selados" className={navLink}>Selados</Link>
+                <Link href="/leiloes" className={navLink}>Leilões</Link>
                 {s.youtubeUrl && (
                   <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className={`${navLink} flex items-center gap-1`}>
                     <YoutubeIcon className="h-4 w-4 text-youtube" /> YouTube
