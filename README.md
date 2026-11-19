@@ -37,10 +37,10 @@ O setup cria 3 cartas de exemplo, que você pode apagar pelo painel. Para não c
 | `NEXT_PUBLIC_SITE_URL` | Endereço público do site (ex.: `https://www.mlpbcards.com.br`). Usado no retorno do pagamento. |
 | `NEXT_PUBLIC_WHATSAPP_NUMBER` | WhatsApp da loja (padrão: `5561992242345`). |
 | `SUPERFRETE_TOKEN` | Token da SuperFrete. **Vazio = tabela de frete de teste.** |
-| `STORE_ORIGIN_CEP` | CEP de onde a loja envia. **Obrigatório** com a SuperFrete. |
+| `STORE_ORIGIN_CEP` | CEP de onde a loja envia (padrão: `70675827`). |
 | `SUPERFRETE_SERVICES` | Serviços cotados: `1` PAC, `2` SEDEX, `17` Mini Envios (padrão: todos). |
 | `SUPERFRETE_SANDBOX` | `1` para usar o ambiente de testes da SuperFrete. |
-| `INFINITEPAY_HANDLE` | Sua InfiniteTag, sem o `$`. **Vazio = modo demonstração** (pagamento simulado). |
+| `INFINITEPAY_HANDLE` | InfiniteTag da loja, sem o `$` (padrão: `mlpbcards`). Use `""` para o modo demonstração. |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Administrador criado pelo `npm run db:seed`. |
 | `DATABASE_URL` | Banco de dados. |
 

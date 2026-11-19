@@ -13,7 +13,7 @@ import "server-only";
 
 const API = "https://api.infinitepay.io/invoices/public/checkout";
 
-export const INFINITEPAY_HANDLE = (process.env.INFINITEPAY_HANDLE ?? "").replace(/^\$/, "").trim();
+export const INFINITEPAY_HANDLE = (process.env.INFINITEPAY_HANDLE ?? "mlpbcards").replace(/^\$/, "").trim();
 
 export function infinitePayEnabled() {
   return INFINITEPAY_HANDLE.length > 0;
@@ -52,19 +52,30 @@ export async function createCheckoutLink(input: CheckoutInput): Promise<string> 
     },
   };
 
-  const res = await fetch(`${API}/links`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  });
+  const friendly = "Não foi possível gerar o pagamento agora. Tente novamente em instantes ou finalize pelo WhatsApp.";
+  let res: Response;
+  try {
+    res = await fetch(`${API}/links`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+  } catch (err) {
+    console.error("InfinitePay indisponível", err);
+    throw new Error(friendly);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`InfinitePay recusou a criação do link (${res.status}): ${text.slice(0, 300)}`);
+    console.error(`InfinitePay recusou a criação do link (${res.status}): ${text.slice(0, 500)}`);
+    throw new Error(friendly);
   }
   const data = (await res.json()) as { url?: string; link?: string };
   const url = data.url ?? data.link;
-  if (!url) throw new Error("InfinitePay não retornou a URL de pagamento");
+  if (!url) {
+    console.error("InfinitePay não retornou a URL de pagamento", data);
+    throw new Error(friendly);
+  }
   return url;
 }
 
@@ -85,7 +96,11 @@ export async function checkPayment(params: {
       slug: params.slug,
     }),
     cache: "no-store",
+  }).catch((err) => {
+    console.error("InfinitePay payment_check indisponível", err);
+    return null;
   });
+  if (!res) return { paid: false };
   if (!res.ok) return { paid: false };
   const data = (await res.json()) as { success?: boolean; paid?: boolean; paid_amount?: number; amount?: number };
   return {

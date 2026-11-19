@@ -52,7 +52,7 @@ export async function quoteShipping(destCep: string, totalCards: number, subtota
 }
 
 async function superFreteQuote(cep: string, totalCards: number, subtotalCents: number): Promise<ShippingOption[]> {
-  const origin = (process.env.STORE_ORIGIN_CEP ?? "").replace(/\D/g, "");
+  const origin = (process.env.STORE_ORIGIN_CEP || "70675827").replace(/\D/g, "");
   if (origin.length !== 8) throw new Error("CEP de origem da loja (STORE_ORIGIN_CEP) não configurado.");
 
   const res = await fetch(`${SF_URL}/api/v0/calculator`, {
