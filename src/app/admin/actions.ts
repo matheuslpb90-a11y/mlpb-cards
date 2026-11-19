@@ -12,9 +12,12 @@ import { CSV_COLUMNS, parseCSV } from "@/lib/csv";
 type State = { error?: string; ok?: string } | undefined;
 
 const cardSchema = z.object({
-  name: z.string().trim().min(1, "Informe o nome da carta"),
-  game: z.string().trim().min(1, "Informe o jogo"),
-  setName: z.string().trim().min(1, "Informe a coleção"),
+  kind: z.enum(["CARTA", "PRODUTO"]).default("CARTA"),
+  category: z.string().trim().default(""),
+  featured: z.string().optional(),
+  name: z.string().trim().min(1, "Informe o nome"),
+  game: z.string().trim().default("Pokémon"),
+  setName: z.string().trim().default(""),
   number: z.string().trim().default(""),
   rarity: z.string().trim().default(""),
   condition: z.string().trim().default("NM"),
@@ -30,17 +33,30 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
   await requireAdmin();
   const parsed = cardSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { price, active, ...data } = parsed.data;
+  const { price, active, featured, ...data } = parsed.data;
+  if (data.kind === "CARTA" && !data.setName) return { error: "Informe a coleção da carta" };
+  if (data.kind === "PRODUTO" && !data.category) return { error: "Escolha a categoria do produto" };
   const priceCents = parseBRLToCents(price);
   if (priceCents === null) return { error: "Preço inválido. Use o formato 12,50" };
-  if (data.imageUrl && !/^https?:\/\//.test(data.imageUrl)) return { error: "A imagem deve ser um link http(s)." };
+  if (data.imageUrl && !/^(https?:\/\/|\/api\/imagens\/)/.test(data.imageUrl)) return { error: "A imagem deve ser um link http(s) ou uma foto enviada." };
 
   const id = String(form.get("id") ?? "");
-  const payload = { ...data, priceCents, active: active === "on" };
+  const payload = { ...data, priceCents, active: active === "on", featured: featured === "on" };
   if (id) await db.card.update({ where: { id }, data: payload });
   else await db.card.create({ data: payload });
   revalidatePath("/");
-  redirect("/admin/cartas");
+  redirect(`/admin/cartas?tipo=${data.kind === "PRODUTO" ? "produtos" : "cartas"}`);
+}
+
+/** Recebe uma foto já reduzida no navegador (data URL JPEG/PNG/WebP) e guarda no banco. */
+export async function uploadImageAction(dataUrl: string): Promise<{ url?: string; error?: string }> {
+  await requireAdmin();
+  const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  if (!m) return { error: "Formato de imagem inválido." };
+  const data = Buffer.from(m[2], "base64");
+  if (data.length > 900_000) return { error: "Imagem muito grande." };
+  const img = await db.image.create({ data: { mime: m[1], data } });
+  return { url: `/api/imagens/${img.id}` };
 }
 
 export async function toggleCardAction(form: FormData) {
@@ -87,13 +103,19 @@ export async function importCsvAction(_: State, form: FormData): Promise<State> 
       continue;
     }
     const stock = Number.parseInt(get(r, "estoque") || "1", 10);
+    const tipo = get(r, "tipo").toLowerCase();
+    const kind = tipo.startsWith("prod") ? "PRODUTO" : "CARTA";
+    const cond = get(r, "condicao").toUpperCase();
     data.push({
+      kind,
+      category: get(r, "categoria"),
+      featured: ["sim", "s", "1", "x"].includes(get(r, "destaque").toLowerCase()),
       name,
       game: get(r, "jogo") || "Pokémon",
-      setName: get(r, "colecao") || "—",
+      setName: get(r, "colecao") || (kind === "CARTA" ? "—" : ""),
       number: get(r, "numero"),
       rarity: get(r, "raridade"),
-      condition: get(r, "condicao") || "NM",
+      condition: cond === "D" ? "DMG" : cond || "NM",
       language: get(r, "idioma") || "Português",
       priceCents,
       stock: Number.isFinite(stock) && stock >= 0 ? stock : 1,

@@ -83,7 +83,7 @@ export async function placeOrder(user: User, lines: CartLine[], shippingId: stri
         items: {
           create: items.map(({ card, quantity }) => ({
             cardId: card.id,
-            name: `${card.name} (${card.setName})`,
+            name: card.kind === "CARTA" && card.setName ? `${card.name} (${card.setName} · ${card.condition} · ${card.language})` : card.name,
             priceCents: card.priceCents,
             quantity,
           })),

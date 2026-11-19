@@ -12,7 +12,7 @@ export default async function EditCardPage({ params }: { params: Promise<{ id: s
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Editar carta</h1>
+        <h1 className="text-2xl font-bold">{c.kind === "PRODUTO" ? "Editar produto" : "Editar carta"}</h1>
         <form action={deleteCardAction}>
           <input type="hidden" name="id" value={c.id} />
           <button className="btn-danger text-sm">Excluir</button>
@@ -20,7 +20,7 @@ export default async function EditCardPage({ params }: { params: Promise<{ id: s
       </div>
       <CardForm
         initial={{
-          id: c.id, name: c.name, game: c.game, setName: c.setName, number: c.number, rarity: c.rarity, condition: c.condition,
+          id: c.id, kind: c.kind as "CARTA" | "PRODUTO", category: c.category, featured: c.featured, name: c.name, game: c.game, setName: c.setName, number: c.number, rarity: c.rarity, condition: c.condition === "D" ? "DMG" : c.condition,
           language: c.language, price: (c.priceCents / 100).toFixed(2).replace(".", ","), stock: c.stock, imageUrl: c.imageUrl,
           description: c.description, active: c.active,
         }}

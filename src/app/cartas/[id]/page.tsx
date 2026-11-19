@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { formatBRL } from "@/lib/money";
 import { CardImage } from "@/components/CardImage";
 import { AddToCartButton } from "@/components/AddToCartButton";
+import { CONDITIONS, conditionShort, languageFlag } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -12,21 +13,30 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
   const c = await db.card.findUnique({ where: { id } });
   if (!c || !c.active) notFound();
 
-  const rows: [string, string][] = [
-    ["Jogo", c.game],
-    ["Coleção", c.setName],
-    ["Número", c.number],
-    ["Raridade", c.rarity],
-    ["Condição", c.condition],
-    ["Idioma", c.language],
-    ["Estoque", c.stock > 0 ? `${c.stock} unidade(s)` : "Esgotada"],
-  ];
+  const isCard = c.kind === "CARTA";
+  const cond = CONDITIONS.find((x) => x.value === conditionShort(c.condition));
+  const rows: [string, string][] = isCard
+    ? [
+        ["Jogo", c.game],
+        ["Coleção", c.setName],
+        ["Número", c.number],
+        ["Raridade", c.rarity],
+        ["Estado", cond?.label ?? c.condition],
+        ["Idioma", `${languageFlag(c.language)} ${c.language}`],
+        ["Estoque", c.stock > 0 ? `${c.stock} unidade(s)` : "Esgotada"],
+      ]
+    : [
+        ["Categoria", c.category],
+        ["Coleção", c.setName === "—" ? "" : c.setName],
+        ["Idioma", `${languageFlag(c.language)} ${c.language}`],
+        ["Estoque", c.stock > 0 ? `${c.stock} unidade(s)` : "Esgotado"],
+      ];
 
   return (
     <div className="space-y-4">
-      <Link href="/" className="text-sm text-brand hover:underline">← Voltar ao catálogo</Link>
+      <Link href={`/catalogo?tipo=${isCard ? "cartas" : "produtos"}`} className="text-sm text-brand hover:underline">← Voltar para {isCard ? "cartas avulsas" : "produtos"}</Link>
       <div className="card grid gap-6 p-6 md:grid-cols-[320px_1fr]">
-        <CardImage src={c.imageUrl} alt={c.name} />
+        <CardImage src={c.imageUrl} alt={c.name} className={isCard ? "" : "object-contain bg-white"} />
         <div className="space-y-4">
           <h1 className="text-2xl font-bold">{c.name}</h1>
           <p className="text-3xl font-extrabold text-brand">{formatBRL(c.priceCents)}</p>
@@ -40,7 +50,7 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
           </dl>
           {c.description && <p className="whitespace-pre-line text-slate-700">{c.description}</p>}
           <div className="max-w-xs">
-            <AddToCartButton card={{ cardId: c.id, name: c.name, setName: c.setName, priceCents: c.priceCents, imageUrl: c.imageUrl, stock: c.stock }} />
+            <AddToCartButton card={{ cardId: c.id, name: c.name, setName: isCard ? c.setName : c.category, priceCents: c.priceCents, imageUrl: c.imageUrl, stock: c.stock }} />
           </div>
         </div>
       </div>

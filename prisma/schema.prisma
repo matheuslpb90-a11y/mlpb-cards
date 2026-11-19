@@ -37,12 +37,15 @@ model Session {
 
 model Card {
   id          String      @id @default(cuid())
+  kind        String      @default("CARTA") // CARTA (avulsa) | PRODUTO (selado/acessório)
+  category    String      @default("") // para produtos: Booster, Box, ETB, Acessórios...
+  featured    Boolean     @default(false) // aparece em "Destaques" na tela de início
   name        String
   game        String      @default("Pokémon") // Pokémon, Magic, Yu-Gi-Oh!, One Piece...
   setName     String      // coleção / edição
   number      String      @default("")
   rarity      String      @default("")
-  condition   String      @default("NM") // NM, SP, MP, HP, D
+  condition   String      @default("NM") // NM, SP, MP, HP, DMG
   language    String      @default("Português")
   priceCents  Int
   stock       Int         @default(1)
@@ -83,4 +86,12 @@ model OrderItem {
   name       String
   priceCents Int
   quantity   Int
+}
+
+// Imagens enviadas pelo painel (fotos de produtos/cartas), servidas em /api/imagens/[id]
+model Image {
+  id        String   @id @default(cuid())
+  mime      String
+  data      Bytes
+  createdAt DateTime @default(now())
 }

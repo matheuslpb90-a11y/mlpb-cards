@@ -72,7 +72,7 @@ export function CheckoutClient({ user, demoMode }: Props) {
       <h1 className="text-2xl font-bold">Finalizar compra</h1>
 
       <div className="card p-4">
-        <h2 className="mb-2 font-semibold">Suas cartas ({count})</h2>
+        <h2 className="mb-2 font-semibold">Seus itens ({count})</h2>
         <ul className="divide-y text-sm">
           {items.map((i) => (
             <li key={i.cardId} className="flex justify-between py-1">

@@ -1,17 +1,26 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { LookupCard } from "@/app/api/admin/buscar-carta/route";
+import { LANGUAGES } from "@/lib/catalog";
 
-export type LookupResult = { name: string; setName: string; number: string; rarity: string; imageUrl: string };
+export type LookupResult = { name: string; setName: string; number: string; rarity: string; imageUrl: string; language?: string };
 
-export function CardLookup({ onPick }: { onPick: (r: LookupResult) => void }) {
+export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResult) => void; defaultLanguage: string }) {
   const [q, setQ] = useState("");
   const [num, setNum] = useState("");
+  const [lang, setLang] = useState(defaultLanguage || "Português");
   const [results, setResults] = useState<LookupCard[]>([]);
+  const [filter, setFilter] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const shown = useMemo(() => {
+    const f = filter.trim().toLowerCase();
+    if (!f) return results;
+    return results.filter((c) => `${c.name} ${c.setName} ${c.tcgdexId ?? ""} ${c.number}`.toLowerCase().includes(f));
+  }, [results, filter]);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
@@ -19,12 +28,15 @@ export function CardLookup({ onPick }: { onPick: (r: LookupResult) => void }) {
     setBusy(true);
     setStatus("Buscando…");
     setResults([]);
+    setFilter("");
     try {
-      const r = await fetch(`/api/admin/buscar-carta?q=${encodeURIComponent(q.trim())}&num=${encodeURIComponent(num.trim())}`);
+      const r = await fetch(
+        `/api/admin/buscar-carta?q=${encodeURIComponent(q.trim())}&num=${encodeURIComponent(num.trim())}&idioma=${encodeURIComponent(lang)}`,
+      );
       const d = (await r.json()) as { results?: LookupCard[]; source?: string; message?: string; error?: string };
       const list = d.results ?? [];
       setResults(list);
-      setStatus(list.length ? `${list.length} resultado(s) — fonte: ${d.source}. Clique na carta certa.` : d.message ?? d.error ?? "Nada encontrado.");
+      setStatus(list.length ? `${list.length} resultado(s) — ${d.source}. Clique na carta certa.` : d.message ?? d.error ?? "Nada encontrado.");
     } catch {
       setStatus("Erro de conexão ao buscar. Tente de novo.");
     } finally {
@@ -33,9 +45,9 @@ export function CardLookup({ onPick }: { onPick: (r: LookupResult) => void }) {
   }
 
   async function pick(c: LookupCard) {
-    const base = { name: c.name, setName: c.setName, number: c.number, rarity: c.rarity, imageUrl: c.imageLarge };
+    const base = { name: c.name, setName: c.setName, number: c.number, rarity: c.rarity, imageUrl: c.imageLarge, language: lang };
     onPick(base);
-    setStatus("Imagem preenchida! Confira os dados, defina preço e estoque e salve.");
+    setStatus("Imagem preenchida! Confira os dados, escolha o estado, defina preço e estoque e salve.");
     if (c.source === "tcgdex" && c.tcgdexId) {
       try {
         const r = await fetch(`/api/admin/buscar-carta?tcgdex=${encodeURIComponent(c.tcgdexId)}&lang=${c.lang}`);
@@ -47,7 +59,6 @@ export function CardLookup({ onPick }: { onPick: (r: LookupResult) => void }) {
         /* mantém o que já foi preenchido */
       }
     }
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
@@ -56,16 +67,23 @@ export function CardLookup({ onPick }: { onPick: (r: LookupResult) => void }) {
       <form onSubmit={search} className="flex flex-wrap gap-2">
         <input className="input min-w-0 flex-1" placeholder="Nome da carta (ex.: Pikachu)" value={q} onChange={(e) => setQ(e.target.value)} />
         <input className="input w-28" placeholder="Nº (opcional)" value={num} onChange={(e) => setNum(e.target.value)} />
+        <select className="input w-40" value={lang} onChange={(e) => setLang(e.target.value)}>
+          {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.flag} {l.value}</option>)}
+        </select>
         <button className="btn-primary" disabled={busy}>{busy ? "Buscando…" : "Buscar"}</button>
       </form>
+      <p className="text-xs text-slate-500">Dica: informe o número da carta (ex.: 025) para achar a edição exata mais rápido.</p>
       {status && <p className="rounded bg-slate-50 p-2 text-sm text-slate-700">{status}</p>}
-      {results.length > 0 && (
-        <div className="grid max-h-[28rem] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4 lg:grid-cols-6">
-          {results.map((c) => (
+      {results.length > 12 && (
+        <input className="input" placeholder="Filtrar resultados por coleção, código ou número…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+      )}
+      {shown.length > 0 && (
+        <div className="grid max-h-[32rem] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4 lg:grid-cols-6">
+          {shown.map((c) => (
             <button type="button" key={c.key} onClick={() => pick(c)} className="rounded-lg p-1 text-left hover:bg-brand-light">
               <img src={c.imageSmall} alt={c.name} loading="lazy" className="w-full rounded" />
               <span className="block truncate text-[11px] font-medium">{c.name}</span>
-              <span className="block truncate text-[10px] text-slate-500">{c.setName || c.tcgdexId} · {c.number}</span>
+              <span className="block truncate text-[10px] text-slate-500">{c.setName || c.tcgdexId} · {c.number}{c.lang && c.lang !== "en" ? "" : " · img EN"}</span>
             </button>
           ))}
         </div>

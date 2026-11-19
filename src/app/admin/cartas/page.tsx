@@ -7,9 +7,11 @@ import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
-  const { q, status } = await searchParams;
+export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; tipo?: string }> }) {
+  const { q, status, tipo } = await searchParams;
   const where: Prisma.CardWhereInput = {};
+  if (tipo === "cartas") where.kind = "CARTA";
+  if (tipo === "produtos") where.kind = "PRODUTO";
   if (q) where.OR = [{ name: { contains: q, mode: "insensitive" } }, { setName: { contains: q, mode: "insensitive" } }, { number: { contains: q } }];
   if (status === "inativas") where.active = false;
   else if (status === "esgotadas") Object.assign(where, { active: true, stock: 0 });
@@ -20,6 +22,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
   return (
     <div className="space-y-4">
       <form className="card flex flex-wrap gap-2 p-3">
+        {tipo && <input type="hidden" name="tipo" value={tipo} />}
         <input name="q" defaultValue={q} placeholder="Buscar…" className="input max-w-xs" />
         <select name="status" defaultValue={status ?? ""} className="input max-w-[200px]">
           <option value="">No catálogo</option>
@@ -28,7 +31,9 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
           <option value="todas">Todas</option>
         </select>
         <button className="btn-outline">Filtrar</button>
-        <Link href="/admin/cartas/nova" className="btn-primary ml-auto">+ Nova carta</Link>
+        <Link href={tipo === "produtos" ? "/admin/cartas/nova?tipo=produto" : "/admin/cartas/nova"} className="btn-primary ml-auto">
+          {tipo === "produtos" ? "+ Novo produto" : "+ Nova carta"}
+        </Link>
       </form>
 
       <div className="card overflow-x-auto">
@@ -42,7 +47,10 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
                 <td className="w-12 p-2"><CardImage src={c.imageUrl} alt={c.name} /></td>
                 <td className="p-2">
                   <p className="font-semibold">{c.name}</p>
-                  <p className="text-xs text-slate-500">{c.game} · {c.setName}{c.number ? ` #${c.number}` : ""} · {c.condition}</p>
+                  <p className="text-xs text-slate-500">
+                    {c.kind === "PRODUTO" ? `📦 ${c.category}` : `${c.setName}${c.number ? ` #${c.number}` : ""} · ${c.condition}`} · {c.language}
+                    {c.featured && " · ⭐ destaque"}
+                  </p>
                 </td>
                 <td className="p-2">{formatBRL(c.priceCents)}</td>
                 <td className="p-2">{c.stock}</td>

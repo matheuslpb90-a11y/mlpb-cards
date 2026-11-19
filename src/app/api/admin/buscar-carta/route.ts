@@ -39,7 +39,6 @@ async function searchTcgdex(lang: string, q: string, num: string): Promise<Looku
   if (!Array.isArray(data)) return [];
   return data
     .filter((c) => c.image && (!num || sameNumber(c.localId, num)))
-    .slice(0, 60)
     .map((c) => ({
       key: `tcgdex-${lang}-${c.id}`,
       source: "tcgdex" as const,
@@ -102,24 +101,43 @@ export async function GET(req: Request) {
   const num = (url.searchParams.get("num") ?? "").trim();
   if (q.length < 2) return NextResponse.json({ results: [], message: "Digite pelo menos 2 letras." });
 
+  // Idioma escolhido → idiomas da TCGdex. Sempre completamos com o inglês, que tem o acervo mais
+  // completo de imagens (cartas sem imagem no idioma escolhido aparecem com a imagem em inglês).
+  const idioma = url.searchParams.get("idioma") ?? "Português";
+  const LANG_MAP: Record<string, string[]> = {
+    Português: ["pt-br", "pt"],
+    Inglês: [],
+    Japonês: ["ja"],
+    Chinês: ["zh-tw", "zh-cn"],
+  };
+  const langs = [...(LANG_MAP[idioma] ?? []), "en"];
+
   const errors: string[] = [];
-  const attempts: [string, () => Promise<LookupCard[]>][] = [
-    ["TCGdex (português)", () => searchTcgdex("pt-br", q, num)],
-    ["TCGdex (português)", () => searchTcgdex("pt", q, num)],
-    ["TCGdex (inglês)", () => searchTcgdex("en", q, num)],
-    ["Pokémon TCG API", () => searchPtcg(q, num)],
-  ];
-  for (const [label, run] of attempts) {
+  const settled = await Promise.allSettled(langs.map((l) => searchTcgdex(l, q, num)));
+  const merged = new Map<string, LookupCard>();
+  settled.forEach((r, i) => {
+    if (r.status === "rejected") {
+      errors.push(`TCGdex ${langs[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+      return;
+    }
+    for (const c of r.value) if (c.tcgdexId && !merged.has(c.tcgdexId)) merged.set(c.tcgdexId, c);
+  });
+  let results = [...merged.values()].slice(0, 400);
+  let source = `TCGdex (${idioma}${idioma === "Inglês" ? "" : " + inglês"})`;
+
+  if (results.length === 0) {
     try {
-      const results = await run();
-      if (results.length) return NextResponse.json({ results, source: label });
+      results = await searchPtcg(q, num);
+      source = "Pokémon TCG API (inglês)";
     } catch (e) {
-      errors.push(`${label}: ${e instanceof Error ? e.message : String(e)}`);
+      errors.push(`Pokémon TCG API: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  console.error("Busca de carta sem resultados", { q, num, errors });
+  if (results.length) return NextResponse.json({ results, source });
+
+  console.error("Busca de carta sem resultados", { q, num, idioma, errors });
   return NextResponse.json({
     results: [],
-    message: errors.length === 4 ? `Não foi possível consultar as bases de cartas (${errors[0]}).` : "Nenhuma carta encontrada com esse nome/número.",
+    message: errors.length > langs.length ? `Não foi possível consultar as bases de cartas (${errors[0]}).` : "Nenhuma carta encontrada com esse nome/número.",
   });
 }

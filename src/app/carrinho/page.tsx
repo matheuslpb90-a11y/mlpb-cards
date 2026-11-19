@@ -40,7 +40,7 @@ export default function CartPage() {
       </div>
       <aside className="card h-fit space-y-4 p-5">
         <h2 className="text-lg font-bold">Resumo</h2>
-        <div className="flex justify-between"><span>{count} carta(s)</span><span className="font-bold">{formatBRL(subtotalCents)}</span></div>
+        <div className="flex justify-between"><span>{count} item(ns)</span><span className="font-bold">{formatBRL(subtotalCents)}</span></div>
         <p className="text-xs text-slate-500">O frete é calculado no checkout.</p>
         <Link href="/checkout" className="btn-primary w-full">Ir para o checkout</Link>
         <Link href="/" className="btn-outline w-full">Continuar comprando</Link>

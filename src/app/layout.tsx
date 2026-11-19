@@ -23,7 +23,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 MLPB <span className="text-amber-300">Cards</span>
               </Link>
               <nav className="flex flex-wrap items-center gap-1 text-sm font-medium">
-                <Link href="/" className="rounded-lg px-3 py-2 hover:bg-white/10">Catálogo</Link>
+                <Link href="/" className="rounded-lg px-3 py-2 hover:bg-white/10">Início</Link>
+                <Link href="/catalogo?tipo=cartas" className="rounded-lg px-3 py-2 hover:bg-white/10">Cartas avulsas</Link>
+                <Link href="/catalogo?tipo=produtos" className="rounded-lg px-3 py-2 hover:bg-white/10">Produtos</Link>
                 <CartBadge />
                 {user ? (
                   <>
