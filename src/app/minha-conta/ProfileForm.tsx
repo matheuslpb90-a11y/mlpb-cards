@@ -16,8 +16,8 @@ export function ProfileForm({ user }: { user: U }) {
         <div><label className="label">CPF</label><input name="cpf" defaultValue={user.cpf} className="input" required /></div>
       </div>
       <AddressFields defaults={user} />
-      {state?.error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{state.error}</p>}
-      {state?.ok && <p className="rounded bg-green-50 p-2 text-sm text-green-700">Dados atualizados!</p>}
+      {state?.error && <p className="rounded bg-red-950/60 p-2 text-sm text-red-300">{state.error}</p>}
+      {state?.ok && <p className="rounded bg-green-950/60 p-2 text-sm text-green-300">Dados atualizados!</p>}
       <button className="btn-primary" disabled={pending}>{pending ? "Salvando…" : "Salvar"}</button>
     </form>
   );

@@ -3,50 +3,80 @@ import Link from "next/link";
 import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
 import { CartBadge } from "@/components/CartBadge";
+import { Logo } from "@/components/Logo";
+import { InstagramIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
 import { getCurrentUser } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
 
 export const metadata: Metadata = {
-  title: "MLPB Cards — Cartas colecionáveis",
-  description: "Catálogo de cartas colecionáveis da MLPB Cards. Compre pelo site ou direto pelo WhatsApp.",
+  title: "MLPB Cards — Cartas Pokémon avulsas e selados",
+  description: "Cartas Pokémon avulsas e produtos selados. Compre pelo site ou direto pelo WhatsApp.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const user = await getCurrentUser();
+  const [user, s] = await Promise.all([getCurrentUser(), getSettings()]);
+  const navLink = "rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-white";
   return (
     <html lang="pt-BR">
       <body className="flex min-h-screen flex-col">
         <CartProvider>
-          <header className="bg-brand text-white shadow">
-            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-              <Link href="/" className="text-xl font-extrabold tracking-tight">
-                MLPB <span className="text-amber-300">Cards</span>
-              </Link>
-              <nav className="flex flex-wrap items-center gap-1 text-sm font-medium">
-                <Link href="/" className="rounded-lg px-3 py-2 hover:bg-white/10">Início</Link>
-                <Link href="/catalogo?tipo=cartas" className="rounded-lg px-3 py-2 hover:bg-white/10">Cartas avulsas</Link>
-                <Link href="/catalogo?tipo=produtos" className="rounded-lg px-3 py-2 hover:bg-white/10">Produtos</Link>
+          <header className="sticky top-0 z-30 border-b border-slate-200 bg-black/90 backdrop-blur">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-4 py-2">
+              <Link href="/" className="mr-4"><Logo url={s.logoUrl} /></Link>
+              <nav className="flex flex-1 flex-wrap items-center gap-1 text-sm font-semibold">
+                <Link href="/" className={navLink}>Início</Link>
+                <Link href="/catalogo?tipo=cartas" className={navLink}>Cartas Avulsas</Link>
+                <Link href="/catalogo?tipo=selados" className={navLink}>Selados</Link>
+                {s.youtubeUrl && (
+                  <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className={`${navLink} flex items-center gap-1`}>
+                    <YoutubeIcon className="h-4 w-4 text-youtube" /> YouTube
+                  </a>
+                )}
+              </nav>
+              <div className="flex items-center gap-1 text-sm font-semibold">
                 <CartBadge />
                 {user ? (
                   <>
-                    <Link href="/minha-conta" className="rounded-lg px-3 py-2 hover:bg-white/10">
-                      Olá, {user.name.split(" ")[0]}
-                    </Link>
+                    <Link href="/minha-conta" className={navLink}>Olá, {user.name.split(" ")[0]}</Link>
                     {user.role === "ADMIN" && (
-                      <Link href="/admin" className="rounded-lg bg-amber-400 px-3 py-2 text-slate-900 hover:bg-amber-300">
-                        Painel
-                      </Link>
+                      <Link href="/admin" className="rounded-lg bg-gradient-to-r from-brand-amber to-brand px-3 py-2 text-gray-950">Painel</Link>
                     )}
                   </>
                 ) : (
-                  <Link href="/entrar" className="rounded-lg px-3 py-2 hover:bg-white/10">Entrar</Link>
+                  <Link href="/entrar" className="rounded-lg border border-slate-300 px-4 py-2 hover:border-brand">Entrar</Link>
                 )}
-              </nav>
+              </div>
             </div>
           </header>
           <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
-          <footer className="border-t bg-white py-6 text-center text-sm text-slate-500">
-            MLPB Cards · <a className="text-whats underline" href={whatsappLink("Olá, MLPB Cards!")} target="_blank" rel="noreferrer">Fale conosco no WhatsApp</a>
+          <footer className="border-t border-slate-200 bg-black py-8 text-sm text-slate-500">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4">
+              <div className="flex items-center gap-3">
+                <Logo url={s.logoUrl} className="h-10" />
+                <span>Cartas Pokémon avulsas e selados</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <a href={whatsappLink("Olá, MLPB Cards!")} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
+                  <WhatsIcon className="h-4 w-4 text-whats" /> Loja
+                </a>
+                {s.whatsappGroupUrl && (
+                  <a href={s.whatsappGroupUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
+                    <WhatsIcon className="h-4 w-4 text-whats" /> Grupo
+                  </a>
+                )}
+                {s.youtubeUrl && (
+                  <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
+                    <YoutubeIcon className="h-4 w-4 text-youtube" /> YouTube
+                  </a>
+                )}
+                {s.instagramUrl && (
+                  <a href={s.instagramUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
+                    <InstagramIcon className="h-4 w-4 text-pink-500" /> Instagram
+                  </a>
+                )}
+              </div>
+            </div>
           </footer>
         </CartProvider>
       </body>

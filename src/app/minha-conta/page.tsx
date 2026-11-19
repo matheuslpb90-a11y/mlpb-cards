@@ -28,7 +28,7 @@ export default async function AccountPage() {
       </div>
 
       {accumulated.length > 0 && (
-        <div className="card flex flex-wrap items-center justify-between gap-3 border-amber-300 bg-amber-50 p-4">
+        <div className="card flex flex-wrap items-center justify-between gap-3 border-amber-700 bg-amber-950/50 p-4">
           <p>
             Você tem <strong>{accumulated.length} pedido(s) acumulado(s)</strong> com {accumulatedCards} carta(s) guardadas na loja.
           </p>

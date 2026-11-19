@@ -36,7 +36,7 @@ export default async function DemoPaymentPage({ params }: { params: Promise<{ co
 
   return (
     <div className="card mx-auto max-w-md space-y-4 p-8 text-center">
-      <p className="rounded bg-amber-100 p-2 text-sm text-amber-800">
+      <p className="rounded bg-amber-950/60 p-2 text-sm text-amber-300">
         Modo demonstração: configure INFINITEPAY_HANDLE para receber pagamentos reais.
       </p>
       <h1 className="text-xl font-bold">Pedido #{order.code}</h1>

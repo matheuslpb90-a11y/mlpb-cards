@@ -19,7 +19,7 @@ export default async function OrderPage({ params }: { params: Promise<{ code: st
       <div className="card space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Pedido #{order.code}</h1>
-          <span className="rounded-full bg-brand-light px-3 py-1 text-sm font-semibold text-brand-dark">{STATUS_LABEL[order.status] ?? order.status}</span>
+          <span className="rounded-full bg-brand-light px-3 py-1 text-sm font-semibold text-brand">{STATUS_LABEL[order.status] ?? order.status}</span>
         </div>
         <ul className="divide-y text-sm">
           {order.items.map((i) => (

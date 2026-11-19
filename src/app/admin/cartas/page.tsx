@@ -11,7 +11,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
   const { q, status, tipo } = await searchParams;
   const where: Prisma.CardWhereInput = {};
   if (tipo === "cartas") where.kind = "CARTA";
-  if (tipo === "produtos") where.kind = "PRODUTO";
+  if (tipo === "selados") where.kind = "PRODUTO";
   if (q) where.OR = [{ name: { contains: q, mode: "insensitive" } }, { setName: { contains: q, mode: "insensitive" } }, { number: { contains: q } }];
   if (status === "inativas") where.active = false;
   else if (status === "esgotadas") Object.assign(where, { active: true, stock: 0 });
@@ -31,8 +31,8 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
           <option value="todas">Todas</option>
         </select>
         <button className="btn-outline">Filtrar</button>
-        <Link href={tipo === "produtos" ? "/admin/cartas/nova?tipo=produto" : "/admin/cartas/nova"} className="btn-primary ml-auto">
-          {tipo === "produtos" ? "+ Novo produto" : "+ Nova carta"}
+        <Link href={tipo === "selados" ? "/admin/cartas/nova?tipo=selado" : "/admin/cartas/nova"} className="btn-primary ml-auto">
+          {tipo === "selados" ? "+ Novo produto" : "+ Nova carta"}
         </Link>
       </form>
 
@@ -54,7 +54,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
                 </td>
                 <td className="p-2">{formatBRL(c.priceCents)}</td>
                 <td className="p-2">{c.stock}</td>
-                <td className="p-2">{c.active ? <span className="text-green-700">No catálogo</span> : <span className="text-slate-400">Retirada</span>}</td>
+                <td className="p-2">{c.active ? <span className="text-green-300">No catálogo</span> : <span className="text-slate-400">Retirada</span>}</td>
                 <td className="whitespace-nowrap p-2 text-right">
                   <Link href={`/admin/cartas/${c.id}`} className="btn-outline px-3 py-1 text-xs">Editar</Link>{" "}
                   <form action={toggleCardAction} className="inline">

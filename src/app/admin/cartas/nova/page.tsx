@@ -2,7 +2,7 @@ import { CardForm } from "@/components/admin/CardForm";
 
 export default async function NewCardPage({ searchParams }: { searchParams: Promise<{ tipo?: string }> }) {
   const { tipo } = await searchParams;
-  const kind = tipo === "produto" ? "PRODUTO" : "CARTA";
+  const kind = tipo === "selado" ? "PRODUTO" : "CARTA";
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">{kind === "PRODUTO" ? "Novo produto" : "Nova carta avulsa"}</h1>

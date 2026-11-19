@@ -5,6 +5,7 @@ import { saveCardAction, uploadImageAction } from "@/app/admin/actions";
 import { CardImage } from "@/components/CardImage";
 import { CONDITIONS, LANGUAGES, PRODUCT_CATEGORIES } from "@/lib/catalog";
 import { CardLookup, type LookupResult } from "./CardLookup";
+import { shrinkImage } from "./ImageUploadField";
 
 export type CardFormValues = {
   id?: string;
@@ -24,20 +25,6 @@ export type CardFormValues = {
   description: string;
   active: boolean;
 };
-
-/** Reduz a foto no navegador (máx. 1000px, JPEG) antes de enviar. */
-async function shrinkImage(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1000 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL("image/jpeg", 0.85);
-}
 
 export function CardForm({ initial }: { initial: CardFormValues }) {
   const [state, action, pending] = useActionState(saveCardAction, undefined);
@@ -138,7 +125,7 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
           <label className="flex items-center gap-2">
             <input type="checkbox" name="featured" checked={v.featured} onChange={(e) => setV({ ...v, featured: e.target.checked })} /> ⭐ Destaque na tela de início
           </label>
-          {state?.error && <p className="rounded bg-red-50 p-2 text-sm text-red-700 sm:col-span-2">{state.error}</p>}
+          {state?.error && <p className="rounded bg-red-950/60 p-2 text-sm text-red-300 sm:col-span-2">{state.error}</p>}
           <button className="btn-primary sm:col-span-2" disabled={pending || uploading === "Enviando foto…"}>
             {pending ? "Salvando…" : isCard ? "Salvar carta" : "Salvar produto"}
           </button>
@@ -146,7 +133,7 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
       </div>
       <aside className="order-first space-y-2 lg:order-none">
         <p className="text-sm font-semibold text-slate-500">Pré-visualização</p>
-        <div className="mx-auto w-40 lg:w-full"><CardImage src={v.imageUrl} alt={v.name} className={isCard ? "" : "object-contain bg-white"} /></div>
+        <div className="mx-auto w-40 lg:w-full"><CardImage src={v.imageUrl} alt={v.name} className={isCard ? "" : "object-contain bg-panel"} /></div>
       </aside>
     </div>
   );

@@ -112,7 +112,7 @@ export function CheckoutClient({ user, demoMode }: Props) {
               <fieldset className="space-y-2">
                 <legend className="mb-1 text-sm font-semibold">Forma de envio</legend>
                 {quoting && <p className="text-sm text-slate-500">Calculando frete…</p>}
-                {quoteError && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{quoteError}</p>}
+                {quoteError && <p className="rounded bg-red-950/60 p-2 text-sm text-red-300">{quoteError}</p>}
                 {!quoting && options.map((o) => (
                   <label key={o.id} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${method === o.id ? "border-brand bg-brand-light" : "border-slate-200"}`}>
                     <input type="radio" name="shipping" checked={method === o.id} onChange={() => setMethod(o.id)} />
@@ -132,12 +132,12 @@ export function CheckoutClient({ user, demoMode }: Props) {
                 <span>{formatBRL(subtotalCents + (shipping?.priceCents ?? 0))}</span>
               </div>
 
-              {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
+              {error && <p className="rounded bg-red-950/60 p-2 text-sm text-red-300">{error}</p>}
               <button className="btn-primary w-full py-3" onClick={pay} disabled={pending || quoting || !method}>
                 {pending ? "Gerando pagamento…" : "Pagar com InfinitePay"}
               </button>
               {demoMode && (
-                <p className="text-xs text-amber-700">Modo demonstração: a InfinitePay ainda não está configurada (INFINITEPAY_HANDLE).</p>
+                <p className="text-xs text-amber-300">Modo demonstração: a InfinitePay ainda não está configurada (INFINITEPAY_HANDLE).</p>
               )}
             </>
           )}

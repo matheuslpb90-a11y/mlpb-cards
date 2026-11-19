@@ -41,7 +41,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: SP }
     }),
   ]);
 
-  const title = kind === "CARTA" ? "Cartas avulsas" : kind === "PRODUTO" ? "Produtos" : "Catálogo completo";
+  const title = kind === "CARTA" ? "Cartas avulsas" : kind === "PRODUTO" ? "Selados" : "Catálogo completo";
   const showCardFilters = kind !== "PRODUTO";
 
   // monta links das abas mantendo a busca
@@ -51,9 +51,9 @@ export default async function CatalogPage({ searchParams }: { searchParams: SP }
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-auto text-2xl font-bold">{title}</h1>
-        <Link href={tab()} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${!kind ? "bg-brand text-white" : "bg-white border"}`}>Tudo</Link>
+        <Link href={tab()} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${!kind ? "bg-brand text-white" : "bg-panel border"}`}>Tudo</Link>
         {KINDS.map((k) => (
-          <Link key={k.slug} href={tab(k.slug)} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${kind === k.value ? "bg-brand text-white" : "bg-white border"}`}>
+          <Link key={k.slug} href={tab(k.slug)} className={`rounded-full px-4 py-1.5 text-sm font-semibold ${kind === k.value ? "bg-brand text-white" : "bg-panel border"}`}>
             {k.label}
           </Link>
         ))}

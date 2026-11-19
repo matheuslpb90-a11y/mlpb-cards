@@ -95,3 +95,9 @@ model Image {
   data      Bytes
   createdAt DateTime @default(now())
 }
+
+// Configurações da loja editáveis pelo painel (logo, textos, links de redes sociais)
+model Setting {
+  key   String @id
+  value String
+}

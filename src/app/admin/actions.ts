@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { parseBRLToCents } from "@/lib/money";
 import { cancelOrder } from "@/lib/orders";
 import { CSV_COLUMNS, parseCSV } from "@/lib/csv";
+import { SETTING_KEYS } from "@/lib/settings";
 
 type State = { error?: string; ok?: string } | undefined;
 
@@ -45,7 +46,7 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
   if (id) await db.card.update({ where: { id }, data: payload });
   else await db.card.create({ data: payload });
   revalidatePath("/");
-  redirect(`/admin/cartas?tipo=${data.kind === "PRODUTO" ? "produtos" : "cartas"}`);
+  redirect(`/admin/cartas?tipo=${data.kind === "PRODUTO" ? "selados" : "cartas"}`);
 }
 
 /** Recebe uma foto já reduzida no navegador (data URL JPEG/PNG/WebP) e guarda no banco. */
@@ -54,7 +55,7 @@ export async function uploadImageAction(dataUrl: string): Promise<{ url?: string
   const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
   if (!m) return { error: "Formato de imagem inválido." };
   const data = Buffer.from(m[2], "base64");
-  if (data.length > 900_000) return { error: "Imagem muito grande." };
+  if (data.length > 900_000) return { error: "Imagem muito grande (máx. ~900 KB depois de reduzida)." };
   const img = await db.image.create({ data: { mime: m[1], data } });
   return { url: `/api/imagens/${img.id}` };
 }
@@ -141,4 +142,17 @@ export async function updateOrderAction(form: FormData) {
   if (status === "CANCELADO") await cancelOrder(id); // devolve estoque se ainda não foi pago
   await db.order.update({ where: { id }, data: { trackingCode, status } });
   revalidatePath("/admin/pedidos");
+}
+
+export async function saveSettingsAction(_: State, form: FormData): Promise<State> {
+  await requireAdmin();
+  for (const key of SETTING_KEYS) {
+    if (!form.has(key)) continue;
+    const value = String(form.get(key) ?? "").trim();
+    if (value && key.endsWith("Url") && !/^(https?:\/\/|\/api\/imagens\/)/.test(value))
+      return { error: `O campo "${key}" precisa ser um link começando com https://` };
+    await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
+  }
+  revalidatePath("/", "layout");
+  return { ok: "Salvo! Abra o site para ver como ficou." };
 }

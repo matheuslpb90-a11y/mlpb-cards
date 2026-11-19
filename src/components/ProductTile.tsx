@@ -10,7 +10,7 @@ export function ProductTile({ c }: { c: Card }) {
   return (
     <div className="card flex flex-col p-3">
       <Link href={`/cartas/${c.id}`} className="group">
-        <CardImage src={c.imageUrl} alt={c.name} className={`transition group-hover:scale-[1.02] ${isCard ? "" : "object-contain bg-white"}`} />
+        <CardImage src={c.imageUrl} alt={c.name} className={`transition group-hover:scale-[1.02] ${isCard ? "" : "object-contain bg-panel"}`} />
         <h3 className="mt-2 line-clamp-2 font-semibold leading-tight">{c.name}</h3>
       </Link>
       <p className="line-clamp-1 text-xs text-slate-500">

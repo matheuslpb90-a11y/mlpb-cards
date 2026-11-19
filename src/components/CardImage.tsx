@@ -2,7 +2,7 @@
 export function CardImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   if (!src)
     return (
-      <div className={`flex aspect-[63/88] items-center justify-center rounded-lg bg-gradient-to-br from-brand-light to-slate-200 text-4xl ${className ?? ""}`}>
+      <div className={`flex aspect-[63/88] items-center justify-center rounded-lg bg-gradient-to-br from-brand-light to-slate-100 text-4xl ${className ?? ""}`}>
         🃏
       </div>
     );

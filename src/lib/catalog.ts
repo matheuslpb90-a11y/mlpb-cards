@@ -2,7 +2,7 @@
 
 export const KINDS = [
   { value: "CARTA", label: "Cartas avulsas", slug: "cartas" },
-  { value: "PRODUTO", label: "Produtos", slug: "produtos" },
+  { value: "PRODUTO", label: "Selados", slug: "selados" },
 ] as const;
 
 export const CONDITIONS = [

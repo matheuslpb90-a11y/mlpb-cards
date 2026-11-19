@@ -34,9 +34,9 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="space-y-4">
-      <Link href={`/catalogo?tipo=${isCard ? "cartas" : "produtos"}`} className="text-sm text-brand hover:underline">← Voltar para {isCard ? "cartas avulsas" : "produtos"}</Link>
+      <Link href={`/catalogo?tipo=${isCard ? "cartas" : "selados"}`} className="text-sm text-brand hover:underline">← Voltar para {isCard ? "cartas avulsas" : "selados"}</Link>
       <div className="card grid gap-6 p-6 md:grid-cols-[320px_1fr]">
-        <CardImage src={c.imageUrl} alt={c.name} className={isCard ? "" : "object-contain bg-white"} />
+        <CardImage src={c.imageUrl} alt={c.name} className={isCard ? "" : "object-contain bg-panel"} />
         <div className="space-y-4">
           <h1 className="text-2xl font-bold">{c.name}</h1>
           <p className="text-3xl font-extrabold text-brand">{formatBRL(c.priceCents)}</p>

@@ -34,7 +34,7 @@ export function SignupForm({ next }: { next: string }) {
       </div>
       <h2 className="pt-2 font-semibold">Endereço de entrega</h2>
       <AddressFields />
-      {state?.error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{state.error}</p>}
+      {state?.error && <p className="rounded bg-red-950/60 p-2 text-sm text-red-300">{state.error}</p>}
       <button className="btn-primary w-full py-3" disabled={pending}>{pending ? "Criando…" : "Criar cadastro"}</button>
       <p className="text-center text-sm">
         Já tem conta? <Link href={`/entrar?next=${encodeURIComponent(next)}`} className="text-brand hover:underline">Entrar</Link>
