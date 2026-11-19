@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminCards({ searchParams }: { searchParams: Promise<{ q?: string; status?: string }> }) {
   const { q, status } = await searchParams;
   const where: Prisma.CardWhereInput = {};
-  if (q) where.OR = [{ name: { contains: q } }, { setName: { contains: q } }, { number: { contains: q } }];
+  if (q) where.OR = [{ name: { contains: q, mode: "insensitive" } }, { setName: { contains: q, mode: "insensitive" } }, { number: { contains: q } }];
   if (status === "inativas") where.active = false;
   else if (status === "esgotadas") Object.assign(where, { active: true, stock: 0 });
   else if (status !== "todas") where.active = true;

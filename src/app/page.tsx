@@ -12,7 +12,7 @@ type SP = Promise<{ q?: string; jogo?: string; colecao?: string; ordem?: string;
 export default async function CatalogPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const where: Prisma.CardWhereInput = { active: true };
-  if (sp.q) where.OR = [{ name: { contains: sp.q } }, { setName: { contains: sp.q } }, { number: { contains: sp.q } }];
+  if (sp.q) where.OR = [{ name: { contains: sp.q, mode: "insensitive" } }, { setName: { contains: sp.q, mode: "insensitive" } }, { number: { contains: sp.q } }];
   if (sp.jogo) where.game = sp.jogo;
   if (sp.colecao) where.setName = sp.colecao;
   if (sp.estoque !== "todos") where.stock = { gt: 0 };

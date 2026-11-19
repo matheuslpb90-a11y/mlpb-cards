@@ -20,15 +20,16 @@ Loja online de cartas colecionáveis da **MLPB Cards** (www.mlpbcards.com.br).
 
 ## Como rodar localmente
 
+Você precisa de um banco Postgres (pode ser um banco gratuito do Neon só para testes).
+
 ```bash
 npm install
-cp .env.example .env      # edite os valores
-npm run setup             # cria o banco e o usuário admin
+cp .env.example .env      # cole o DATABASE_URL e ajuste os valores
+npm run setup             # cria as tabelas e o usuário admin
 npm run dev               # http://localhost:3000
 ```
 
-Entre em `/entrar` com `ADMIN_EMAIL` e `ADMIN_PASSWORD` definidos no `.env`. O botão **Painel** aparece no topo do site.
-O setup cria 3 cartas de exemplo, que você pode apagar pelo painel. Para não criá-las, use `SEED_SAMPLE_CARDS=0`.
+Entre em `/entrar` com `ADMIN_EMAIL` e `ADMIN_PASSWORD`. O botão **Painel** aparece no topo do site.
 
 ## Configuração (`.env`)
 
@@ -67,11 +68,11 @@ Com `SUPERFRETE_TOKEN` e `STORE_ORIGIN_CEP` configurados, o checkout cota o fret
 
 ## Publicar (produção)
 
-Opção sugerida, de baixo custo: **Vercel** (site) + **Neon** ou **Supabase** (Postgres). Os dois têm planos gratuitos.
-1. Em `prisma/schema.prisma`, troque `provider = "sqlite"` por `provider = "postgresql"`.
-2. Configure as variáveis acima no painel da hospedagem, com `DATABASE_URL` apontando para o Postgres.
-3. Rode `npx prisma db push && npx prisma db seed` uma vez, apontando para o banco de produção.
-4. Aponte o domínio `www.mlpbcards.com.br` para a hospedagem.
+O `npm run build` já cria e atualiza as tabelas do banco e o usuário admin (`prisma db push` + `prisma db seed`). Não é preciso rodar nada à mão.
+
+1. **Neon** (neon.tech): crie um projeto na região *São Paulo* e copie a *connection string*.
+2. **Vercel** (vercel.com): importe este repositório e cadastre as variáveis de ambiente (`DATABASE_URL`, `NEXT_PUBLIC_SITE_URL`, `ADMIN_PASSWORD`, `SUPERFRETE_TOKEN`, `SEED_SAMPLE_CARDS=0`). Depois clique em **Deploy**.
+3. **Domínio**: em Vercel → Settings → Domains, adicione `www.mlpbcards.com.br` e crie no Registro.br o registro `CNAME www → cname.vercel-dns.com`.
 
 ## Migrar o catálogo do site antigo
 
