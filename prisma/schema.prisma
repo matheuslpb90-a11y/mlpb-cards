@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  phone        String
+  cpf          String
+  cep          String
+  street       String
+  number       String
+  complement   String    @default("")
+  neighborhood String
+  city         String
+  state        String
+  role         String    @default("CUSTOMER") // CUSTOMER | ADMIN
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+  orders       Order[]
+}
+
+model Session {
+  id        String   @id // token aleatório (cookie)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+}
+
+model Card {
+  id          String      @id @default(cuid())
+  name        String
+  game        String      @default("Pokémon") // Pokémon, Magic, Yu-Gi-Oh!, One Piece...
+  setName     String      // coleção / edição
+  number      String      @default("")
+  rarity      String      @default("")
+  condition   String      @default("NM") // NM, SP, MP, HP, D
+  language    String      @default("Português")
+  priceCents  Int
+  stock       Int         @default(1)
+  imageUrl    String      @default("")
+  description String      @default("")
+  active      Boolean     @default(true) // false = retirada do catálogo
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  code           Int         @unique // número amigável do pedido, também usado como order_nsu
+  userId         String
+  user           User        @relation(fields: [userId], references: [id])
+  // AGUARDANDO_PAGAMENTO | PAGO | ACUMULANDO | ENVIADO | CANCELADO
+  status         String      @default("AGUARDANDO_PAGAMENTO")
+  shippingMethod String      // PAC | SEDEX | ACUMULAR
+  shippingCents  Int
+  subtotalCents  Int
+  totalCents     Int
+  paymentUrl     String      @default("")
+  transactionNsu String      @default("")
+  receiptUrl     String      @default("")
+  trackingCode   String      @default("")
+  createdAt      DateTime    @default(now())
+  paidAt         DateTime?
+  items          OrderItem[]
+}
+
+model OrderItem {
+  id         String @id @default(cuid())
+  orderId    String
+  order      Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cardId     String
+  card       Card   @relation(fields: [cardId], references: [id])
+  name       String
+  priceCents Int
+  quantity   Int
+}
