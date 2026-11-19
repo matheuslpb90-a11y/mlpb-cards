@@ -1,4 +1,5 @@
 import "server-only";
+import { freeShippingCents } from "./free-shipping";
 
 // Cálculo de frete.
 //  • Com SUPERFRETE_TOKEN configurado: cotação em tempo real na SuperFrete
@@ -36,19 +37,33 @@ export function superFreteEnabled() {
   return SF_TOKEN.length > 0;
 }
 
-function accumulateOption(): ShippingOption {
+function accumulateOption(freeCents = 50000): ShippingOption {
   return {
     id: ACCUMULATE,
     label: "Acumular pedido",
-    description: "Pague só as cartas agora. Elas ficam guardadas na loja e você paga um único frete quando pedir o envio.",
+    description: `Pague só as cartas agora. Elas vão para a sua caixa na loja — junte com outras compras e arremates e peça o envio quando quiser (frete grátis a partir de R$ ${(freeCents / 100).toLocaleString("pt-BR")}).`,
     priceCents: 0,
   };
 }
 
-export async function quoteShipping(destCep: string, totalCards: number, subtotalCents: number): Promise<ShippingOption[]> {
+export async function quoteShipping(
+  destCep: string,
+  totalCards: number,
+  subtotalCents: number,
+  opts: { accumulate?: boolean } = {},
+): Promise<ShippingOption[]> {
   const cep = destCep.replace(/\D/g, "");
+  const free = await freeShippingCents();
+  const extra = opts.accumulate === false ? [] : [accumulateOption(free)];
+  if (subtotalCents >= free) {
+    // acima do valor de frete grátis: a loja escolhe o envio; o cliente não paga frete
+    return [
+      { id: "GRATIS", label: "Frete grátis", description: `Compras a partir de R$ ${(free / 100).toFixed(0)} têm frete grátis`, priceCents: 0 },
+      ...extra,
+    ];
+  }
   const paid = superFreteEnabled() ? await superFreteQuote(cep, totalCards, subtotalCents) : tableQuote(cep, totalCards);
-  return [...paid.sort((a, b) => a.priceCents - b.priceCents), accumulateOption()];
+  return [...paid.sort((a, b) => a.priceCents - b.priceCents), ...extra];
 }
 
 async function superFreteQuote(cep: string, totalCards: number, subtotalCents: number): Promise<ShippingOption[]> {

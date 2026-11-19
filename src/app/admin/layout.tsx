@@ -15,7 +15,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/admin/pedidos" className="rounded-lg px-3 py-2 hover:bg-slate-100">Pedidos</Link>
         <Link href="/admin/leiloes" className="rounded-lg px-3 py-2 hover:bg-slate-100">🔨 Leilões</Link>
         <Link href="/admin/faturas" className="rounded-lg px-3 py-2 hover:bg-slate-100">🧾 Invoices</Link>
+        <Link href="/admin/caixas" className="rounded-lg px-3 py-2 hover:bg-slate-100">📦 Caixas</Link>
         <Link href="/admin/bot" className="rounded-lg px-3 py-2 hover:bg-slate-100">🤖 Bot WhatsApp</Link>
+        <Link href="/admin/atividade" className="rounded-lg px-3 py-2 hover:bg-slate-100">📜 Logs</Link>
         <Link href="/admin/aparencia" className="rounded-lg px-3 py-2 hover:bg-slate-100">🎨 Aparência e links</Link>
       </nav>
       {children}

@@ -5,6 +5,7 @@ import { formatBRL } from "@/lib/money";
 import { STATUS_LABEL } from "@/lib/orders";
 import { whatsappLink } from "@/lib/whatsapp";
 import { logoutAction } from "../actions";
+import { boxBalance, boxUrl, BOX_STATUS, freeShippingCents } from "@/lib/boxes";
 import { ProfileForm } from "./ProfileForm";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +13,16 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage() {
   const user = await requireUser("/minha-conta");
   const orders = await db.order.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, include: { items: true } });
-  const accumulated = orders.filter((o) => o.status === "ACUMULANDO");
+  const phone = user.phone.replace(/\D/g, "");
+  const [boxes, free] = await Promise.all([
+    db.box.findMany({
+      where: { archived: false, OR: [{ userId: user.id }, ...(phone ? [{ phone: phone.startsWith("55") ? phone : `55${phone}` }] : [])] },
+      include: { orders: true, invoices: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    freeShippingCents(),
+  ]);
+  const accumulated = orders.filter((o) => o.status === "ACUMULANDO" && !o.boxId);
   const accumulatedCards = accumulated.reduce((s, o) => s + o.items.reduce((a, i) => a + i.quantity, 0), 0);
   const shipRequest = whatsappLink(
     `Olá, MLPB Cards! Sou ${user.name} (${user.email}) e quero solicitar o envio dos meus pedidos acumulados: ${accumulated
@@ -34,6 +44,22 @@ export default async function AccountPage() {
           </p>
           <a href={shipRequest} target="_blank" rel="noreferrer" className="btn-whats">Solicitar envio dos acumulados</a>
         </div>
+      )}
+
+      {boxes.length > 0 && (
+        <section className="card divide-y">
+          <h2 className="p-4 font-semibold">📦 Minhas caixas</h2>
+          {boxes.map((b) => {
+            const bal = boxBalance(b);
+            return (
+              <a key={b.id} href={boxUrl(b)} className="flex flex-wrap items-center justify-between gap-2 p-4 hover:bg-slate-100">
+                <span><strong>Caixa #{b.code}</strong> <span className="text-sm text-slate-500">· {BOX_STATUS[b.status]}</span></span>
+                <span className="text-sm text-slate-500">{bal >= free ? "Frete grátis ✔" : `faltam ${formatBRL(free - bal)} p/ frete grátis`}</span>
+                <span className="font-bold text-brand">{formatBRL(bal)}</span>
+              </a>
+            );
+          })}
+        </section>
       )}
 
       <section className="card">

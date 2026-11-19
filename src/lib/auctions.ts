@@ -238,6 +238,15 @@ export async function markInvoicePaid(code: number, info: { transactionNsu?: str
     where: { id: inv.id },
     data: { status: "PAGO", paidAt: new Date(), transactionNsu: info.transactionNsu ?? "", receiptUrl: info.receiptUrl ?? "" },
   });
-  sendText(inv.phone, `✅ Pagamento do invoice #${inv.code} confirmado! Obrigado pela compra na MLPB Cards. 🧡`).catch(() => {});
+  const { addInvoiceToBox, boxBalance, boxUrl, freeShippingCents } = await import("./boxes");
+  const box = await addInvoiceToBox(updated.id).catch(() => null);
+  let extra = "";
+  if (box) {
+    const full = await db.box.findUnique({ where: { id: box.id }, include: { orders: true, invoices: true } });
+    const bal = full ? boxBalance(full) : 0;
+    const free = await freeShippingCents();
+    extra = `\n\n📦 Suas cartas foram para a sua *caixa #${box.code}* (saldo ${formatBRL(bal)}).${bal >= free ? " Frete grátis liberado! 🎉" : ` Faltam ${formatBRL(free - bal)} para o frete grátis.`}\nPeça o envio quando quiser: ${boxUrl(box)}`;
+  }
+  sendText(inv.phone, `✅ Pagamento do invoice #${inv.code} confirmado! Obrigado pela compra na MLPB Cards. 🧡${extra}`).catch(() => {});
   return updated;
 }

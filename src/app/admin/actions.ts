@@ -9,6 +9,7 @@ import { parseBRLToCents } from "@/lib/money";
 import { cancelOrder } from "@/lib/orders";
 import { CSV_COLUMNS, parseCSV } from "@/lib/csv";
 import { SETTING_KEYS } from "@/lib/settings";
+import { logActivity } from "@/lib/activity";
 
 type State = { error?: string; ok?: string } | undefined;
 
@@ -49,6 +50,7 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
   const payload = { ...data, priceCents, compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null, active: active === "on", featured: featured === "on" };
   if (id) await db.card.update({ where: { id }, data: payload });
   else await db.card.create({ data: payload });
+  await logActivity("card_saved", `${id ? "Editou" : "Cadastrou"} ${data.kind === "PRODUTO" ? "selado" : "carta"} "${data.name}" (${price})`);
   revalidatePath("/");
   redirect(`/admin/cartas?tipo=${data.kind === "PRODUTO" ? "selados" : "cartas"}`);
 }
@@ -70,6 +72,7 @@ export async function toggleCardAction(form: FormData) {
   const card = await db.card.findUnique({ where: { id } });
   if (!card) return;
   await db.card.update({ where: { id }, data: { active: !card.active } });
+  await logActivity("card_toggled", `"${card.name}" ${card.active ? "retirada do" : "voltou ao"} catálogo`);
   revalidatePath("/admin/cartas");
   revalidatePath("/");
 }
@@ -79,8 +82,10 @@ export async function deleteCardAction(form: FormData) {
   const id = String(form.get("id"));
   const used = await db.orderItem.count({ where: { cardId: id } });
   // Cartas que já aparecem em pedidos são apenas retiradas do catálogo, para manter o histórico.
+  const del = await db.card.findUnique({ where: { id }, select: { name: true } });
   if (used > 0) await db.card.update({ where: { id }, data: { active: false } });
   else await db.card.delete({ where: { id } });
+  await logActivity("card_deleted", `Excluiu "${del?.name ?? id}"`);
   revalidatePath("/admin/cartas");
   revalidatePath("/");
   redirect("/admin/cartas");
@@ -131,6 +136,7 @@ export async function importCsvAction(_: State, form: FormData): Promise<State> 
     });
   }
   if (data.length) await db.card.createMany({ data });
+  await logActivity("cards_imported", `Importou ${data.length} item(ns) por CSV`);
   revalidatePath("/");
   return {
     ok: `${data.length} carta(s) importada(s).${errors.length ? ` Ignoradas (nome/preço inválido): ${errors.slice(0, 20).join(", ")}${errors.length > 20 ? "…" : ""}` : ""}`,
@@ -147,6 +153,7 @@ export async function updateOrderAction(form: FormData) {
   if (!ORDER_STATUSES.includes(status)) return;
   if (status === "CANCELADO") await cancelOrder(id); // devolve estoque se ainda não foi pago
   await db.order.update({ where: { id }, data: { trackingCode, status } });
+  await logActivity("order_updated", `Pedido ${id.slice(-6)}: ${status}${trackingCode ? ` · rastreio ${trackingCode}` : ""}`);
   revalidatePath("/admin/pedidos");
 }
 
@@ -176,6 +183,7 @@ export async function saveSettingsAction(_: State, form: FormData): Promise<Stat
   for (const [key, value] of values) {
     await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
   }
+  await logActivity("settings_updated", "Aparência e links atualizados");
   revalidatePath("/", "layout");
   return { ok: "Salvo! Abra o site para ver como ficou." };
 }

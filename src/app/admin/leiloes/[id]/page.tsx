@@ -46,6 +46,46 @@ export default async function EditAuctionPage({ params }: { params: Promise<{ id
         <div className="ml-auto"><AuctionRowActions id={a.id} status={a.status} visible={a.visible} /></div>
       </div>
 
+      {a.status !== "AGENDADO" && (() => {
+        const items = a.lots.flatMap((l) => l.items);
+        const won = items.filter((i) => i.winningCents != null);
+        const raised = won.reduce((s, i) => s + (i.winningCents ?? 0), 0);
+        const paid = a.invoices.filter((i) => i.status === "PAGO").reduce((s, i) => s + i.totalCents, 0);
+        const pend = a.invoices.filter((i) => i.status === "PENDENTE").reduce((s, i) => s + i.totalCents, 0);
+        const ranking = a.invoices.map((i) => ({ ...i, count: (JSON.parse(i.itemsJson) as unknown[]).length })).sort((x, y) => y.totalCents - x.totalCents);
+        const stats: [string, string, string][] = [
+          ["Total cartas", String(items.length), "border-blue-800"],
+          ["Arrematadas", String(won.length), "border-amber-700 text-amber-300"],
+          ["Total mercado", formatBRL(items.reduce((s, i) => s + i.marketCents, 0)), "border-blue-800"],
+          ["Arrecadado", formatBRL(raised), "border-green-800 text-green-300"],
+          ["Pendente", formatBRL(pend), "border-red-800 text-red-300"],
+          ["Total pago", formatBRL(paid), "border-purple-800 text-purple-300"],
+        ];
+        return (
+          <>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+              {stats.map(([l, v, c]) => <div key={l} className={`card border p-4 ${c}`}><p className="text-xs uppercase opacity-80">{l}</p><p className="text-xl font-bold">{v}</p></div>)}
+            </div>
+            <section className="card space-y-2 p-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold">Ranking de arrematadores</h2>
+                <a href={`/api/admin/leiloes/${a.id}/csv`} className="btn-outline text-sm">⬇ CSV</a>
+              </div>
+              {ranking.map((r, k) => (
+                <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 font-bold">{k + 1}</span>
+                  <span className="flex-1"><strong>{r.name || "Sem nome"}</strong> <span className="text-slate-500">· +{r.phone} · {r.count} carta(s)</span></span>
+                  <strong className="text-green-300">{formatBRL(r.totalCents)}</strong>
+                  <span className={`rounded px-2 py-0.5 text-xs font-bold ${r.status === "PAGO" ? "bg-green-950/60 text-green-300" : "bg-red-950/60 text-red-300"}`}>{r.status === "PAGO" ? "Pago" : r.status === "CANCELADO" ? "Cancelado" : "Pendente"}</span>
+                  <span className="text-xs text-slate-500">{r.sentAt ? "✓ invoice enviado" : "○ não enviado"}</span>
+                </div>
+              ))}
+              {ranking.length === 0 && <p className="text-sm text-slate-500">Os vencedores aparecem aqui quando o leilão encerrar.</p>}
+            </section>
+          </>
+        );
+      })()}
+
       {a.status !== "AGENDADO" && (
         <section className="card space-y-3 p-5">
           <h2 className="text-lg font-bold">Votos e vencedores</h2>

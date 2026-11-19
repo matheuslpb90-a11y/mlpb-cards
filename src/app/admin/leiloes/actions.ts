@@ -5,8 +5,9 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { priceItem } from "@/lib/auction-pricing";
 import { brt, reaisToCents, type AuctionDraft } from "@/lib/auction-draft";
-import { closeAuction, sendInvoice, startAuction } from "@/lib/auctions";
+import { closeAuction, markInvoicePaid, sendInvoice, startAuction } from "@/lib/auctions";
 import { listGroups, sendText, connectionStatus } from "@/lib/zapi";
+import { logActivity } from "@/lib/activity";
 
 export async function saveAuctionAction(d: AuctionDraft): Promise<{ id?: string; error?: string }> {
   await requireAdmin();
@@ -102,6 +103,7 @@ export async function saveAuctionAction(d: AuctionDraft): Promise<{ id?: string;
     }
     return auctionId;
   });
+  await logActivity("auction_saved", `${d.id ? "Editou" : "Criou"} o leilão "${d.name}"`);
   revalidatePath("/admin/leiloes");
   revalidatePath("/leiloes");
   return { id };
@@ -165,6 +167,7 @@ export async function auctionCommandAction(id: string, cmd: "iniciar" | "encerra
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
+  await logActivity("auction_command", `Leilão "${a.name}": ${cmd}`);
   revalidatePath("/admin/leiloes");
   revalidatePath("/leiloes");
   return { ok: true };
@@ -174,11 +177,15 @@ export async function invoiceCommandAction(id: string, cmd: "reenviar" | "pago" 
   await requireAdmin();
   try {
     if (cmd === "reenviar") await sendInvoice(id);
-    if (cmd === "pago") await db.invoice.update({ where: { id }, data: { status: "PAGO", paidAt: new Date(), transactionNsu: "MANUAL" } });
+    if (cmd === "pago") {
+      const inv = await db.invoice.findUnique({ where: { id } });
+      if (inv) await markInvoicePaid(inv.code, { transactionNsu: "MANUAL" });
+    }
     if (cmd === "cancelar") await db.invoice.update({ where: { id }, data: { status: "CANCELADO" } });
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
+  await logActivity("invoice_command", `Invoice ${id.slice(-6)}: ${cmd}`);
   revalidatePath("/admin/faturas");
   return { ok: true };
 }
@@ -196,6 +203,7 @@ export async function saveBotGroupAction(groupId: string, groupName: string) {
   await requireAdmin();
   for (const [key, value] of [["botGroupId", groupId], ["botGroupName", groupName]])
     await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
+  await logActivity("bot_group_updated", `Grupo do bot: ${groupName || groupId}`);
   revalidatePath("/admin/bot");
   return { ok: true };
 }

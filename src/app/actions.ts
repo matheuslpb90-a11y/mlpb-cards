@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, destroySession, getCurrentUser, hashPassword, verifyPassword } from "@/lib/auth";
+import { logActivity } from "@/lib/activity";
 import { onlyDigits } from "@/lib/money";
 import { cartTotals, placeOrder, type CartLine } from "@/lib/orders";
 import { quoteShipping, type ShippingOption } from "@/lib/shipping";
@@ -47,6 +48,7 @@ export async function loginAction(_: FormState, form: FormData): Promise<FormSta
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !(await verifyPassword(password, user.passwordHash))) return { error: "E-mail ou senha incorretos." };
   await createSession(user.id);
+  if (user.role === "ADMIN") await logActivity("login", `${user.name} entrou no painel`, { id: user.id, name: user.name });
   redirect(safeNext(form.get("next")));
 }
 

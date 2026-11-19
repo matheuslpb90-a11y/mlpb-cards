@@ -77,6 +77,8 @@ model Order {
   createdAt      DateTime    @default(now())
   paidAt         DateTime?
   items          OrderItem[]
+  boxId          String?
+  box            Box?        @relation(fields: [boxId], references: [id], onDelete: SetNull)
 }
 
 model OrderItem {
@@ -207,6 +209,8 @@ model Invoice {
   createdAt      DateTime  @default(now())
   paidAt         DateTime?
   sentAt         DateTime?
+  boxId          String?
+  box            Box?      @relation(fields: [boxId], references: [id], onDelete: SetNull)
 }
 
 // Registro das chamadas recebidas da Z-API (para conferência no painel)
@@ -215,4 +219,41 @@ model BotLog {
   kind      String
   payload   String
   createdAt DateTime @default(now())
+}
+
+// Caixa do cliente: acumula arremates pagos e compras "acumular" até o envio
+model Box {
+  id             String    @id @default(cuid())
+  code           Int       @unique
+  token          String    @unique // link público da caixa (sem login)
+  phone          String // só dígitos, com 55
+  name           String    @default("")
+  userId         String?
+  // PENDENTE | FRETE_SOLICITADO | EM_SEPARACAO | ENVIADA | PRESENCIAL | CONCLUIDA
+  status         String    @default("PENDENTE")
+  shippingMethod String    @default("") // ex.: PAC, SEDEX, Mini Envios, GRATIS, RETIRADA
+  shippingCents  Int       @default(0)
+  shippingPaid   Boolean   @default(false)
+  addressJson    String    @default("")
+  trackingCode   String    @default("")
+  notes          String    @default("")
+  archived       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  requestedAt    DateTime?
+  closedAt       DateTime?
+  orders         Order[]
+  invoices       Invoice[]
+}
+
+// Registro de atividades do painel (quem fez o quê)
+model ActivityLog {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  userId      String   @default("")
+  userName    String   @default("")
+  action      String
+  description String
+  ip          String   @default("")
+
+  @@index([createdAt])
 }

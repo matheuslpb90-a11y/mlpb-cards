@@ -128,7 +128,7 @@ export async function markOrderPaid(code: number, info: { transactionNsu?: strin
     console.warn(`Pedido ${code}: valor pago (${info.paidAmountCents}) menor que o total (${order.totalCents}).`);
     return order;
   }
-  return db.order.update({
+  const updated = await db.order.update({
     where: { id: order.id },
     data: {
       status: order.shippingMethod === ACCUMULATE ? "ACUMULANDO" : "PAGO",
@@ -137,6 +137,11 @@ export async function markOrderPaid(code: number, info: { transactionNsu?: strin
       receiptUrl: info.receiptUrl ?? "",
     },
   });
+  if (updated.shippingMethod === ACCUMULATE) {
+    const { addOrderToBox } = await import("./boxes");
+    await addOrderToBox(updated.id).catch(() => {});
+  }
+  return updated;
 }
 
 /** Cancela e devolve as cartas ao estoque (somente pedidos ainda não pagos). */
