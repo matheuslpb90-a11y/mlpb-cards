@@ -119,7 +119,7 @@ export function CheckoutClient({ user, demoMode }: Props) {
                     <span className="flex-1">
                       <span className="flex justify-between font-medium">
                         <span>{o.label}</span>
-                        <span>{o.priceCents === 0 ? "R$ 0,00 agora" : formatBRL(o.priceCents)}</span>
+                        <span>{o.id === "GRATIS" ? "Grátis" : o.priceCents === 0 ? "R$ 0,00 agora" : formatBRL(o.priceCents)}</span>
                       </span>
                       <span className="block text-xs text-slate-600">{o.description}</span>
                     </span>
