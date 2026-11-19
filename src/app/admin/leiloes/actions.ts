@@ -205,9 +205,12 @@ export async function botGroupsAction() {
 
 export async function saveBotGroupAction(groupId: string, groupName: string) {
   await requireAdmin();
+  const id = groupId.trim();
+  if (/http|\s/i.test(id) || !/^[\d-]{10,}(-group|@g\.us)?$/.test(id))
+    return { error: "Isso não é um ID de grupo. O ID tem só números e termina em “-group” (ex.: 120363012345678901-group)." };
   for (const [key, value] of [["botGroupId", groupId], ["botGroupName", groupName]])
     await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
-  await logActivity("bot_group_updated", `Grupo do bot: ${groupName || groupId}`);
+  await logActivity("bot_group_updated", `Grupo do bot: ${groupName || id}`);
   revalidatePath("/admin/bot");
   return { ok: true };
 }

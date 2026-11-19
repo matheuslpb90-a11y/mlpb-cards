@@ -14,7 +14,9 @@ export function BotSetup({ current }: { current: { id: string; name: string } })
 
   const save = (id: string, name: string) =>
     start(async () => {
-      await saveBotGroupAction(id, name);
+      const r = await saveBotGroupAction(id, name);
+      if (r?.error) { setErr(r.error); return; }
+      setErr("");
       setSel({ id, name });
       setMsg(`Grupo salvo ✔ (${name || id}). Agora clique em “Enviar mensagem de teste”.`);
     });
@@ -22,7 +24,7 @@ export function BotSetup({ current }: { current: { id: string; name: string } })
   return (
     <section className="card space-y-3 p-5 text-sm">
       <h2 className="text-lg font-bold">4. Grupo do leilão</h2>
-      <p>Grupo atual: <strong>{sel.name || sel.id || "nenhum"}</strong>{sel.id && <span className="ml-2 font-mono text-xs text-slate-500">{sel.id}</span>}</p>
+      <p>Grupo atual: <strong>{/http/.test(sel.id) ? "inválido — escolha de novo" : sel.name || sel.id || "nenhum"}</strong>{sel.id && <span className="ml-2 font-mono text-xs text-slate-500">{sel.id}</span>}</p>
       <div className="flex flex-wrap gap-2">
         <button className="btn-outline" disabled={pending} onClick={() => start(async () => {
           setMsg("Carregando grupos…"); setErr("");

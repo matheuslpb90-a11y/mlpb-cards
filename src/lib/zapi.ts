@@ -124,3 +124,23 @@ export function normalizePhone(p: string) {
   const d = p.replace(/\D/g, "");
   return d.startsWith("55") || d.length > 11 ? d : `55${d}`;
 }
+
+const mask = (v: string) => (v.length > 10 ? `${v.slice(0, 6)}…${v.slice(-4)}` : v ? "•••" : "");
+
+/** Compara a instância configurada com a que aparece nos eventos recebidos. */
+export async function diagnostics() {
+  const logs = await db.botLog.findMany({ where: { kind: { in: ["evento", "voto"] } }, orderBy: { createdAt: "desc" }, take: 100 });
+  const seen = new Map<string, string>();
+  for (const l of logs) {
+    try {
+      const b = JSON.parse(l.payload) as Record<string, unknown>;
+      const id = String(b.instanceId ?? b.instance_id ?? b.instance ?? "");
+      if (id && !seen.has(id)) seen.set(id, String(b.connectedPhone ?? ""));
+    } catch {}
+  }
+  return {
+    configured: { instance: mask(INSTANCE), instanceFull: INSTANCE, token: TOKEN ? `…${TOKEN.slice(-4)}` : "", clientToken: CLIENT_TOKEN ? "configurado" : "não configurado" },
+    seen: [...seen].map(([id, phone]) => ({ id, phone, matches: id === INSTANCE })),
+    eventsCount: logs.length,
+  };
+}

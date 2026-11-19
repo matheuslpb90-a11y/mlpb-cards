@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { db } from "@/lib/db";
 import { siteUrl } from "@/lib/orders";
-import { zapiEnabled } from "@/lib/zapi";
+import { diagnostics, zapiEnabled } from "@/lib/zapi";
 import { fmtDate } from "@/lib/auctions";
 import { BotSetup } from "./BotSetup";
 
@@ -16,6 +16,7 @@ export default async function BotPage() {
   const group = await db.setting.findMany({ where: { key: { in: ["botGroupId", "botGroupName"] } } });
   const logs = await db.botLog.findMany({ orderBy: { createdAt: "desc" }, take: 40 });
   const webhook = `${siteUrl()}/api/webhooks/zapi?key=${key}`;
+  const diag = await diagnostics();
 
   return (
     <div className="space-y-5">
@@ -31,6 +32,20 @@ export default async function BotPage() {
           </p>
         )}
         <p className="text-slate-500">Na Z-API, conecte o WhatsApp da loja escaneando o QR Code da instância.</p>
+        <div className="space-y-1 rounded-lg border p-3">
+          <p className="font-semibold">Conferência da instância</p>
+          <p>ID configurado na Vercel (<code>ZAPI_INSTANCE_ID</code>): <code>{diag.configured.instance || "—"}</code> · token <code>{diag.configured.token || "—"}</code> · client-token {diag.configured.clientToken}</p>
+          {diag.seen.length === 0 ? (
+            <p className="text-slate-500">Ainda não chegou nenhum evento com ID de instância. Mande uma mensagem para o WhatsApp da loja e recarregue esta página.</p>
+          ) : (
+            diag.seen.map((x) => (
+              <p key={x.id} className={x.matches ? "text-green-300" : "text-red-300"}>
+                ID que a Z-API envia nos eventos: <code className="select-all font-bold">{x.id}</code>{x.phone ? ` (WhatsApp ${x.phone})` : ""} —{" "}
+                {x.matches ? "✔ confere com o configurado" : "✘ diferente do configurado: copie este ID para ZAPI_INSTANCE_ID na Vercel e faça Redeploy"}
+              </p>
+            ))
+          )}
+        </div>
       </section>
 
       <section className="card space-y-2 p-5 text-sm">
