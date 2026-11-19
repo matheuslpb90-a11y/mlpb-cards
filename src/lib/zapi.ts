@@ -12,16 +12,31 @@ const INSTANCE = clean(process.env.ZAPI_INSTANCE_ID);
 const TOKEN = clean(process.env.ZAPI_TOKEN);
 const CLIENT_TOKEN = clean(process.env.ZAPI_CLIENT_TOKEN);
 const BASE = process.env.ZAPI_BASE_URL || "https://api.z-api.io";
+// Z-API Omni: "URL da API" do canal (ex.: https://api.omni.z-api.io/v1/channels/<ID>)
+const OMNI_URL = clean(process.env.ZAPI_API_URL).replace(/\/+$/, "");
 
 export function zapiEnabled() {
-  return Boolean(INSTANCE && TOKEN);
+  return Boolean((INSTANCE || OMNI_URL) && TOKEN);
 }
+export const zapiMode = () => (OMNI_URL ? "omni" : "classica");
+
+/** Cabeçalhos de autenticação (a Omni recebe o token do canal no cabeçalho). */
+function authHeaders(): Record<string, string> {
+  if (!OMNI_URL) return CLIENT_TOKEN ? { "Client-Token": CLIENT_TOKEN } : {};
+  return {
+    Authorization: `Bearer ${TOKEN}`,
+    "x-api-key": TOKEN,
+    token: TOKEN,
+    ...(CLIENT_TOKEN ? { "Client-Token": CLIENT_TOKEN } : {}),
+  };
+}
+const endpoint = (path: string) => (OMNI_URL ? `${OMNI_URL}/${path}` : `${BASE}/instances/${INSTANCE}/token/${TOKEN}/${path}`);
 
 async function call<T = unknown>(path: string, body?: unknown, method = body ? "POST" : "GET"): Promise<T> {
-  if (!zapiEnabled()) throw new Error("Z-API não configurada (ZAPI_INSTANCE_ID / ZAPI_TOKEN).");
-  const res = await fetch(`${BASE}/instances/${INSTANCE}/token/${TOKEN}/${path}`, {
+  if (!zapiEnabled()) throw new Error("Z-API não configurada (ZAPI_INSTANCE_ID ou ZAPI_API_URL, e ZAPI_TOKEN).");
+  const res = await fetch(endpoint(path), {
     method,
-    headers: { "Content-Type": "application/json", ...(CLIENT_TOKEN ? { "Client-Token": CLIENT_TOKEN } : {}) },
+    headers: { "Content-Type": "application/json", ...authHeaders() },
     body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
     signal: AbortSignal.timeout(20000),
@@ -142,6 +157,8 @@ export async function diagnostics() {
   }
   return {
     configured: {
+      mode: zapiMode(),
+      omniUrl: OMNI_URL ? `${OMNI_URL.slice(0, 48)}…` : "",
       instance: mask(INSTANCE),
       instanceFull: INSTANCE,
       instanceLength: INSTANCE.length,
@@ -153,4 +170,39 @@ export async function diagnostics() {
     seen: [...seen].map(([id, phone]) => ({ id, phone, matches: id === INSTANCE })),
     eventsCount: logs.length,
   };
+}
+
+/** Testa a conexão Omni em vários formatos e devolve o que cada um respondeu (para diagnóstico). */
+export async function probeOmni(groupId: string) {
+  const out: { tentativa: string; status: number | string; resposta: string }[] = [];
+  const base = OMNI_URL || `${BASE}/instances/${INSTANCE}/token/${TOKEN}`;
+  const tries: { label: string; method: string; path: string; body?: unknown }[] = [
+    { label: "GET (canal)", method: "GET", path: "" },
+    { label: "GET status", method: "GET", path: "status" },
+    { label: "GET groups", method: "GET", path: "groups?page=1&pageSize=50" },
+    ...(groupId
+      ? [
+          { label: "POST send-text (compatível Z-API)", method: "POST", path: "send-text", body: { phone: groupId, message: "🤖 Teste 1 do bot MLPB (send-text)" } },
+          { label: "POST messages/text", method: "POST", path: "messages/text", body: { to: groupId, phone: groupId, text: "🤖 Teste 2 do bot MLPB (messages/text)" } },
+          { label: "POST messages", method: "POST", path: "messages", body: { to: groupId, type: "text", text: { body: "🤖 Teste 3 do bot MLPB (messages)" } } },
+        ]
+      : []),
+  ];
+  for (const t of tries) {
+    try {
+      const r = await fetch(t.path ? `${base}/${t.path}` : base, {
+        method: t.method,
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: t.body ? JSON.stringify(t.body) : undefined,
+        cache: "no-store",
+        signal: AbortSignal.timeout(15000),
+      });
+      out.push({ tentativa: t.label, status: r.status, resposta: (await r.text()).slice(0, 400) });
+      if (t.method === "POST" && r.ok) break; // já enviou uma mensagem; não precisa tentar as outras
+    } catch (e) {
+      out.push({ tentativa: t.label, status: "erro", resposta: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  await log("diagnostico-omni", { modo: zapiMode(), base: base.replace(TOKEN, "…token…"), out });
+  return out;
 }

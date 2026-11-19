@@ -28,12 +28,13 @@ export default async function BotPage() {
           <p className="text-green-300">✔ Credenciais da Z-API configuradas na Vercel.</p>
         ) : (
           <p className="text-amber-300">
-            Falta configurar na Vercel (Settings → Environment Variables): <code>ZAPI_INSTANCE_ID</code>, <code>ZAPI_TOKEN</code> e <code>ZAPI_CLIENT_TOKEN</code>, depois Redeploy.
+            Falta configurar na Vercel (Settings → Environment Variables): <code>ZAPI_TOKEN</code> e <code>ZAPI_API_URL</code> (Z-API Omni) ou <code>ZAPI_INSTANCE_ID</code> (Z-API clássica), depois Redeploy.
           </p>
         )}
         <p className="text-slate-500">Na Z-API, conecte o WhatsApp da loja escaneando o QR Code da instância.</p>
         <div className="space-y-1 rounded-lg border p-3">
           <p className="font-semibold">Conferência da instância</p>
+          <p>Modo: <strong>{diag.configured.mode === "omni" ? `Z-API Omni (${diag.configured.omniUrl})` : "Z-API clássica"}</strong></p>
           <p>
             ID configurado na Vercel (<code>ZAPI_INSTANCE_ID</code>): <code>{diag.configured.instance || "—"}</code> ({diag.configured.instanceLength} caracteres) · token{" "}
             <code>{diag.configured.token || "—"}</code> ({diag.configured.tokenLength} caracteres) · client-token {diag.configured.clientToken}

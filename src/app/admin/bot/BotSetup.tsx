@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { botGroupsAction, botTestAction, saveBotGroupAction } from "../leiloes/actions";
+import { botGroupsAction, botProbeAction, botTestAction, saveBotGroupAction } from "../leiloes/actions";
 
 export function BotSetup({ current }: { current: { id: string; name: string } }) {
   const [groups, setGroups] = useState<{ phone: string; name: string }[]>([]);
@@ -11,6 +11,7 @@ export function BotSetup({ current }: { current: { id: string; name: string } })
   const [err, setErr] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [pending, start] = useTransition();
+  const [probe, setProbe] = useState<{ tentativa: string; status: number | string; resposta: string }[]>([]);
 
   const save = (id: string, name: string) =>
     start(async () => {
@@ -39,7 +40,18 @@ export function BotSetup({ current }: { current: { id: string; name: string } })
           const r = await botTestAction();
           if (r.error) setErr(r.error); else setMsg("Mensagem de teste enviada ao grupo ✔ — confira no WhatsApp.");
         })}>Enviar mensagem de teste</button>
+        <button className="btn-outline" disabled={pending} onClick={() => start(async () => { setProbe(await botProbeAction()); })}>🔎 Testar conexão (diagnóstico)</button>
       </div>
+      {probe.length > 0 && (
+        <div className="space-y-1 rounded-lg border p-3 text-xs">
+          <p className="font-semibold">Diagnóstico — mande um print disto:</p>
+          {probe.map((p, i) => (
+            <p key={i} className={typeof p.status === "number" && p.status < 300 ? "text-green-300" : "text-red-300"}>
+              <strong>{p.tentativa}</strong> → {p.status} · <span className="break-all text-slate-500">{p.resposta}</span>
+            </p>
+          ))}
+        </div>
+      )}
       {msg && <p className="text-slate-600">{msg}</p>}
       {err && <p className="break-all rounded bg-red-950/60 p-2 text-xs text-red-300">Resposta da Z-API: {err}</p>}
 

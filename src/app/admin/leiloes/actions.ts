@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { priceItem } from "@/lib/auction-pricing";
 import { brt, reaisToCents, type AuctionDraft } from "@/lib/auction-draft";
 import { closeAuction, markInvoicePaid, sendInvoice, startAuction } from "@/lib/auctions";
-import { listGroups, groupsFromLogs, sendText, connectionStatus } from "@/lib/zapi";
+import { listGroups, groupsFromLogs, sendText, connectionStatus, probeOmni } from "@/lib/zapi";
 import { logActivity } from "@/lib/activity";
 
 export async function saveAuctionAction(d: AuctionDraft): Promise<{ id?: string; error?: string }> {
@@ -225,4 +225,10 @@ export async function botTestAction() {
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
+}
+
+export async function botProbeAction() {
+  await requireAdmin();
+  const g = await db.setting.findUnique({ where: { key: "botGroupId" } });
+  return probeOmni(g?.value ?? "");
 }
