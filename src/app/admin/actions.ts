@@ -146,11 +146,28 @@ export async function updateOrderAction(form: FormData) {
 
 export async function saveSettingsAction(_: State, form: FormData): Promise<State> {
   await requireAdmin();
+  const LABELS: Record<string, string> = {
+    logoUrl: "Logo",
+    heroImageUrl: "Imagem do banner",
+    whatsappGroupUrl: "Grupo do WhatsApp",
+    youtubeUrl: "Canal do YouTube",
+    youtubeVideoUrl: "Vídeo em destaque",
+    tiktokUrl: "TikTok",
+  };
+  // Valida tudo antes de salvar qualquer coisa.
+  const values: [string, string][] = [];
   for (const key of SETTING_KEYS) {
     if (!form.has(key)) continue;
-    const value = String(form.get(key) ?? "").trim();
-    if (value && key.endsWith("Url") && !/^(https?:\/\/|\/api\/imagens\/)/.test(value))
-      return { error: `O campo "${key}" precisa ser um link começando com https://` };
+    let value = String(form.get(key) ?? "").trim();
+    if (value && key.endsWith("Url")) {
+      // aceita link sem "https://" (ex.: www.tiktok.com/@perfil) e imagens internas do site ("/logo.png")
+      if (!/^https?:\/\//i.test(value) && !(value.startsWith("/") && !value.startsWith("//"))) value = `https://${value}`;
+      if (!/^(https?:\/\/[^\s]+\.[^\s]+|\/[^/\s][^\s]*)$/i.test(value))
+        return { error: `O campo "${LABELS[key] ?? key}" não parece um link válido.` };
+    }
+    values.push([key, value]);
+  }
+  for (const [key, value] of values) {
     await db.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
   }
   revalidatePath("/", "layout");
