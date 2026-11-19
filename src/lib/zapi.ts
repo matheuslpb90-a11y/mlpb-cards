@@ -6,9 +6,11 @@ import { db } from "./db";
 // IMPORTANTE: confira os nomes dos campos com a documentação atual da Z-API no primeiro teste
 // (a tela Painel → Bot WhatsApp mostra o que a Z-API enviou ao site).
 
-const INSTANCE = process.env.ZAPI_INSTANCE_ID ?? "";
-const TOKEN = process.env.ZAPI_TOKEN ?? "";
-const CLIENT_TOKEN = process.env.ZAPI_CLIENT_TOKEN ?? "";
+// remove espaços, quebras de linha e aspas coladas por engano
+const clean = (v?: string) => (v ?? "").trim().replace(/^["'`]+|["'`]+$/g, "").trim();
+const INSTANCE = clean(process.env.ZAPI_INSTANCE_ID);
+const TOKEN = clean(process.env.ZAPI_TOKEN);
+const CLIENT_TOKEN = clean(process.env.ZAPI_CLIENT_TOKEN);
 const BASE = process.env.ZAPI_BASE_URL || "https://api.z-api.io";
 
 export function zapiEnabled() {
@@ -139,7 +141,15 @@ export async function diagnostics() {
     } catch {}
   }
   return {
-    configured: { instance: mask(INSTANCE), instanceFull: INSTANCE, token: TOKEN ? `…${TOKEN.slice(-4)}` : "", clientToken: CLIENT_TOKEN ? "configurado" : "não configurado" },
+    configured: {
+      instance: mask(INSTANCE),
+      instanceFull: INSTANCE,
+      instanceLength: INSTANCE.length,
+      token: TOKEN ? `${TOKEN.slice(0, 4)}…${TOKEN.slice(-4)}` : "",
+      tokenLength: TOKEN.length,
+      clientToken: CLIENT_TOKEN ? "configurado" : "não configurado",
+      rawHadSpaces: (process.env.ZAPI_INSTANCE_ID ?? "") !== INSTANCE || (process.env.ZAPI_TOKEN ?? "") !== TOKEN,
+    },
     seen: [...seen].map(([id, phone]) => ({ id, phone, matches: id === INSTANCE })),
     eventsCount: logs.length,
   };

@@ -34,7 +34,11 @@ export default async function BotPage() {
         <p className="text-slate-500">Na Z-API, conecte o WhatsApp da loja escaneando o QR Code da instância.</p>
         <div className="space-y-1 rounded-lg border p-3">
           <p className="font-semibold">Conferência da instância</p>
-          <p>ID configurado na Vercel (<code>ZAPI_INSTANCE_ID</code>): <code>{diag.configured.instance || "—"}</code> · token <code>{diag.configured.token || "—"}</code> · client-token {diag.configured.clientToken}</p>
+          <p>
+            ID configurado na Vercel (<code>ZAPI_INSTANCE_ID</code>): <code>{diag.configured.instance || "—"}</code> ({diag.configured.instanceLength} caracteres) · token{" "}
+            <code>{diag.configured.token || "—"}</code> ({diag.configured.tokenLength} caracteres) · client-token {diag.configured.clientToken}
+          </p>
+          {diag.configured.rawHadSpaces && <p className="text-amber-300">Havia espaços/aspas sobrando nos valores — já foram ignorados automaticamente.</p>}
           {diag.seen.length === 0 ? (
             <p className="text-slate-500">Ainda não chegou nenhum evento com ID de instância. Mande uma mensagem para o WhatsApp da loja e recarregue esta página.</p>
           ) : (
