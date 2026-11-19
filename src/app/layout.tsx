@@ -4,7 +4,7 @@ import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
 import { CartBadge } from "@/components/CartBadge";
 import { Logo } from "@/components/Logo";
-import { InstagramIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
+import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
 import { getCurrentUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
@@ -31,6 +31,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 {s.youtubeUrl && (
                   <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className={`${navLink} flex items-center gap-1`}>
                     <YoutubeIcon className="h-4 w-4 text-youtube" /> YouTube
+                  </a>
+                )}
+                {s.tiktokUrl && (
+                  <a href={s.tiktokUrl} target="_blank" rel="noreferrer" className={`${navLink} flex items-center gap-1`}>
+                    <TiktokIcon className="h-4 w-4 text-white" /> TikTok
                   </a>
                 )}
               </nav>
@@ -70,9 +75,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <YoutubeIcon className="h-4 w-4 text-youtube" /> YouTube
                   </a>
                 )}
-                {s.instagramUrl && (
-                  <a href={s.instagramUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
-                    <InstagramIcon className="h-4 w-4 text-pink-500" /> Instagram
+                {s.tiktokUrl && (
+                  <a href={s.tiktokUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
+                    <TiktokIcon className="h-4 w-4 text-white" /> TikTok
                   </a>
                 )}
               </div>

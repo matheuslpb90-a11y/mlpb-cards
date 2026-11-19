@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { saveSettingsAction } from "../actions";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
-type S = Record<"logoUrl" | "heroImageUrl" | "heroTitle" | "heroText" | "whatsappGroupUrl" | "youtubeUrl" | "youtubeVideoUrl" | "instagramUrl", string>;
+type S = Record<"logoUrl" | "heroImageUrl" | "heroTitle" | "heroText" | "whatsappGroupUrl" | "youtubeUrl" | "youtubeVideoUrl" | "tiktokUrl", string>;
 
 export function SettingsForm({ initial }: { initial: S }) {
   const [state, action, pending] = useActionState(saveSettingsAction, undefined);
@@ -30,7 +30,7 @@ export function SettingsForm({ initial }: { initial: S }) {
         <div><label className="label">Link de convite do grupo do WhatsApp (botão “Entre no grupo”)</label><input className="input" placeholder="https://chat.whatsapp.com/…" {...bind("whatsappGroupUrl")} /></div>
         <div><label className="label">Link do canal do YouTube</label><input className="input" placeholder="https://www.youtube.com/@seucanal" {...bind("youtubeUrl")} /></div>
         <div><label className="label">Vídeo em destaque na tela de início (link de um vídeo do YouTube)</label><input className="input" placeholder="https://www.youtube.com/watch?v=…" {...bind("youtubeVideoUrl")} /></div>
-        <div><label className="label">Instagram (opcional)</label><input className="input" placeholder="https://instagram.com/…" {...bind("instagramUrl")} /></div>
+        <div><label className="label">Link do perfil no TikTok</label><input className="input" placeholder="https://www.tiktok.com/@seuperfil" {...bind("tiktokUrl")} /></div>
         <p className="text-xs text-slate-500">O WhatsApp da loja (para pedidos) é o 61 99224-2345.</p>
       </section>
 

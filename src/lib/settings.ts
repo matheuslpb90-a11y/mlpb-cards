@@ -11,7 +11,7 @@ export const SETTING_DEFAULTS = {
   whatsappGroupUrl: "https://chat.whatsapp.com/DAXFItQiLZAAwo9a5ADzrh",
   youtubeUrl: "",
   youtubeVideoUrl: "",
-  instagramUrl: "",
+  tiktokUrl: "",
 };
 
 export type Settings = typeof SETTING_DEFAULTS;

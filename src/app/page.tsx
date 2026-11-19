@@ -4,7 +4,7 @@ import { ProductTile } from "@/components/ProductTile";
 import { CONDITIONS, LANGUAGES } from "@/lib/catalog";
 import { whatsappLink } from "@/lib/whatsapp";
 import { getSettings, youtubeId } from "@/lib/settings";
-import { WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
+import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +34,9 @@ export default async function HomePage() {
               <Link href="/catalogo?tipo=selados" className="btn-outline px-5 py-3">Selados →</Link>
               {s.youtubeUrl && (
                 <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className="btn-youtube px-5 py-3"><YoutubeIcon /> YouTube</a>
+              )}
+              {s.tiktokUrl && (
+                <a href={s.tiktokUrl} target="_blank" rel="noreferrer" className="btn border border-slate-300 bg-black px-5 py-3 text-white hover:border-brand"><TiktokIcon /> TikTok</a>
               )}
             </div>
           </div>
@@ -79,7 +82,10 @@ export default async function HomePage() {
           <div className="space-y-3">
             <h2 className="flex items-center gap-2 text-xl font-bold"><YoutubeIcon className="h-6 w-6 text-youtube" /> MLPB Cards no YouTube</h2>
             <p className="text-slate-600">Aberturas de boosters, leilões ao vivo, novidades e dicas para colecionadores.</p>
-            {s.youtubeUrl && <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className="btn-youtube">Inscreva-se no canal</a>}
+            <div className="flex flex-wrap gap-2">
+              {s.youtubeUrl && <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className="btn-youtube">Inscreva-se no canal</a>}
+              {s.tiktokUrl && <a href={s.tiktokUrl} target="_blank" rel="noreferrer" className="btn border border-slate-300 bg-black text-white hover:border-brand"><TiktokIcon /> Siga no TikTok</a>}
+            </div>
           </div>
         </section>
       )}
