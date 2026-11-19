@@ -35,7 +35,11 @@ O setup cria 3 cartas de exemplo, que você pode apagar pelo painel. Para não c
 | Variável | Para que serve |
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` | Endereço público do site (ex.: `https://www.mlpbcards.com.br`). Usado no retorno do pagamento. |
-| `NEXT_PUBLIC_WHATSAPP_NUMBER` | WhatsApp da loja, só números com 55 + DDD. |
+| `NEXT_PUBLIC_WHATSAPP_NUMBER` | WhatsApp da loja (padrão: `5561992242345`). |
+| `SUPERFRETE_TOKEN` | Token da SuperFrete. **Vazio = tabela de frete de teste.** |
+| `STORE_ORIGIN_CEP` | CEP de onde a loja envia. **Obrigatório** com a SuperFrete. |
+| `SUPERFRETE_SERVICES` | Serviços cotados: `1` PAC, `2` SEDEX, `17` Mini Envios (padrão: todos). |
+| `SUPERFRETE_SANDBOX` | `1` para usar o ambiente de testes da SuperFrete. |
 | `INFINITEPAY_HANDLE` | Sua InfiniteTag, sem o `$`. **Vazio = modo demonstração** (pagamento simulado). |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Administrador criado pelo `npm run db:seed`. |
 | `DATABASE_URL` | Banco de dados. |
@@ -51,9 +55,15 @@ A integração usa o **Checkout Integrado** da InfinitePay (`src/lib/infinitepay
 
 Se o pagamento não for concluído, o pedido continua como *Aguardando pagamento* com o estoque reservado. Ao cancelar o pedido pelo painel, as cartas voltam ao estoque.
 
-## Frete
+## Frete (SuperFrete)
 
-O frete usa uma tabela por região do CEP (`src/lib/shipping.ts`), com valores fáceis de ajustar. Para cotação em tempo real (Melhor Envio ou Correios), basta trocar essa função.
+Com `SUPERFRETE_TOKEN` e `STORE_ORIGIN_CEP` configurados, o checkout cota o frete **em tempo real na SuperFrete** usando o CEP do cliente. São mostrados PAC, SEDEX e Mini Envios, do mais barato para o mais caro, além da opção **Acumular pedido**.
+- O token é gerado no painel da SuperFrete, em **Integrações**.
+- O valor do frete é sempre recalculado no servidor na hora de criar o pedido. O navegador não consegue alterá-lo.
+- O peso e o tamanho da embalagem ficam em `src/lib/shipping.ts` (`PACKAGE_BASE_KG`, `KG_PER_CARD`, medidas em cm). Ajuste-os à embalagem que você usa.
+- Sem token, o checkout usa uma tabela de valores estimados por região, apenas para testes.
+
+> ⚠️ A integração foi feita conforme a API pública da SuperFrete (`POST /api/v0/calculator`). Antes de vender, faça uma cotação de teste com seu token, de preferência com `SUPERFRETE_SANDBOX=1` primeiro.
 
 ## Publicar (produção)
 

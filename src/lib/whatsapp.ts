@@ -1,6 +1,6 @@
 import { formatBRL } from "./money";
 
-export const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
+export const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "5561992242345").replace(/\D/g, "");
 
 export type WhatsItem = { name: string; setName?: string; quantity: number; priceCents: number };
 

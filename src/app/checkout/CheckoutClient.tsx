@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useCart } from "@/components/CartProvider";
 import { formatBRL } from "@/lib/money";
-import { shippingOptions, type ShippingMethod } from "@/lib/shipping";
+import type { ShippingOption } from "@/lib/shipping";
 import { cartMessage, whatsappLink } from "@/lib/whatsapp";
-import { checkoutAction } from "../actions";
+import { checkoutAction, quoteShippingAction } from "../actions";
 
 type Props = {
   demoMode: boolean;
@@ -15,13 +15,33 @@ type Props = {
 
 export function CheckoutClient({ user, demoMode }: Props) {
   const { items, count, subtotalCents, clear, loaded } = useCart();
-  const [method, setMethod] = useState<ShippingMethod | null>(null);
+  const [method, setMethod] = useState<string | null>(null);
+  const [options, setOptions] = useState<ShippingOption[]>([]);
+  const [quoting, setQuoting] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [whatsName, setWhatsName] = useState(user?.name ?? "");
 
-  const options = useMemo(() => (user ? shippingOptions(user.cep, count) : []), [user, count]);
-  const shipping = options.find((o) => o.method === method);
+  const cartKey = items.map((i) => `${i.cardId}:${i.quantity}`).join(",");
+  useEffect(() => {
+    if (!user || !loaded || !cartKey) return;
+    let cancelled = false;
+    setQuoting(true);
+    setQuoteError("");
+    quoteShippingAction(items.map((i) => ({ cardId: i.cardId, quantity: i.quantity }))).then((res) => {
+      if (cancelled) return;
+      setQuoting(false);
+      setOptions(res.options ?? []);
+      setQuoteError(res.error ?? "");
+      setMethod((m) => (res.options?.some((o) => o.id === m) ? m : null));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.cep, loaded, cartKey]);
+  const shipping = options.find((o) => o.id === method);
 
   if (!loaded) return null;
   if (items.length === 0)
@@ -91,9 +111,11 @@ export function CheckoutClient({ user, demoMode }: Props) {
 
               <fieldset className="space-y-2">
                 <legend className="mb-1 text-sm font-semibold">Forma de envio</legend>
-                {options.map((o) => (
-                  <label key={o.method} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${method === o.method ? "border-brand bg-brand-light" : "border-slate-200"}`}>
-                    <input type="radio" name="shipping" checked={method === o.method} onChange={() => setMethod(o.method)} />
+                {quoting && <p className="text-sm text-slate-500">Calculando frete…</p>}
+                {quoteError && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{quoteError}</p>}
+                {!quoting && options.map((o) => (
+                  <label key={o.id} className={`flex cursor-pointer gap-3 rounded-lg border p-3 ${method === o.id ? "border-brand bg-brand-light" : "border-slate-200"}`}>
+                    <input type="radio" name="shipping" checked={method === o.id} onChange={() => setMethod(o.id)} />
                     <span className="flex-1">
                       <span className="flex justify-between font-medium">
                         <span>{o.label}</span>
@@ -111,7 +133,7 @@ export function CheckoutClient({ user, demoMode }: Props) {
               </div>
 
               {error && <p className="rounded bg-red-50 p-2 text-sm text-red-700">{error}</p>}
-              <button className="btn-primary w-full py-3" onClick={pay} disabled={pending || !method}>
+              <button className="btn-primary w-full py-3" onClick={pay} disabled={pending || quoting || !method}>
                 {pending ? "Gerando pagamento…" : "Pagar com InfinitePay"}
               </button>
               {demoMode && (

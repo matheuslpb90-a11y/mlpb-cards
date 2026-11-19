@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./db";
-import { shippingFor, type ShippingMethod } from "./shipping";
+import { ACCUMULATE, quoteShipping } from "./shipping";
 import { createCheckoutLink, infinitePayEnabled } from "./infinitepay";
 import type { User } from "@prisma/client";
 
@@ -19,13 +19,33 @@ export function siteUrl() {
 }
 
 /** Cria o pedido reservando o estoque e devolve a URL para pagamento. */
-export async function placeOrder(user: User, lines: CartLine[], method: ShippingMethod) {
+/** Soma as cartas do carrinho com os preços atuais do banco (para cotar o frete). */
+export async function cartTotals(lines: CartLine[]) {
+  const ids = [...new Set(lines.map((l) => l.cardId))];
+  const cards = await db.card.findMany({ where: { id: { in: ids }, active: true }, select: { id: true, priceCents: true } });
+  let totalCards = 0;
+  let subtotalCents = 0;
+  for (const l of lines) {
+    const c = cards.find((x) => x.id === l.cardId);
+    if (!c || !Number.isInteger(l.quantity) || l.quantity < 1) continue;
+    totalCards += l.quantity;
+    subtotalCents += c.priceCents * l.quantity;
+  }
+  return { totalCards, subtotalCents };
+}
+
+export async function placeOrder(user: User, lines: CartLine[], shippingId: string) {
   const merged = new Map<string, number>();
   for (const l of lines) {
     if (!Number.isInteger(l.quantity) || l.quantity < 1) throw new Error("Quantidade inválida");
     merged.set(l.cardId, (merged.get(l.cardId) ?? 0) + l.quantity);
   }
   if (merged.size === 0) throw new Error("Seu carrinho está vazio");
+
+  // Cota o frete no servidor (o valor nunca vem do navegador).
+  const totals = await cartTotals(lines);
+  const shipping = (await quoteShipping(user.cep, totals.totalCards, totals.subtotalCents)).find((o) => o.id === shippingId);
+  if (!shipping) throw new Error("Forma de envio indisponível. Escolha novamente.");
 
   const order = await db.$transaction(async (tx) => {
     const cards = await tx.card.findMany({ where: { id: { in: [...merged.keys()] } } });
@@ -45,16 +65,14 @@ export async function placeOrder(user: User, lines: CartLine[], method: Shipping
       if (updated.count === 0) throw new Error(`Estoque insuficiente de "${card.name}".`);
     }
 
-    const totalCards = items.reduce((s, i) => s + i.quantity, 0);
     const subtotalCents = items.reduce((s, i) => s + i.card.priceCents * i.quantity, 0);
-    const shipping = shippingFor(user.cep, totalCards, method);
     const last = await tx.order.findFirst({ orderBy: { code: "desc" }, select: { code: true } });
 
     return tx.order.create({
       data: {
         code: (last?.code ?? 1000) + 1,
         userId: user.id,
-        shippingMethod: method,
+        shippingMethod: shipping.id === ACCUMULATE ? ACCUMULATE : shipping.label,
         shippingCents: shipping.priceCents,
         subtotalCents,
         totalCents: subtotalCents + shipping.priceCents,
@@ -109,7 +127,7 @@ export async function markOrderPaid(code: number, info: { transactionNsu?: strin
   return db.order.update({
     where: { id: order.id },
     data: {
-      status: order.shippingMethod === "ACUMULAR" ? "ACUMULANDO" : "PAGO",
+      status: order.shippingMethod === ACCUMULATE ? "ACUMULANDO" : "PAGO",
       paidAt: new Date(),
       transactionNsu: info.transactionNsu ?? "",
       receiptUrl: info.receiptUrl ?? "",

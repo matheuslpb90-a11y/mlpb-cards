@@ -5,8 +5,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, destroySession, getCurrentUser, hashPassword, verifyPassword } from "@/lib/auth";
 import { onlyDigits } from "@/lib/money";
-import { placeOrder, type CartLine } from "@/lib/orders";
-import type { ShippingMethod } from "@/lib/shipping";
+import { cartTotals, placeOrder, type CartLine } from "@/lib/orders";
+import { quoteShipping, type ShippingOption } from "@/lib/shipping";
 
 export type FormState = { error?: string; ok?: boolean } | undefined;
 
@@ -66,15 +66,24 @@ export async function updateProfileAction(_: FormState, form: FormData): Promise
   return { ok: true };
 }
 
-export async function checkoutAction(
-  lines: CartLine[],
-  method: ShippingMethod,
-): Promise<{ url?: string; error?: string }> {
+export async function quoteShippingAction(lines: CartLine[]): Promise<{ options?: ShippingOption[]; error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Faça login para calcular o frete." };
+  try {
+    const { totalCards, subtotalCents } = await cartTotals(lines);
+    if (totalCards === 0) return { error: "Seu carrinho está vazio." };
+    return { options: await quoteShipping(user.cep, totalCards, subtotalCents) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Não foi possível calcular o frete." };
+  }
+}
+
+export async function checkoutAction(lines: CartLine[], shippingId: string): Promise<{ url?: string; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Faça login ou crie seu cadastro para pagar pelo site." };
-  if (!["PAC", "SEDEX", "ACUMULAR"].includes(method)) return { error: "Escolha uma forma de envio." };
+  if (!shippingId) return { error: "Escolha uma forma de envio." };
   try {
-    const url = await placeOrder(user, lines, method);
+    const url = await placeOrder(user, lines, shippingId);
     return { url };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Não foi possível criar o pedido." };
