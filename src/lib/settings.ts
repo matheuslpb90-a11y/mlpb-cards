@@ -8,7 +8,7 @@ export const SETTING_DEFAULTS = {
   heroTitle: "MLPB Cards",
   heroText:
     "A MLPB Cards nasceu para aproximar quem vive o hobby de verdade. Um espaço feito para colecionadores comprarem, venderem, trocarem e participarem de leilões de Pokémon TCG com mais conexão e comunidade.",
-  whatsappGroupUrl: "",
+  whatsappGroupUrl: "https://chat.whatsapp.com/DAXFItQiLZAAwo9a5ADzrh",
   youtubeUrl: "",
   youtubeVideoUrl: "",
   instagramUrl: "",
