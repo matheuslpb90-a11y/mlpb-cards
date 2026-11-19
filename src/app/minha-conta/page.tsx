@@ -6,6 +6,7 @@ import { STATUS_LABEL } from "@/lib/orders";
 import { whatsappLink } from "@/lib/whatsapp";
 import { logoutAction } from "../actions";
 import { boxBalance, boxUrl, BOX_STATUS, freeShippingCents } from "@/lib/boxes";
+import { phoneVariants } from "@/lib/phone";
 import { ProfileForm } from "./ProfileForm";
 
 export const dynamic = "force-dynamic";
@@ -13,10 +14,9 @@ export const dynamic = "force-dynamic";
 export default async function AccountPage() {
   const user = await requireUser("/minha-conta");
   const orders = await db.order.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, include: { items: true } });
-  const phone = user.phone.replace(/\D/g, "");
   const [boxes, free] = await Promise.all([
     db.box.findMany({
-      where: { archived: false, OR: [{ userId: user.id }, ...(phone ? [{ phone: phone.startsWith("55") ? phone : `55${phone}` }] : [])] },
+      where: { archived: false, OR: [{ userId: user.id }, ...(user.phone ? [{ phone: { in: phoneVariants(user.phone) } }] : [])] },
       include: { orders: true, invoices: true },
       orderBy: { createdAt: "desc" },
     }),

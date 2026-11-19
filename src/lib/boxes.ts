@@ -3,8 +3,9 @@ import { randomBytes } from "crypto";
 import { db } from "./db";
 import { formatBRL } from "./money";
 import { siteUrl } from "./orders";
-import { normalizePhone, sendText, zapiEnabled } from "./zapi";
+import { sendText, zapiEnabled } from "./zapi";
 import { freeShippingCents } from "./free-shipping";
+import { phoneKey, phoneVariants } from "./phone";
 
 export const BOX_STATUS: Record<string, string> = {
   PENDENTE: "Pendente",
@@ -44,9 +45,9 @@ export const boxParticipations = (b: BoxWithEntries) =>
 
 /** Caixa aberta (Pendente) do cliente — cria uma nova se não houver. */
 async function openBoxFor(phone: string, name: string, userId?: string) {
-  const p = normalizePhone(phone);
+  const p = phoneKey(phone);
   const existing = await db.box.findFirst({
-    where: { status: "PENDENTE", archived: false, OR: [{ phone: p }, ...(userId ? [{ userId }] : [])] },
+    where: { status: "PENDENTE", archived: false, OR: [{ phone: { in: phoneVariants(phone) } }, ...(userId ? [{ userId }] : [])] },
     orderBy: { createdAt: "asc" },
   });
   if (existing) {
@@ -63,7 +64,7 @@ async function openBoxFor(phone: string, name: string, userId?: string) {
 export async function addInvoiceToBox(invoiceId: string) {
   const inv = await db.invoice.findUnique({ where: { id: invoiceId } });
   if (!inv || inv.boxId || inv.status !== "PAGO") return null;
-  const user = await db.user.findFirst({ where: { phone: { in: [inv.phone, inv.phone.replace(/^55/, "")] } } });
+  const user = await db.user.findFirst({ where: { phone: { in: phoneVariants(inv.phone) } } });
   const box = await openBoxFor(inv.phone, inv.name, user?.id);
   await db.invoice.update({ where: { id: inv.id }, data: { boxId: box.id } });
   return box;

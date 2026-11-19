@@ -2,7 +2,8 @@ import "server-only";
 import type { AuctionItem } from "@prisma/client";
 import { db } from "./db";
 import { formatBRL } from "./money";
-import { log, normalizePhone, sendImage, sendPoll, sendText, sendVideo } from "./zapi";
+import { log, sendImage, sendPoll, sendText, sendVideo } from "./zapi";
+import { phoneKey } from "./phone";
 import { siteUrl } from "./orders";
 
 export const AUCTION_STATUS: Record<string, string> = {
@@ -109,7 +110,7 @@ export async function registerVote(input: { pollMessageId: string; phone: string
   if (!item) return { ok: false, reason: "enquete não encontrada" };
   const a = item.lot.auction;
   if (a.status !== "ATIVO" || new Date() > a.endsAt) return { ok: false, reason: "leilão fora do horário" };
-  const phone = normalizePhone(input.phone);
+  const phone = phoneKey(input.phone);
   const values = input.options.map(parseOptionCents).filter((v): v is number => v !== null);
   if (values.length === 0) {
     await db.auctionVote.deleteMany({ where: { itemId: item.id, phone } }); // retirou o voto

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { formatBRL } from "@/lib/money";
 import { BOX_STATUS, backfillBoxes, boxBalance, boxUrl, boxParticipations, daysOpen, freeShippingCents } from "@/lib/boxes";
 import { BoxRow, FreeShippingSetting } from "./BoxControls";
+import { phoneKey, phoneVariants } from "@/lib/phone";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -13,12 +14,12 @@ export default async function BoxesPage({ searchParams }: { searchParams: SP }) 
   const sp = await searchParams;
   await backfillBoxes().catch(() => {});
   const now = new Date();
-  const debtorPhones = (await db.invoice.findMany({ where: { status: "PENDENTE", dueAt: { lt: now } }, select: { phone: true } })).map((i) => i.phone);
+  const debtorPhones = [...new Set((await db.invoice.findMany({ where: { status: "PENDENTE", dueAt: { lt: now } }, select: { phone: true } })).map((i) => phoneKey(i.phone)))];
 
   const where: Prisma.BoxWhereInput = { archived: sp.arquivadas === "1" };
   if (sp.status) where.status = sp.status;
-  if (sp.q) where.OR = [{ name: { contains: sp.q, mode: "insensitive" } }, { phone: { contains: sp.q.replace(/\D/g, "") || sp.q } }, ...(Number(sp.q) ? [{ code: Number(sp.q) }] : [])];
-  if (sp.inadimplentes === "1") where.phone = { in: debtorPhones };
+  if (sp.q) where.OR = [{ name: { contains: sp.q, mode: "insensitive" } }, { phone: { contains: phoneKey(sp.q).slice(-8) || sp.q } }, ...(Number(sp.q) ? [{ code: Number(sp.q) }] : [])];
+  if (sp.inadimplentes === "1") where.phone = { in: debtorPhones.flatMap(phoneVariants) };
 
   const [boxes, all, threshold] = await Promise.all([
     db.box.findMany({ where, include: { orders: true, invoices: true }, orderBy: { createdAt: "desc" }, take: 300 }),
@@ -58,7 +59,7 @@ export default async function BoxesPage({ searchParams }: { searchParams: SP }) 
         <div className="flex flex-wrap items-center gap-2">
           <form className="flex-1"><input name="q" defaultValue={sp.q} className="input" placeholder="Buscar por cliente, telefone ou nº da caixa…" /></form>
           <Link href={qs({ inadimplentes: sp.inadimplentes === "1" ? undefined : "1" })} className={`rounded-lg border px-3 py-2 text-sm ${sp.inadimplentes === "1" ? "border-red-500 text-red-300" : "border-red-900 text-red-300"}`}>
-            ⚠ Inadimplentes <span className="rounded-full bg-red-950/60 px-1.5">{new Set(debtorPhones).size}</span>
+            ⚠ Inadimplentes <span className="rounded-full bg-red-950/60 px-1.5">{debtorPhones.length}</span>
           </Link>
           <Link href={qs({ arquivadas: sp.arquivadas === "1" ? undefined : "1" })} className={`rounded-lg border px-3 py-2 text-sm ${sp.arquivadas === "1" ? "border-brand text-brand" : ""}`}>🗄 Arquivadas</Link>
           <Link href={qs({ ordem: sp.ordem === "saldo" ? "antigas" : sp.ordem === "antigas" ? undefined : "saldo" })} className="rounded-lg border px-3 py-2 text-sm">
@@ -87,7 +88,7 @@ export default async function BoxesPage({ searchParams }: { searchParams: SP }) 
                   shippingPaid: b.shippingPaid, shippingMethod: b.shippingMethod, trackingCode: b.trackingCode,
                   created: b.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }),
                   closed: b.closedAt?.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) ?? "",
-                  days: daysOpen(b), debtor: debtorPhones.includes(b.phone), link: boxUrl(b),
+                  days: daysOpen(b), debtor: debtorPhones.includes(phoneKey(b.phone)), link: boxUrl(b),
                 }}
                 balance={balance}
                 free={balance >= threshold || b.shippingMethod === "GRATIS"}
