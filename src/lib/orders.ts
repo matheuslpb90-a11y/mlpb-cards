@@ -15,7 +15,11 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export function siteUrl() {
-  return (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const url =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "") ||
+    "http://localhost:3000";
+  return url.replace(/\/$/, "");
 }
 
 /** Cria o pedido reservando o estoque e devolve a URL para pagamento. */

@@ -42,7 +42,7 @@ Entre em `/entrar` com `ADMIN_EMAIL` e `ADMIN_PASSWORD`. O botão **Painel** apa
 | `SUPERFRETE_SERVICES` | Serviços cotados: `1` PAC, `2` SEDEX, `17` Mini Envios (padrão: todos). |
 | `SUPERFRETE_SANDBOX` | `1` para usar o ambiente de testes da SuperFrete. |
 | `INFINITEPAY_HANDLE` | InfiniteTag da loja, sem o `$` (padrão: `mlpbcards`). Use `""` para o modo demonstração. |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Administrador criado pelo `npm run db:seed`. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Login do painel (padrão do e-mail: `admin@mlpbcards.com.br`). Senha com no mínimo 8 caracteres. |
 | `DATABASE_URL` | Banco de dados. |
 
 ## Pagamento (InfinitePay)
@@ -66,13 +66,16 @@ Com `SUPERFRETE_TOKEN` e `STORE_ORIGIN_CEP` configurados, o checkout cota o fret
 
 > ⚠️ A integração foi feita conforme a API pública da SuperFrete (`POST /api/v0/calculator`). Antes de vender, faça uma cotação de teste com seu token, de preferência com `SUPERFRETE_SANDBOX=1` primeiro.
 
-## Publicar (produção)
+## Publicar (produção) — Vercel + Neon
 
-O `npm run build` já cria e atualiza as tabelas do banco e o usuário admin (`prisma db push` + `prisma db seed`). Não é preciso rodar nada à mão.
+O build (`scripts/build.mjs`) cria e atualiza as tabelas e o usuário admin sozinho.
 
-1. **Neon** (neon.tech): crie um projeto na região *São Paulo* e copie a *connection string*.
-2. **Vercel** (vercel.com): importe este repositório e cadastre as variáveis de ambiente (`DATABASE_URL`, `NEXT_PUBLIC_SITE_URL`, `ADMIN_PASSWORD`, `SUPERFRETE_TOKEN`, `SEED_SAMPLE_CARDS=0`). Depois clique em **Deploy**.
-3. **Domínio**: em Vercel → Settings → Domains, adicione `www.mlpbcards.com.br` e crie no Registro.br o registro `CNAME www → cname.vercel-dns.com`.
+1. vercel.com → **Continue with GitHub** → **Add New → Project** → importar `mlpb-cards`.
+2. Variáveis: `ADMIN_PASSWORD` (mín. 8 caracteres) e `SUPERFRETE_TOKEN` → **Deploy**.
+3. Projeto → **Storage** → **Neon** (região São Paulo) → conectar ao projeto → **Deployments → Redeploy**.
+4. Domínio: **Settings → Domains** → `www.mlpbcards.com.br` (CNAME `www` → `cname.vercel-dns.com` no Registro.br).
+
+A URL pública é detectada automaticamente na Vercel. Para trocar a senha do admin, altere `ADMIN_PASSWORD` e faça Redeploy.
 
 ## Migrar o catálogo do site antigo
 
