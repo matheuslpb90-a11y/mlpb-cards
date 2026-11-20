@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "./db";
+import { whapiEnabled, whapiGroups, whapiHealth, whapiMedia, whapiPoll, whapiText } from "./whapi";
 
 // Integração com a Z-API (https://z-api.io) — conexão do WhatsApp da loja.
 // Variáveis (na Vercel): ZAPI_INSTANCE_ID, ZAPI_TOKEN, ZAPI_CLIENT_TOKEN (token de segurança da conta).
@@ -22,12 +23,14 @@ const CHANNEL = INSTANCE || (OMNI_URL.match(/channels\/([^/?#]+)/)?.[1] ?? "");
 const IS_OMNI = Boolean(SECRET_KEY);
 const OMNI_COMPAT = clean(process.env.ZAPI_OMNI_BASE_URL) || "https://zapi.omni.z-api.io";
 
+// Prioridade: Whapi (WHAPI_TOKEN) > Omni (ZAPI_SECRET_KEY) > Z-API clássica
+const IS_WHAPI = whapiEnabled();
 export function zapiEnabled() {
-  return Boolean(CHANNEL && TOKEN);
+  return IS_WHAPI || Boolean(CHANNEL && TOKEN);
 }
-export const zapiMode = () => (IS_OMNI ? "omni" : "classica");
+export const zapiMode = () => (IS_WHAPI ? "whapi" : IS_OMNI ? "omni" : "classica");
 /** A Omni não envia enquetes: nela o leilão é por lance em mensagem. */
-export const supportsPolls = () => !IS_OMNI;
+export const supportsPolls = () => IS_WHAPI || !IS_OMNI;
 
 /** Cabeçalhos de autenticação (a Omni recebe o token do canal no cabeçalho). */
 function authHeaders(): Record<string, string> {
@@ -63,14 +66,17 @@ type SendResult = { zaapId?: string; messageId?: string; id?: string };
 const msgId = (r: SendResult) => r?.messageId ?? r?.id ?? r?.zaapId ?? "";
 
 export async function sendText(phone: string, message: string) {
+  if (IS_WHAPI) return whapiText(phone, message);
   return msgId(await call<SendResult>("send-text", { phone, message }));
 }
 
 export async function sendImage(phone: string, image: string, caption: string) {
+  if (IS_WHAPI) return whapiMedia("image", phone, image, caption);
   return msgId(await call<SendResult>("send-image", { phone, image, caption }));
 }
 
 export async function sendVideo(phone: string, video: string, caption: string) {
+  if (IS_WHAPI) return whapiMedia("video", phone, video, caption);
   return msgId(await call<SendResult>("send-video", { phone, video, caption }));
 }
 
@@ -80,6 +86,11 @@ export async function sendReaction(phone: string, messageId: string, reaction: s
 
 export async function sendPoll(phone: string, message: string, options: string[]) {
   if (!supportsPolls()) throw new Error("A Omni Z-API não envia enquetes — use o leilão por lance em mensagem.");
+  if (IS_WHAPI) {
+    const r = await whapiPoll(phone, message, options);
+    lastPollMap = r.map;
+    return r.id;
+  }
   return msgId(
     await call<SendResult>("send-poll", { phone, message, poll: options.map((name) => ({ name })), pollMaxOptions: 1 }),
   );
@@ -97,7 +108,11 @@ function toGroups(data: unknown): ZGroup[] {
 }
 
 /** Lista os grupos da instância. Tenta "groups" e, se vier vazio, "chats". */
+/** Mapa id-da-opção → texto da última enquete enviada (Whapi). */
+export let lastPollMap: Record<string, string> = {};
+
 export async function listGroups(): Promise<ZGroup[]> {
+  if (IS_WHAPI) return whapiGroups();
   if (IS_OMNI) return []; // a Omni não lista grupos: usamos os grupos vistos nas mensagens recebidas
   const errors: string[] = [];
   for (const path of ["groups?page=1&pageSize=100", "chats?page=1&pageSize=300"]) {
@@ -119,6 +134,10 @@ export async function groupsFromLogs(): Promise<ZGroup[]> {
   for (const l of logs) {
     try {
       const b = JSON.parse(l.payload) as Record<string, unknown>;
+      for (const m of (Array.isArray(b.messages) ? b.messages : []) as Record<string, unknown>[]) {
+        const cid = String(m.chat_id ?? "");
+        if (cid.includes("@g.us") && !map.has(cid)) map.set(cid, String(m.chat_name ?? ""));
+      }
       const phone = String(b.phone ?? b.chatId ?? "");
       if (b.isGroup === true || phone.includes("-group") || phone.includes("@g.us"))
         if (!map.has(phone)) map.set(phone, String(b.chatName ?? b.groupName ?? b.subject ?? ""));
@@ -128,6 +147,7 @@ export async function groupsFromLogs(): Promise<ZGroup[]> {
 }
 
 export async function connectionStatus(): Promise<{ connected: boolean; detail: string }> {
+  if (IS_WHAPI) return whapiHealth();
   if (IS_OMNI) return { connected: true, detail: "Omni Z-API (status no painel da Omni)" };
   try {
     const s = await call<{ connected?: boolean; error?: string; smartphoneConnected?: boolean }>("status");
@@ -189,6 +209,20 @@ export async function diagnostics() {
 export async function probeOmni(groupId: string) {
   const out: { tentativa: string; status: number | string; resposta: string }[] = [];
   if (!groupId) return [{ tentativa: "envio", status: "—", resposta: "Escolha o grupo primeiro." }];
+  if (IS_WHAPI) {
+    for (const [label, fn] of [
+      ["Whapi: texto", () => whapiText(groupId, "🤖 Teste do bot MLPB Cards — conexão funcionando!")],
+      ["Whapi: enquete", () => whapiPoll(groupId, "🤖 Teste de enquete do bot MLPB", ["R$ 10,00", "R$ 15,00"]).then((r) => JSON.stringify(r))],
+    ] as [string, () => Promise<string>][]) {
+      try {
+        out.push({ tentativa: label, status: 200, resposta: String(await fn()).slice(0, 300) });
+      } catch (e) {
+        out.push({ tentativa: label, status: "erro", resposta: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    await log("diagnostico", { modo: "whapi", out });
+    return out;
+  }
   try {
     const r = await fetch(endpoint("send-text"), {
       method: "POST",

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { log } from "@/lib/zapi";
+import { whapiPhone } from "@/lib/whapi";
 import { registerTextBid, registerVote, runSchedule } from "@/lib/auctions";
 
 // Recebe eventos da Z-API (configure em Webhooks → "Ao receber").
@@ -13,6 +14,44 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ ok: false }, { status: 400 });
+
+  // ---- Whapi: { messages: [...] } e { messages_updates: [...] } ----
+  if (Array.isArray(body.messages) || Array.isArray(body.messages_updates)) {
+    await log("evento", body);
+    const msgs = (Array.isArray(body.messages) ? body.messages : []) as Record<string, unknown>[];
+    for (const m of msgs) {
+      if (m.from_me === true) continue;
+      const action = m.action as Record<string, unknown> | undefined;
+      const from = String(m.phone ?? "") || whapiPhone(m.from);
+      const name = String(m.from_name ?? "");
+      if (m.type === "action" && action && /vote/i.test(String(action.type ?? ""))) {
+        const votes = ((action.votes ?? action.selected ?? []) as unknown[]).map((v) => (typeof v === "string" ? v : String((v as Record<string, unknown>)?.name ?? (v as Record<string, unknown>)?.id ?? "")));
+        const res = await registerVote({ pollMessageId: String(action.target ?? ""), phone: from, name, options: votes });
+        await log("voto", { poll: action.target, from, name, votes, res });
+      } else if (m.type === "text") {
+        const text = String((m.text as Record<string, unknown> | undefined)?.body ?? "");
+        const chat = String(m.chat_id ?? "");
+        if (text && chat.includes("@g.us")) {
+          const res: { ok: boolean; reason?: string } = await registerTextBid({ group: chat, phone: from, name, text }).catch((e) => ({ ok: false, reason: String(e) }));
+          if (res.ok || res.reason !== "não é lance") await log("lance", { text, res });
+        }
+      }
+    }
+    // atualizações de enquete com a lista de quem votou em cada opção
+    const updates = (Array.isArray(body.messages_updates) ? body.messages_updates : []) as Record<string, unknown>[];
+    for (const u of updates) {
+      const after = (u.after_update ?? u.message ?? u) as Record<string, unknown>;
+      const pollObj = after.poll as Record<string, unknown> | undefined;
+      const results = (pollObj?.results ?? []) as Record<string, unknown>[];
+      for (const r of results)
+        for (const voter of (r.voters ?? []) as unknown[]) {
+          const res = await registerVote({ pollMessageId: String(after.id ?? u.id ?? ""), phone: whapiPhone(voter), name: "", options: [String(r.name ?? "")] });
+          await log("voto", { poll: after.id ?? u.id, voter, option: r.name, res });
+        }
+    }
+    runSchedule().catch(() => {});
+    return NextResponse.json({ ok: true });
+  }
 
   const poll = (body.pollVote ?? body.poll_vote ?? body.pollUpdate) as Record<string, unknown> | undefined;
   if (poll) {

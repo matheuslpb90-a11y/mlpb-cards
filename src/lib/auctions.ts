@@ -2,7 +2,8 @@ import "server-only";
 import type { AuctionItem } from "@prisma/client";
 import { db } from "./db";
 import { formatBRL } from "./money";
-import { log, sendImage, sendPoll, sendText, sendVideo, supportsPolls } from "./zapi";
+import { lastPollMap, log, sendImage, sendPoll, sendText, sendVideo, supportsPolls, zapiMode } from "./zapi";
+import { whapiPollResults } from "./whapi";
 import { phoneKey } from "./phone";
 import { siteUrl } from "./orders";
 
@@ -109,7 +110,7 @@ export async function startAuction(auctionId: string) {
         `${lot.position}.${it.position} — ${it.name}${it.number ? ` (${it.number})` : ""}`,
         opts.map((c, i) => optionLabel(c, !hideBuyout && i === opts.length - 1)),
       );
-      await db.auctionItem.update({ where: { id: it.id }, data: { pollMessageId: pollId } });
+      await db.auctionItem.update({ where: { id: it.id }, data: { pollMessageId: pollId, pollMapJson: JSON.stringify(lastPollMap) } });
     }
   }
 }
@@ -118,6 +119,9 @@ export async function startAuction(auctionId: string) {
 export async function registerVote(input: { pollMessageId: string; phone: string; name: string; options: string[] }) {
   const item = await db.auctionItem.findFirst({ where: { pollMessageId: input.pollMessageId }, include: { lot: { include: { auction: true } } } });
   if (!item) return { ok: false, reason: "enquete não encontrada" };
+  // Whapi pode mandar o id da opção em vez do texto: traduz pelo mapa salvo no envio
+  const map = parseJson<Record<string, string>>(item.pollMapJson || "{}", {});
+  input = { ...input, options: input.options.map((o) => map[o] ?? o) };
   const a = item.lot.auction;
   if (a.status !== "ATIVO" || new Date() > a.endsAt) return { ok: false, reason: "leilão fora do horário" };
   const phone = phoneKey(input.phone);
@@ -214,6 +218,29 @@ export async function closeAuction(auctionId: string) {
   });
   if (!a || a.status !== "ATIVO") return;
   await db.auction.update({ where: { id: a.id }, data: { status: "ENCERRADO" } });
+
+  // Whapi: confere os votos direto na enquete (caso algum aviso de voto tenha se perdido)
+  if (zapiMode() === "whapi" && a.mode === "POLL") {
+    for (const lot of a.lots)
+      for (const it of lot.items) {
+        if (!it.pollMessageId) continue;
+        try {
+          const results = await whapiPollResults(it.pollMessageId);
+          const known = new Set(it.votes.map((v) => v.phone));
+          for (const r of results)
+            for (const voter of r.voters) {
+              const cents = parseOptionCents(r.name);
+              const ph = phoneKey(voter);
+              if (cents == null || known.has(ph)) continue;
+              const v = await db.auctionVote.create({ data: { itemId: it.id, phone: ph, name: "", optionCents: cents } });
+              it.votes.push(v);
+            }
+          it.votes.sort((x, y) => y.optionCents - x.optionCents || x.votedAt.getTime() - y.votedAt.getTime());
+        } catch (e) {
+          await log("erro-conferencia-enquete", { item: it.id, error: String(e) });
+        }
+      }
+  }
 
   const byWinner = new Map<string, { name: string; items: { title: string; cents: number }[] }>();
   const lines: string[] = [];

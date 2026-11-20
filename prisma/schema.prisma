@@ -175,6 +175,7 @@ model AuctionItem {
   buyoutCents    Int           @default(0)
   optionsJson    String        @default("[]")
   pollMessageId  String        @default("")
+  pollMapJson    String        @default("") // id-da-opção → texto (Whapi)
   winnerPhone    String        @default("")
   winnerName     String        @default("")
   winningCents   Int?

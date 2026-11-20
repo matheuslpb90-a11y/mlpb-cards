@@ -23,7 +23,7 @@ export default async function BotPage() {
       <h1 className="text-2xl font-bold">Bot WhatsApp (Z-API)</h1>
 
       <section className="card space-y-2 p-5 text-sm">
-        <h2 className="text-lg font-bold">1. Conectar a Z-API</h2>
+        <h2 className="text-lg font-bold">1. Conectar o WhatsApp (Whapi.Cloud ou Z-API)</h2>
         {zapiEnabled() ? (
           <p className="text-green-300">✔ Credenciais da Z-API configuradas na Vercel.</p>
         ) : (
@@ -34,7 +34,7 @@ export default async function BotPage() {
         <p className="text-slate-500">Na Z-API, conecte o WhatsApp da loja escaneando o QR Code da instância.</p>
         <div className="space-y-1 rounded-lg border p-3">
           <p className="font-semibold">Conferência da instância</p>
-          <p>Modo: <strong>{diag.configured.mode === "omni" ? `Z-API Omni (${diag.configured.omniUrl})` : "Z-API clássica"}</strong></p>
+          <p>Modo: <strong>{diag.configured.mode === "whapi" ? "Whapi.Cloud (enquetes ✔)" : diag.configured.mode === "omni" ? `Z-API Omni — sem enquete, lance por mensagem` : "Z-API clássica (enquetes ✔)"}</strong></p>
           {diag.configured.mode === "omni" && (
             <p className={diag.configured.secretKey === "configurada" ? "text-green-300" : "text-amber-300"}>
               Secret Key (<code>ZAPI_SECRET_KEY</code>): {diag.configured.secretKey}
@@ -61,7 +61,7 @@ export default async function BotPage() {
 
       <section className="card space-y-2 p-5 text-sm">
         <h2 className="text-lg font-bold">2. Webhook (para receber os votos)</h2>
-        <p>Na Z-API, em <strong>Webhooks</strong>, cole este endereço no campo <strong>“Ao receber”</strong>:</p>
+        <p>Cole este endereço como webhook do canal — na <strong>Whapi</strong>: Settings do canal → Webhooks (eventos <em>messages</em>, POST e PATCH); na <strong>Z-API</strong>: campo “Ao receber”:</p>
         <code className="block break-all rounded bg-slate-100 p-3 text-brand">{webhook}</code>
       </section>
 
