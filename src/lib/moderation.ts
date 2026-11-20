@@ -31,6 +31,8 @@ export type ModConfig = {
   words: string[]; // palavras proibidas
   ddi: { blockForeign: boolean; whitelist: string[] };
   warns: { max: number }; // ao atingir, remove do grupo (0 = nunca remove)
+  // parceiros (donos de outros grupos/lojas): podem divulgar links nos dias/horários deles, sem aviso
+  partners: { phones: string[]; days: number[]; startHour: number; endHour: number };
 };
 
 export const DEFAULT_MOD: ModConfig = {
@@ -46,6 +48,7 @@ export const DEFAULT_MOD: ModConfig = {
   words: [],
   ddi: { blockForeign: true, whitelist: [] },
   warns: { max: 3 },
+  partners: { phones: [], days: [1, 3, 5], startHour: 8, endHour: 20 }, // seg, qua, sex 8h–19:59
 };
 
 export async function getModConfig(): Promise<ModConfig> {
@@ -60,6 +63,7 @@ export async function getModConfig(): Promise<ModConfig> {
       links: { ...DEFAULT_MOD.links, ...c.links },
       ddi: { ...DEFAULT_MOD.ddi, ...c.ddi },
       warns: { ...DEFAULT_MOD.warns, ...c.warns },
+      partners: { ...DEFAULT_MOD.partners, ...c.partners },
     };
   } catch {
     return DEFAULT_MOD;
@@ -89,6 +93,8 @@ function startOfDayBR() {
   return new Date(`${ymd}T00:00:00-03:00`);
 }
 const DAY_NAMES = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+const partnerWindow = (c: ModConfig) =>
+  `${c.partners.days.map((d) => DAY_NAMES[d]).join(", ")}, das ${c.partners.startHour}h às ${c.partners.endHour - 1}h59`;
 
 // ---- admins do grupo (cache curto) ----
 const infoCache = new Map<string, { at: number; info: WGroupInfo }>();
@@ -231,6 +237,15 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
 
   // links
   const domains = domainsIn(text);
+
+  // parceiro (!brother): link liberado nos dias/horários de parceiros, sem aviso; fora disso só apaga e explica
+  if (domains.length && c.partners.phones.some((p) => phoneKey(p) === k)) {
+    const { weekday, hour } = nowBR();
+    if (c.partners.days.includes(weekday) && hour >= c.partners.startHour && hour < c.partners.endHour) return null;
+    await del(msg.id);
+    await say(msg.group, `🤝 ${mention(msg.phone)}, links de parceiros são liberados ${partnerWindow(c)}. Poste de novo nesse horário. 😉`, [msg.phone]);
+    return "apagada (parceiro fora do horário)";
+  }
   if (domains.length) {
     const blocked = domains.find((d) => matchesDomain(d, c.links.blocked));
     if (blocked) {
@@ -305,6 +320,9 @@ const HELP = [
   "*!del* — responda a mensagem para apagar",
   "*!fechar* / *!abrir* — só admins falam / todos falam",
   "*!all* texto — marca todos do grupo",
+  "*!brother* @pessoa — libera os links do parceiro (nos dias/horários de parceiros)",
+  "*!unbrother* @pessoa — tira da lista de parceiros",
+  "*!brothers* — lista os parceiros",
 ].join("\n");
 
 async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<string | null> {
@@ -329,7 +347,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, v ? `💵 Dólar agora: *R$ ${v.toFixed(2).replace(".", ",")}*` : "Não consegui consultar o dólar agora.", [], msg.id).then(() => cmd);
   }
 
-  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos"];
+  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!brother", "!unbrother", "!brothers"];
   if (!ADMIN_CMDS.includes(cmd)) return null;
   if (!msg.fromMe && !(await isAdmin(c, g, msg.phone))) return say(g, "⛔ Esse comando é só para admins.", [], msg.id).then(() => `${cmd} (negado)`);
 
@@ -354,6 +372,29 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       const list = await db.modEvent.findMany({ where: { group: g, phone: phoneKey(target), kind: "WARN" }, orderBy: { createdAt: "asc" } });
       return say(g, list.length ? `⚠️ ${mention(target)} tem ${list.length} aviso(s):\n${list.map((w, i) => `${i + 1}. ${w.note}`).join("\n")}` : `${mention(target)} não tem avisos.`, [target]).then(() => "!warns");
     }
+    case "!brother": {
+      if (!target) return needTarget();
+      const k2 = phoneKey(target);
+      if (!c.partners.phones.some((p) => phoneKey(p) === k2)) {
+        c.partners.phones.push(target.replace(/\D/g, ""));
+        await saveModConfig(c);
+      }
+      await db.modEvent.deleteMany({ where: { group: g, phone: k2, kind: "WARN" } });
+      return say(g, `🤝 ${mention(target)} agora é *parceiro* da MLPB! Links liberados ${partnerWindow(c)}.`, [target]).then(() => "!brother");
+    }
+    case "!unbrother": {
+      if (!target) return needTarget();
+      const k2 = phoneKey(target);
+      c.partners.phones = c.partners.phones.filter((p) => phoneKey(p) !== k2);
+      await saveModConfig(c);
+      return say(g, `${mention(target)} saiu da lista de parceiros.`, [target]).then(() => "!unbrother");
+    }
+    case "!brothers":
+      return say(
+        g,
+        c.partners.phones.length ? `🤝 *Parceiros* (links ${partnerWindow(c)}):\n${c.partners.phones.map(mention).join("\n")}` : "Nenhum parceiro cadastrado. Use !brother @pessoa.",
+        c.partners.phones,
+      ).then(() => "!brothers");
     case "!remove_warn":
       if (!target) return needTarget();
       await db.modEvent.deleteMany({ where: { group: g, phone: phoneKey(target), kind: "WARN" } });

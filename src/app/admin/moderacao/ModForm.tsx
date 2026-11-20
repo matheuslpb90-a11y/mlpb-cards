@@ -38,6 +38,7 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
     blocked: initial.links.blocked.join("\n"),
     words: initial.words.join("\n"),
     ddi: initial.ddi.whitelist.join("\n"),
+    partners: initial.partners.phones.join("\n"),
   });
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>();
   const [pending, start] = useTransition();
@@ -53,6 +54,7 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
         words: txt.words,
         links: { ...c.links, whitelist: txt.whitelist, blocked: txt.blocked },
         ddi: { ...c.ddi, whitelist: txt.ddi },
+        partners: { ...c.partners, phones: txt.partners },
       };
       setMsg(await saveModAction(JSON.stringify(payload)));
     });
@@ -131,6 +133,26 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
             <label className="label">Bloqueados — apaga e dá aviso (ex.: chat.whatsapp.com)</label>
             <textarea className="input min-h-28" value={txt.blocked} onChange={(e) => setTxt({ ...txt, blocked: e.target.value })} />
           </div>
+        </div>
+      </section>
+
+      <section className="card space-y-3 p-5">
+        <h2 className="font-semibold">🤝 Parceiros (donos de outros grupos/lojas)</h2>
+        <p className="text-xs text-slate-500">
+          Parceiros podem divulgar links (inclusive convites de grupo) nos dias e horários abaixo, sem receber aviso. Fora do horário o link é apagado com uma
+          mensagem educada. No grupo, um admin libera com <strong>{c.prefix || "!"}brother @pessoa</strong> e tira com <strong>{c.prefix || "!"}unbrother @pessoa</strong>.
+        </p>
+        <div><p className="label">Dias liberados para parceiros</p><DayPicker value={c.partners.days} onChange={(v) => set("partners", { ...c.partners, days: v })} /></div>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          Das
+          <input type="number" min={0} max={23} className="input w-20" value={c.partners.startHour} onChange={(e) => set("partners", { ...c.partners, startHour: Number(e.target.value) })} />
+          h até antes das
+          <input type="number" min={1} max={24} className="input w-20" value={c.partners.endHour} onChange={(e) => set("partners", { ...c.partners, endHour: Number(e.target.value) })} />
+          h <span className="text-xs text-slate-500">(ex.: 8 e 20 = das 8h às 19h59)</span>
+        </div>
+        <div>
+          <label className="label">Números dos parceiros (um por linha, com DDD)</label>
+          <textarea className="input min-h-20" value={txt.partners} onChange={(e) => setTxt({ ...txt, partners: e.target.value })} />
         </div>
       </section>
 

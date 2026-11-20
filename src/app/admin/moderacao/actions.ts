@@ -40,7 +40,14 @@ export async function saveModAction(json: string): Promise<{ ok?: string; error?
     words: lines(c.words),
     ddi: { blockForeign: Boolean(c.ddi?.blockForeign), whitelist: lines(c.ddi?.whitelist).map((p) => p.replace(/\D/g, "")) },
     warns: { max: int(c.warns?.max, 0, 20, 3) },
+    partners: {
+      phones: lines(c.partners?.phones).map((p) => p.replace(/\D/g, "")).filter((p) => p.length >= 10),
+      days: days(c.partners?.days),
+      startHour: int(c.partners?.startHour, 0, 23, 8),
+      endHour: int(c.partners?.endHour, 1, 24, 20),
+    },
   };
+  if (clean.partners.endHour <= clean.partners.startHour) return { error: "Horário dos parceiros: o fim precisa ser depois do início." };
   if (clean.links.endHour <= clean.links.startHour) return { error: "Horário de links: o fim precisa ser depois do início." };
   await saveModConfig(clean);
   await logActivity("mod_updated", `Moderação ${clean.enabled ? "ligada" : "desligada"}`);
