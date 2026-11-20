@@ -200,9 +200,11 @@ export function parseWhapiMessage(m: Record<string, unknown>): InMsg {
 export async function moderateMessage(msg: InMsg): Promise<string | null> {
   if (!whapiEnabled() || !msg.group.endsWith("@g.us")) return null;
   const c = await getModConfig();
-  if (!c.enabled || !(await moderatedGroups(c)).includes(msg.group)) return null;
-
   const text = msg.text.trim();
+  const looksCommand = /^[!/#.]\w/.test(text);
+  // Para conferir no painel por que um comando não foi respondido
+  if (!c.enabled) return looksCommand ? `ignorado: moderação desligada (${text.slice(0, 20)})` : null;
+  if (!(await moderatedGroups(c)).includes(msg.group)) return looksCommand ? `ignorado: grupo não está na lista de moderados (${text.slice(0, 20)})` : null;
   if (text.startsWith(c.prefix || "!")) {
     // comandos são escritos com "!" no código; troca o prefixo configurado por "!"
     const r = await runCommand(c, msg, "!" + text.slice((c.prefix || "!").length));
