@@ -462,11 +462,15 @@ async function startReview(c: ModConfig, msg: InMsg, args: string) {
   if (!target) return say(msg.group, `Use: *${P}avaliar 61999999999* (o número de quem você quer avaliar).`, [], msg.id);
   const rater = phoneKey(msg.phone);
   if (phoneKey(target) === rater) return say(msg.group, "Você não pode avaliar a si mesmo. 😅", [], msg.id);
-  const recent = await db.review.findFirst({ where: { targetPhone: phoneKey(target), raterPhone: rater, createdAt: { gt: new Date(Date.now() - 24 * 3600_000) } } });
-  if (recent) return say(msg.group, `${mention(msg.phone)}, você já avaliou ${fmtPhone(target)} nas últimas 24h.`, [msg.phone], msg.id);
+  const before = await db.review.findFirst({ where: { targetPhone: phoneKey(target), raterPhone: rater } });
   await db.modEvent.deleteMany({ where: { group: msg.group, phone: rater, kind: { in: ["RATE_PENDING", "RATE_COMMENT"] } } });
   await db.modEvent.create({ data: { group: msg.group, phone: rater, name: msg.name, kind: "RATE_PENDING", note: phoneKey(target), until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
-  return say(msg.group, `⭐ ${mention(msg.phone)}, qual a sua nota para *${fmtPhone(target)}*?\nResponda só com um número de *1 a 5* em até ${REVIEW_SECONDS}s.`, [msg.phone], msg.id);
+  return say(
+    msg.group,
+    `⭐ ${mention(msg.phone)}, qual a sua nota para *${fmtPhone(target)}*?\nResponda só com um número de *1 a 5* em até ${REVIEW_SECONDS}s.${before ? `\n_(Você já tinha avaliado com ${before.rating} — a nova avaliação vai substituir a anterior.)_` : ""}`,
+    [msg.phone],
+    msg.id,
+  );
 }
 
 /** Trata a resposta de quem está no meio de uma avaliação. Devolve o que fez, ou null se não era resposta. */
@@ -480,7 +484,11 @@ async function reviewStep(msg: InMsg, text: string): Promise<string | null> {
   if (pending.kind === "RATE_PENDING") {
     const n = Number(text.match(/^\s*([1-5])(?:\s|$|[.,!⭐])/)?.[1]);
     if (!n) return null; // não é nota: segue a vida (a janela expira sozinha)
-    const r = await db.review.create({ data: { targetPhone: pending.note, raterPhone: rater, raterName: msg.name, group: msg.group, rating: n } });
+    // uma avaliação por pessoa para cada número: reavaliar substitui nota e comentário
+    const old = await db.review.findFirst({ where: { targetPhone: pending.note, raterPhone: rater } });
+    const r = old
+      ? await db.review.update({ where: { id: old.id }, data: { rating: n, comment: "", raterName: msg.name || old.raterName, group: msg.group, createdAt: new Date() } })
+      : await db.review.create({ data: { targetPhone: pending.note, raterPhone: rater, raterName: msg.name, group: msg.group, rating: n } });
     await db.modEvent.update({ where: { id: pending.id }, data: { kind: "RATE_COMMENT", note: r.id, until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
     await say(msg.group, `✅ Nota ${stars(n)} registrada para *${fmtPhone(pending.note)}*. Obrigado!\nSe quiser, mande um comentário em até ${REVIEW_SECONDS}s (opcional).`, [], msg.id);
     return `avaliação: nota ${n} para ${pending.note}`;
