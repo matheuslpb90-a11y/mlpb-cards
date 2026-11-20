@@ -16,6 +16,7 @@ export type PointsConfig = {
   referralStay: number; // indicado ficou 7 dias
   referralPurchase: number; // indicado fez a 1ª compra
   referralMinCents: number;
+  boxBonus: number; // caixa chegou no valor do frete grátis (R$ 500): bônus de pontos, 1x por caixa
   ranking: number[]; // bônus do 1º, 2º, 3º do mês
   expiryMonths: number;
   rewards: Reward[];
@@ -30,6 +31,7 @@ export const DEFAULT_POINTS: PointsConfig = {
   referralStay: 100,
   referralPurchase: 200,
   referralMinCents: 3000,
+  boxBonus: 300,
   ranking: [300, 150, 75],
   expiryMonths: 6,
   rewards: [
@@ -38,7 +40,7 @@ export const DEFAULT_POINTS: PointsConfig = {
     { key: "holo", name: "✨ Holo ou Reverse surpresa (vai para a sua caixa)", points: 400 },
     { key: "cupom10", name: "Cupom de R$ 10", points: 500 },
     { key: "frete15", name: "📦 R$ 15 de desconto no frete (caixas abaixo de R$ 500)", points: 800 },
-    { key: "booster", name: "1 booster", points: 1500 },
+    { key: "booster", name: "🎁 1 booster de alguma coleção + frete grátis", points: 1500 },
   ],
 };
 
@@ -48,7 +50,10 @@ export async function getPointsConfig(): Promise<PointsConfig> {
     const c = JSON.parse(s?.value ?? "{}") as Partial<PointsConfig>;
     // tabela antiga (com "frete grátis") é trocada pela nova automaticamente
     const old = c.rewards?.length === 4 && c.rewards.some((r) => r.key === "frete");
-    return { ...DEFAULT_POINTS, ...c, rewards: c.rewards?.length && !old ? c.rewards : DEFAULT_POINTS.rewards };
+    const rewards = (c.rewards?.length && !old ? c.rewards : DEFAULT_POINTS.rewards).map((r) =>
+      r.key === "booster" && r.name === "1 booster" ? { ...r, name: "🎁 1 booster de alguma coleção + frete grátis" } : r,
+    );
+    return { ...DEFAULT_POINTS, ...c, rewards };
   } catch {
     return DEFAULT_POINTS;
   }
@@ -180,4 +185,20 @@ export async function refuseRedemption(id: string) {
   if (!r || r.status !== "PENDENTE") return;
   await db.redemption.update({ where: { id }, data: { status: "RECUSADO", doneAt: new Date() } });
   await db.pointEntry.deleteMany({ where: { refId: `RED-${r.id}` } });
+}
+
+/** Caixa chegou no valor do frete grátis (ex.: R$ 500): bônus de pontos, uma vez por caixa. */
+export async function checkBoxBonus(boxId: string) {
+  const c = await getPointsConfig();
+  if (!c.enabled || c.boxBonus <= 0) return;
+  const { boxBalance, freeShippingCents } = await import("./boxes");
+  const box = await db.box.findUnique({ where: { id: boxId }, include: { orders: true, invoices: true } });
+  if (!box) return;
+  const free = await freeShippingCents();
+  if (boxBalance(box) < free) return;
+  const r = await credit({ phone: box.phone, name: box.name, points: c.boxBonus, source: "COMPRA", refId: `BOX500-${box.id}`, note: `Caixa #${box.code} chegou em R$ ${Math.round(free / 100)}` });
+  if (r.ok) {
+    const { sendText } = await import("./zapi");
+    sendText(box.phone, `🎉 Sua caixa #${box.code} passou de R$ ${Math.round(free / 100)}: *frete grátis liberado* e você ganhou *+${c.boxBonus} MLPB Points*! 🪙`).catch(() => {});
+  }
 }

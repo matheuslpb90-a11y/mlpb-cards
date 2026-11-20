@@ -72,6 +72,7 @@ export function PointsConfigForm({ initial }: { initial: PointsConfig }) {
         {num("reviewRepeatPoints", "Reavaliações da loja", "máx. 1x por dia")}
         {num("referralStay", "Indicação: amigo ficou 7 dias")}
         {num("referralPurchase", "Indicação: amigo fez a 1ª compra")}
+        {num("boxBonus", "Bônus quando a caixa chega no frete grátis (R$ 500)", "1x por caixa")}
         {num("expiryMonths", "Pontos vencem em (meses)", "0 = nunca")}
       </div>
       <div className="flex flex-wrap items-center gap-2 text-sm">

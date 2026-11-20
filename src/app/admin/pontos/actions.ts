@@ -23,6 +23,7 @@ export async function savePointsConfigAction(c: PointsConfig) {
     referralStay: int(c.referralStay, 0, 100000, 100),
     referralPurchase: int(c.referralPurchase, 0, 100000, 200),
     referralMinCents: int(c.referralMinCents, 0, 10_000_000, 3000),
+    boxBonus: int(c.boxBonus, 0, 100000, 300),
     ranking: (c.ranking ?? []).slice(0, 3).map((v) => int(v, 0, 100000, 0)),
     expiryMonths: int(c.expiryMonths, 0, 60, 6),
     rewards: (c.rewards ?? [])

@@ -67,6 +67,7 @@ export async function addInvoiceToBox(invoiceId: string) {
   const user = await db.user.findFirst({ where: { phone: { in: phoneVariants(inv.phone) } } });
   const box = await openBoxFor(inv.phone, inv.name, user?.id);
   await db.invoice.update({ where: { id: inv.id }, data: { boxId: box.id } });
+  await import("./points").then((p) => p.checkBoxBonus(box.id)).catch(() => {});
   return box;
 }
 
@@ -75,6 +76,7 @@ export async function addOrderToBox(orderId: string) {
   if (!order || order.boxId || order.shippingMethod !== "ACUMULAR" || order.status === "AGUARDANDO_PAGAMENTO" || order.status === "CANCELADO") return null;
   const box = await openBoxFor(order.user.phone, order.user.name, order.userId);
   await db.order.update({ where: { id: order.id }, data: { boxId: box.id } });
+  await import("./points").then((p) => p.checkBoxBonus(box.id)).catch(() => {});
   return box;
 }
 
