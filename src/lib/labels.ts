@@ -98,12 +98,14 @@ async function loadTarget(t: Target) {
     if (!b.addressJson) throw new Error("A caixa não tem endereço de entrega.");
     const a = JSON.parse(b.addressJson) as Addr & { cpf?: string };
     const cards = await boxItemCount(b.id);
-    return { ref: `Caixa #${b.code}`, addr: a, document: a.cpf ?? "", email: "", cards, valueCents: 0, method: b.shippingMethod, sfOrderId: b.sfOrderId };
+    const paid = b.shippingCents === 0 || b.shippingPaid;
+    return { paid, ref: `Caixa #${b.code}`, addr: a, document: a.cpf ?? "", email: "", cards, valueCents: 0, method: b.shippingMethod, sfOrderId: b.sfOrderId };
   }
   const o = await db.order.findUnique({ where: { id: t.id }, include: { user: true, items: true } });
   if (!o) throw new Error("Pedido não encontrado.");
   const u = o.user;
   return {
+    paid: o.status === "PAGO" || o.status === "ENVIADO",
     ref: `Pedido #${o.code}`,
     addr: { name: u.name, cep: u.cep, street: u.street, number: u.number, complement: u.complement, neighborhood: u.neighborhood, city: u.city, state: u.state },
     document: u.cpf,
@@ -128,6 +130,7 @@ export async function createLabel(t: Target, opts: { service: string; insuranceC
   if (!senderComplete(sender)) throw new Error("Preencha os dados do remetente (endereço da loja) em Envios.");
   const x = await loadTarget(t);
   if (x.sfOrderId) throw new Error("Já existe uma etiqueta para este envio. Cancele antes de gerar outra.");
+  if (!x.paid) throw new Error("O cliente ainda não pagou o frete. A etiqueta só pode ser gerada depois do pagamento.");
   const cart = await sf<SFOrder>("cart", {
     from: sfAddr({ ...sender, document: sender.document, email: sender.email }),
     to: sfAddr({ ...x.addr, document: x.document, email: x.email }),
@@ -196,3 +199,26 @@ export const SF_STATUS: Record<string, string> = {
   canceled: "Cancelada",
   cancelled: "Cancelada",
 };
+
+// ---------------- Etiqueta automática após o pagamento ----------------
+
+export async function autoLabelEnabled() {
+  return (await db.setting.findUnique({ where: { key: "autoLabel" } }))?.value !== "0"; // padrão: ligado
+}
+
+/**
+ * Chamado quando o cliente paga o frete (ou o envio é grátis): gera e paga a etiqueta sozinho.
+ * Nunca interrompe a confirmação do pagamento — se falhar, fica registrado em Envios.
+ */
+export async function autoLabel(t: Target) {
+  try {
+    if (!SF_TOKEN() || !(await autoLabelEnabled())) return;
+    const x = await loadTarget(t);
+    if (x.sfOrderId || !x.paid) return;
+    const r = await createLabel(t, { service: guessService(x.method) });
+    if (t.kind === "box") await db.box.update({ where: { id: t.id }, data: { status: "EM_SEPARACAO" } });
+    await log("etiqueta-automatica", { envio: x.ref, servico: SF_SERVICES[guessService(x.method)], rastreio: r.tracking });
+  } catch (e) {
+    await log("erro-etiqueta-automatica", { kind: t.kind, id: t.id, error: e instanceof Error ? e.message : String(e) });
+  }
+}

@@ -2,14 +2,16 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatBRL } from "@/lib/money";
 import { BOX_STATUS } from "@/lib/boxes";
-import { getSender, guessService, senderComplete, SF_STATUS } from "@/lib/labels";
+import { autoLabelEnabled, getSender, guessService, senderComplete, SF_STATUS } from "@/lib/labels";
 import { superFreteEnabled } from "@/lib/shipping";
-import { LabelRow, PrintSelected, SenderForm } from "./LabelControls";
+import { AutoLabelToggle, LabelRow, PrintSelected, SenderForm } from "./LabelControls";
 
 export const dynamic = "force-dynamic";
 
 export default async function EnviosPage() {
   const sender = await getSender();
+  const auto = await autoLabelEnabled();
+  const autoLogs = await db.botLog.findMany({ where: { kind: { in: ["etiqueta-automatica", "erro-etiqueta-automatica"] } }, orderBy: { createdAt: "desc" }, take: 10 });
   const boxes = await db.box.findMany({
     where: { archived: false, shippingMethod: { notIn: ["", "RETIRADA"] }, OR: [{ status: { in: ["FRETE_SOLICITADO", "EM_SEPARACAO"] } }, { sfOrderId: { not: "" }, status: { not: "CONCLUIDA" } }] },
     orderBy: { requestedAt: "asc" },
@@ -29,7 +31,7 @@ export default async function EnviosPage() {
       return {
         kind: "box" as const, id: b.id, title: `Caixa #${b.code} — ${b.name || a?.name || "Sem nome"}`, href: `/admin/caixas/${b.id}`,
         sub: `${BOX_STATUS[b.status]} · ${b.shippingMethod}${b.shippingCents ? ` (${formatBRL(b.shippingCents)}${b.shippingPaid ? " pago" : " NÃO pago"})` : ""} · ${addr(a)}`,
-        sfOrderId: b.sfOrderId, sfStatus: b.sfStatus, tracking: b.trackingCode, service: guessService(b.shippingMethod), canLabel: Boolean(a),
+        sfOrderId: b.sfOrderId, sfStatus: b.sfStatus, tracking: b.trackingCode, service: guessService(b.shippingMethod), canLabel: Boolean(a) && (b.shippingCents === 0 || b.shippingPaid),
       };
     }),
     ...orders.map((o) => ({
@@ -42,8 +44,16 @@ export default async function EnviosPage() {
     <div className="space-y-5">
       <h1 className="text-2xl font-bold">📮 Envios e etiquetas (SuperFrete)</h1>
       {!superFreteEnabled() && <p className="card p-4 text-amber-300">Configure o SUPERFRETE_TOKEN na Vercel para gerar etiquetas.</p>}
+      <div className="card space-y-2 p-4">
+        <AutoLabelToggle on={auto} />
+        {autoLogs.map((l) => (
+          <p key={l.id} className={`text-xs ${l.kind.startsWith("erro") ? "text-red-300" : "text-slate-500"}`}>
+            {l.createdAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} · {l.kind.startsWith("erro") ? "❌ falhou" : "✅ gerada"}: {l.payload}
+          </p>
+        ))}
+      </div>
       <div className="card space-y-1 p-4 text-sm text-slate-500">
-        <p>“Gerar etiqueta” cria o envio na SuperFrete e <strong>paga com o saldo da sua conta SuperFrete</strong> (coloque saldo por Pix no site deles).</p>
+        <p>A etiqueta só é gerada depois que o cliente paga o frete. “Gerar etiqueta” cria o envio na SuperFrete e <strong>paga com o saldo da sua conta SuperFrete</strong> (coloque saldo por Pix no site deles).</p>
         <p>Depois de gerar: imprima, cole no pacote e poste nos Correios. O rastreio é salvo e aparece para o cliente.</p>
       </div>
       <SenderForm initial={sender} complete={senderComplete(sender)} />

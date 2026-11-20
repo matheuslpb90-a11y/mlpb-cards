@@ -140,6 +140,10 @@ export async function markOrderPaid(code: number, info: { transactionNsu?: strin
   if (updated.shippingMethod === ACCUMULATE) {
     const { addOrderToBox } = await import("./boxes");
     await addOrderToBox(updated.id).catch(() => {});
+  } else {
+    // pedido com envio pago: gera a etiqueta na SuperFrete
+    const { autoLabel } = await import("./labels");
+    await autoLabel({ kind: "order", id: updated.id });
   }
   return updated;
 }

@@ -70,3 +70,11 @@ export async function printManyAction(ids: string[]) {
     return { error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+export async function setAutoLabelAction(on: boolean) {
+  await requireAdmin();
+  await db.setting.upsert({ where: { key: "autoLabel" }, create: { key: "autoLabel", value: on ? "1" : "0" }, update: { value: on ? "1" : "0" } });
+  await logActivity("label_command", `Etiqueta automática ${on ? "ligada" : "desligada"}`);
+  revalidatePath("/admin/envios");
+  return { ok: true };
+}

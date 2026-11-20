@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { Sender } from "@/lib/labels";
-import { labelAction, printManyAction, saveSenderAction } from "./actions";
+import { labelAction, printManyAction, saveSenderAction, setAutoLabelAction } from "./actions";
 
 const SERVICES = [
   ["1", "PAC"],
@@ -82,12 +82,13 @@ export function LabelRow({ kind, id, hasLabel, paid, defaultService, canLabel }:
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex flex-wrap items-center gap-1">
-        {!hasLabel && (
+        {!hasLabel && !canLabel && <span className="text-xs text-amber-300">Aguardando pagamento do frete</span>}
+        {!hasLabel && canLabel && (
           <>
             <select className="input w-auto py-1 text-xs" value={service} onChange={(e) => setService(e.target.value)}>
               {SERVICES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
-            <button disabled={pending || !canLabel} className={`${b} border-brand text-brand-amber`} onClick={() => run("criar", "Gerar e pagar a etiqueta com o saldo da SuperFrete?")}>
+            <button disabled={pending} className={`${b} border-brand text-brand-amber`} onClick={() => run("criar", "Gerar e pagar a etiqueta com o saldo da SuperFrete?")}>
               {pending ? "…" : "🏷️ Gerar etiqueta"}
             </button>
           </>
@@ -120,5 +121,22 @@ export function PrintSelected({ ids }: { ids: string[] }) {
     >
       🖨️ Imprimir todas ({ids.length})
     </button>
+  );
+}
+
+export function AutoLabelToggle({ on }: { on: boolean }) {
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  return (
+    <label className="flex cursor-pointer items-center gap-2 text-sm">
+      <input
+        type="checkbox"
+        className="h-4 w-4 accent-[#ff7a00]"
+        checked={on}
+        disabled={pending}
+        onChange={(e) => start(async () => { await setAutoLabelAction(e.target.checked); router.refresh(); })}
+      />
+      <span><strong>Gerar a etiqueta automaticamente</strong> assim que o cliente pagar o frete (ou pedir envio com frete grátis)</span>
+    </label>
   );
 }

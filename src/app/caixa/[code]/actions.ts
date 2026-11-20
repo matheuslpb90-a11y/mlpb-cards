@@ -56,7 +56,12 @@ export async function requestBoxShippingAction(
         ...(free ? { status: "FRETE_SOLICITADO", shippingPaid: true, requestedAt: new Date() } : {}),
       },
     });
-    if (free) return { done: true };
+    if (free) {
+      // envio grátis: não há pagamento — gera a etiqueta na hora
+      const { autoLabel } = await import("@/lib/labels");
+      await autoLabel({ kind: "box", id: box.id });
+      return { done: true };
+    }
     if (!infinitePayEnabled()) return { error: "Pagamento online indisponível. Fale com a loja pelo WhatsApp." };
     const url = await createCheckoutLink({
       orderNsu: `B${box.code}`,

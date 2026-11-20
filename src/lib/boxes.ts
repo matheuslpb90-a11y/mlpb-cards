@@ -130,10 +130,14 @@ export async function markBoxShippingPaid(code: number, info: { transactionNsu?:
   const box = await db.box.findUnique({ where: { code } });
   if (!box || box.shippingPaid) return box;
   if (info.paidAmountCents !== undefined && info.paidAmountCents < box.shippingCents) return box;
-  return db.box.update({
+  const updated = await db.box.update({
     where: { id: box.id },
     data: { shippingPaid: true, status: box.status === "PENDENTE" ? "FRETE_SOLICITADO" : box.status, requestedAt: box.requestedAt ?? new Date(), notes: box.notes + (info.transactionNsu ? `\nFrete pago (InfinitePay ${info.transactionNsu})` : "") },
   });
+  // frete pago: gera a etiqueta na SuperFrete
+  const { autoLabel } = await import("./labels");
+  await autoLabel({ kind: "box", id: box.id });
+  return db.box.findUnique({ where: { id: box.id } }).then((b) => b ?? updated);
 }
 
 /** Coloca nas caixas os arremates/pedidos pagos que ainda não estão em nenhuma (ex.: dados antigos). */
