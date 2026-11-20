@@ -560,11 +560,14 @@ async function reviewStep(c: ModConfig, msg: InMsg, text: string): Promise<strin
       : await db.review.create({ data: { targetPhone: st.t, raterPhone: rater, raterName: msg.name, group: msg.group, rating: n, proofJson } });
     await db.modEvent.update({ where: { id: pending.id }, data: { kind: "RATE_COMMENT", note: r.id, until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
     await say(msg.group, `✅ Nota ${stars(n)} registrada para *${fmtPhone(st.t)}*. Obrigado!\nSe quiser, mande um comentário em até ${REVIEW_SECONDS}s (opcional).`, [], msg.id);
-    // MLPB Points: avaliação nova com provas
-    if (!old && st.p.length > 0) {
+    // MLPB Points: só quem avalia a LOJA ganha — 1ª avaliação vale reviewPoints; reavaliações valem reviewRepeatPoints (1x por dia)
+    if (st.t === phoneKey(WHATSAPP_NUMBER)) {
       const { credit, getPointsConfig } = await import("./points");
       const pc = await getPointsConfig();
-      if (pc.enabled && pc.reviewPoints > 0) await credit({ phone: msg.phone, name: msg.name, points: pc.reviewPoints, source: "AVALIACAO", refId: `REV-${r.id}`, note: "avaliação com provas" }).catch(() => {});
+      const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+      const pts = old ? pc.reviewRepeatPoints : pc.reviewPoints;
+      if (pc.enabled && pts > 0)
+        await credit({ phone: msg.phone, name: msg.name, points: pts, source: "AVALIACAO", refId: old ? `REVL-${rater}-${day}` : `REVL-${rater}-first`, note: old ? "reavaliou a loja" : "avaliou a loja" }).catch(() => {});
     }
     return `avaliação: nota ${n} para ${st.t}`;
   }

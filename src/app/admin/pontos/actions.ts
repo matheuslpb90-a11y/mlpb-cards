@@ -19,6 +19,7 @@ export async function savePointsConfigAction(c: PointsConfig) {
     perReal: Math.min(Math.max(Number(c.perReal) || 0, 0), 100),
     gameDailyCap: int(c.gameDailyCap, 0, 10000, 10),
     reviewPoints: int(c.reviewPoints, 0, 10000, 20),
+    reviewRepeatPoints: int(c.reviewRepeatPoints, 0, 10000, 1),
     referralStay: int(c.referralStay, 0, 100000, 100),
     referralPurchase: int(c.referralPurchase, 0, 100000, 200),
     referralMinCents: int(c.referralMinCents, 0, 10_000_000, 3000),

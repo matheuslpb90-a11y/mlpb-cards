@@ -11,7 +11,8 @@ export type PointsConfig = {
   enabled: boolean;
   perReal: number; // pontos por R$ 1 em compras/arremates pagos
   gameDailyCap: number; // máximo de pontos por dia vindos de jogos
-  reviewPoints: number; // avaliar alguém com provas
+  reviewPoints: number; // 1ª avaliação da loja
+  reviewRepeatPoints: number; // reavaliações da loja (no máximo 1x por dia)
   referralStay: number; // indicado ficou 7 dias
   referralPurchase: number; // indicado fez a 1ª compra
   referralMinCents: number;
@@ -25,6 +26,7 @@ export const DEFAULT_POINTS: PointsConfig = {
   perReal: 1,
   gameDailyCap: 10,
   reviewPoints: 20,
+  reviewRepeatPoints: 1,
   referralStay: 100,
   referralPurchase: 200,
   referralMinCents: 3000,

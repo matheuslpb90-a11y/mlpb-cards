@@ -67,7 +67,8 @@ export function PointsConfigForm({ initial }: { initial: PointsConfig }) {
       <div className="grid gap-2 md:grid-cols-2">
         {num("perReal", "Pontos por R$ 1 em compras/arremates")}
         {num("gameDailyCap", "Máximo de pontos por dia em jogos")}
-        {num("reviewPoints", "Avaliar alguém com provas")}
+        {num("reviewPoints", "1ª avaliação da loja (!avaliar)")}
+        {num("reviewRepeatPoints", "Reavaliações da loja", "máx. 1x por dia")}
         {num("referralStay", "Indicação: amigo ficou 7 dias")}
         {num("referralPurchase", "Indicação: amigo fez a 1ª compra")}
         {num("expiryMonths", "Pontos vencem em (meses)", "0 = nunca")}
