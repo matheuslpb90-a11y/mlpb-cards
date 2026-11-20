@@ -5,6 +5,8 @@ import { formatBRL } from "./money";
 import { lastPollMap, log, sendImage, sendPoll, sendText, sendVideo, supportsPolls, zapiMode } from "./zapi";
 import { whapiPollResults } from "./whapi";
 import { phoneKey } from "./phone";
+import { WHATSAPP_NUMBER } from "./whatsapp";
+import { createHash } from "crypto";
 import { siteUrl } from "./orders";
 
 export const AUCTION_STATUS: Record<string, string> = {
@@ -115,17 +117,33 @@ export async function startAuction(auctionId: string) {
   }
 }
 
+/**
+ * Valor (centavos) de uma opção votada. A Whapi manda o id da opção, que é o SHA-256 (base64) do texto
+ * exato da opção — então calculamos o id de cada opção do item e comparamos. Texto da opção também é aceito.
+ * Nunca tenta "ler número" de um id desconhecido (isso gerava valores aleatórios).
+ */
+function optionCentsFor(item: { optionsJson: string; pollMapJson?: string }, opt: string): number | null {
+  const opts = itemOptions(item);
+  for (const c of opts)
+    for (const label of [optionLabel(c), optionLabel(c, true)]) {
+      if (opt === label || opt === createHash("sha256").update(label).digest("base64")) return c;
+    }
+  const saved = parseJson<Record<string, string>>(item.pollMapJson || "{}", {})[opt];
+  const txt = saved ?? opt;
+  if (!/R\$/.test(txt)) return null; // id desconhecido: ignora
+  const v = parseOptionCents(txt);
+  return v != null && opts.includes(v) ? v : null;
+}
+
 /** Registra/atualiza o voto de alguém numa enquete (vindo do webhook). */
 export async function registerVote(input: { pollMessageId: string; phone: string; name: string; options: string[] }) {
   const item = await db.auctionItem.findFirst({ where: { pollMessageId: input.pollMessageId }, include: { lot: { include: { auction: true } } } });
   if (!item) return { ok: false, reason: "enquete não encontrada" };
-  // Whapi pode mandar o id da opção em vez do texto: traduz pelo mapa salvo no envio
-  const map = parseJson<Record<string, string>>(item.pollMapJson || "{}", {});
-  input = { ...input, options: input.options.map((o) => map[o] ?? o) };
   const a = item.lot.auction;
   if (a.status !== "ATIVO" || new Date() > a.endsAt) return { ok: false, reason: "leilão fora do horário" };
   const phone = phoneKey(input.phone);
-  const values = input.options.map(parseOptionCents).filter((v): v is number => v !== null);
+  if (phone === phoneKey(WHATSAPP_NUMBER)) return { ok: false, reason: "voto do próprio número da loja (ignorado)" };
+  const values = input.options.map((o) => optionCentsFor(item, o)).filter((v): v is number => v !== null);
   if (values.length === 0) {
     await db.auctionVote.deleteMany({ where: { itemId: item.id, phone } }); // retirou o voto
     return { ok: true, removed: true };
@@ -229,9 +247,9 @@ export async function closeAuction(auctionId: string) {
           const known = new Set(it.votes.map((v) => v.phone));
           for (const r of results)
             for (const voter of r.voters) {
-              const cents = parseOptionCents(r.name);
+              const cents = optionCentsFor(it, r.name);
               const ph = phoneKey(voter);
-              if (cents == null || known.has(ph)) continue;
+              if (cents == null || known.has(ph) || ph === phoneKey(WHATSAPP_NUMBER)) continue;
               const v = await db.auctionVote.create({ data: { itemId: it.id, phone: ph, name: "", optionCents: cents } });
               it.votes.push(v);
             }
