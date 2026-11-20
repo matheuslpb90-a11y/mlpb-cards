@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { getPointsConfig, monthRanking } from "@/lib/points";
-import { LaunchForm, PointsConfigForm, RedemptionButtons } from "./PointsForms";
+import { LaunchForm, PointAuctionForm, PointsConfigForm, RedemptionButtons } from "./PointsForms";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,7 @@ export default async function PontosPage() {
   const ranking = await monthRanking(10);
   const pending = await db.redemption.findMany({ where: { status: "PENDENTE" }, orderBy: { createdAt: "asc" } });
   const entries = await db.pointEntry.findMany({ orderBy: { createdAt: "desc" }, take: 60 });
+  const pAuctions = await db.pointAuction.findMany({ orderBy: { createdAt: "desc" }, take: 10, include: { _count: { select: { bids: true } } } });
   const dt = (d: Date) => d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   return (
     <div className="space-y-5">
@@ -47,6 +48,22 @@ export default async function PontosPage() {
           ))}
         </section>
         <LaunchForm />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <PointAuctionForm />
+        <section className="card space-y-2 p-5 text-sm">
+          <h2 className="text-lg font-bold">Leilões de Pontos recentes</h2>
+          {pAuctions.length === 0 && <p className="text-slate-500">Nenhum ainda.</p>}
+          {pAuctions.map((a) => (
+            <div key={a.id} className="rounded border p-2 text-xs">
+              <p className="font-semibold">{a.title}</p>
+              <p className="text-slate-500">
+                {a.status === "ATIVO" ? `Em andamento · encerra ${dt(a.endsAt)}` : a.winnerPhone ? `Vencedor: ${a.winnerName || `+${a.winnerPhone}`} · ${a.winnerPoints} pts` : "Encerrado sem lances válidos"} · {a._count.bids} lance(s)
+              </p>
+            </div>
+          ))}
+        </section>
       </div>
 
       <PointsConfigForm initial={config} />

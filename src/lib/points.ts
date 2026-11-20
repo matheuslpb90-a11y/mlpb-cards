@@ -33,9 +33,11 @@ export const DEFAULT_POINTS: PointsConfig = {
   ranking: [300, 150, 75],
   expiryMonths: 6,
   rewards: [
+    { key: "bulk", name: "🃏 Pacotinho surpresa (5 cartas, vai para a sua caixa)", points: 150 },
     { key: "cupom5", name: "Cupom de R$ 5", points: 250 },
+    { key: "holo", name: "✨ Holo ou Reverse surpresa (vai para a sua caixa)", points: 400 },
     { key: "cupom10", name: "Cupom de R$ 10", points: 500 },
-    { key: "frete", name: "Frete grátis (até R$ 25)", points: 1000 },
+    { key: "frete15", name: "📦 R$ 15 de desconto no frete (caixas abaixo de R$ 500)", points: 800 },
     { key: "booster", name: "1 booster", points: 1500 },
   ],
 };
@@ -44,7 +46,9 @@ export async function getPointsConfig(): Promise<PointsConfig> {
   const s = await db.setting.findUnique({ where: { key: "pointsConfig" } });
   try {
     const c = JSON.parse(s?.value ?? "{}") as Partial<PointsConfig>;
-    return { ...DEFAULT_POINTS, ...c, rewards: c.rewards?.length ? c.rewards : DEFAULT_POINTS.rewards };
+    // tabela antiga (com "frete grátis") é trocada pela nova automaticamente
+    const old = c.rewards?.length === 4 && c.rewards.some((r) => r.key === "frete");
+    return { ...DEFAULT_POINTS, ...c, rewards: c.rewards?.length && !old ? c.rewards : DEFAULT_POINTS.rewards };
   } catch {
     return DEFAULT_POINTS;
   }

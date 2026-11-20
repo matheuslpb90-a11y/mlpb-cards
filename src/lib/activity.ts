@@ -26,6 +26,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   points_config: "Pontos: configuração",
   points_launch: "Pontos: lançamento",
   points_redemption: "Pontos: troca",
+  points_auction: "Pontos: leilão",
 };
 
 /** Registra uma ação feita no painel. Nunca interrompe a ação principal se falhar. */

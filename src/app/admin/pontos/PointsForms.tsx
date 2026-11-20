@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { PointsConfig } from "@/lib/points";
-import { launchPointsAction, redemptionAction, savePointsConfigAction } from "./actions";
+import { launchPointsAction, redemptionAction, savePointsConfigAction, startPointAuctionAction } from "./actions";
+import { ImageUploadField } from "@/components/admin/ImageUploadField";
 
 export function RedemptionButtons({ id }: { id: string }) {
   const [pending, start] = useTransition();
@@ -93,6 +94,37 @@ export function PointsConfigForm({ initial }: { initial: PointsConfig }) {
       {msg?.error && <p className="text-sm text-red-300">{msg.error}</p>}
       {msg?.ok && <p className="text-sm text-green-300">{msg.ok}</p>}
       <button className="btn-primary w-full" disabled={pending} onClick={() => start(async () => setMsg(await savePointsConfigAction(c)))}>{pending ? "Salvando…" : "Salvar regras"}</button>
+    </section>
+  );
+}
+
+export function PointAuctionForm() {
+  const [f, setF] = useState({ title: "", imageUrl: "", start: "100", step: "50", count: "10", minutes: "30" });
+  const [msg, setMsg] = useState<{ ok?: string; error?: string }>();
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const opts = Array.from({ length: Math.min(Math.max(Number(f.count) || 10, 2), 12) }, (_, i) => (Number(f.start) || 0) + i * (Number(f.step) || 0));
+  const field = (k: keyof typeof f, label: string, w = "w-24") => (
+    <label className="flex items-center gap-2 text-sm">{label}<input type="number" className={`input ${w}`} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></label>
+  );
+  return (
+    <section className="card space-y-3 p-5">
+      <h2 className="text-lg font-bold">🔨 Leilão de Pontos</h2>
+      <p className="text-xs text-slate-500">Posta uma enquete no grupo com lances em pontos. Vence o maior lance de quem tiver saldo no encerramento; os pontos são descontados e o prêmio aparece em “Trocas para entregar”.</p>
+      <input className="input" placeholder="Prêmio (ex.: Charizard V promo, lote de 20 bulk…)" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
+      <ImageUploadField name="imageUrl" label="Foto do prêmio (opcional)" value={f.imageUrl} onChange={(x) => setF({ ...f, imageUrl: x })} maxSide={1000} />
+      <div className="flex flex-wrap gap-3">
+        {field("start", "Lance inicial")}
+        {field("step", "Aumento")}
+        {field("count", "Opções", "w-20")}
+        {field("minutes", "Duração (min)", "w-20")}
+      </div>
+      <p className="text-xs text-slate-500">Enquete: {opts.map((o) => `${o} pts`).join(" · ")}</p>
+      {msg?.error && <p className="text-sm text-red-300">{msg.error}</p>}
+      {msg?.ok && <p className="text-sm text-green-300">{msg.ok}</p>}
+      <button className="btn-primary w-full" disabled={pending} onClick={() => confirm("Postar o Leilão de Pontos no grupo agora?") && start(async () => { const r = await startPointAuctionAction(f); setMsg(r); if (r.ok) { setF({ ...f, title: "", imageUrl: "" }); router.refresh(); } })}>
+        {pending ? "Postando…" : "Iniciar Leilão de Pontos"}
+      </button>
     </section>
   );
 }

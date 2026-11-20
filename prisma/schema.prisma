@@ -338,3 +338,32 @@ model Redemption {
   createdAt  DateTime  @default(now())
   doneAt     DateTime?
 }
+
+// Leilão de Pontos: enquete no grupo em que o lance é em MLPB Points
+model PointAuction {
+  id            String     @id @default(cuid())
+  title         String
+  imageUrl      String     @default("")
+  optionsJson   String     @default("[]") // valores em pontos
+  group         String     @default("")
+  pollMessageId String     @default("")
+  status        String     @default("ATIVO") // ATIVO | ENCERRADO
+  endsAt        DateTime
+  winnerPhone   String     @default("")
+  winnerName    String     @default("")
+  winnerPoints  Int?
+  createdAt     DateTime   @default(now())
+  bids          PointBid[]
+}
+
+model PointBid {
+  id        String       @id @default(cuid())
+  auctionId String
+  auction   PointAuction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  phone     String
+  name      String       @default("")
+  points    Int
+  votedAt   DateTime     @default(now())
+
+  @@unique([auctionId, phone])
+}

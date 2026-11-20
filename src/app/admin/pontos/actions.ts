@@ -71,3 +71,27 @@ export async function getConfigForForm() {
   await requireAdmin();
   return getPointsConfig();
 }
+
+export async function startPointAuctionAction(input: { title: string; imageUrl: string; start: string; step: string; count: string; minutes: string }) {
+  await requireAdmin();
+  const title = input.title.trim();
+  if (!title) return { error: "Dê um nome ao prêmio." };
+  const { startPointAuction } = await import("@/lib/point-auctions");
+  const { siteUrl } = await import("@/lib/orders");
+  try {
+    const img = input.imageUrl.trim();
+    await startPointAuction({
+      title,
+      imageUrl: img ? (img.startsWith("http") ? img : `${siteUrl()}${img}`) : "",
+      start: Number(input.start) || 100,
+      step: Number(input.step) || 50,
+      count: Number(input.count) || 10,
+      minutes: Number(input.minutes) || 30,
+    });
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : String(e) };
+  }
+  await logActivity("points_auction", `Leilão de Pontos iniciado: ${title}`);
+  revalidatePath("/admin/pontos");
+  return { ok: "Leilão de Pontos postado no grupo ✔" };
+}

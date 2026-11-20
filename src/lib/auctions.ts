@@ -138,7 +138,11 @@ function optionCentsFor(item: { optionsJson: string; pollMapJson?: string }, opt
 /** Registra/atualiza o voto de alguém numa enquete (vindo do webhook). */
 export async function registerVote(input: { pollMessageId: string; phone: string; name: string; options: string[] }) {
   const item = await db.auctionItem.findFirst({ where: { pollMessageId: input.pollMessageId }, include: { lot: { include: { auction: true } } } });
-  if (!item) return { ok: false, reason: "enquete não encontrada" };
+  if (!item) {
+    // pode ser uma enquete do Leilão de Pontos
+    const { registerPointVote } = await import("./point-auctions");
+    return registerPointVote(input);
+  }
   const a = item.lot.auction;
   if (a.status !== "ATIVO" || new Date() > a.endsAt) return { ok: false, reason: "leilão fora do horário" };
   const phone = phoneKey(input.phone);
@@ -350,8 +354,9 @@ export async function runSchedule() {
       await db.auction.update({ where: { id: a.id }, data: { status: "AGENDADO" } }); // tenta de novo no próximo minuto
     }
   }
-  // MLPB Points: bônus do ranking do mês anterior (roda uma vez por mês)
+  // MLPB Points: bônus do ranking do mês anterior (uma vez por mês) e Leilões de Pontos vencidos
   await import("./points").then((p) => p.payMonthlyRanking()).catch(() => {});
+  await import("./point-auctions").then((p) => p.closePointAuctions()).catch((e) => log("erro-leilao-pontos", { error: String(e) }));
   for (const a of toClose) {
     try {
       await closeAuction(a.id);
