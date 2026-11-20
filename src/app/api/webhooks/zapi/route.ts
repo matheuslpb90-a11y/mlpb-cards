@@ -17,8 +17,15 @@ export async function POST(req: Request) {
 
   // ---- Whapi: { messages: [...] } e { messages_updates: [...] } ----
   if (Array.isArray(body.messages) || Array.isArray(body.messages_updates)) {
-    await log("evento", body);
     const msgs = (Array.isArray(body.messages) ? body.messages : []) as Record<string, unknown>[];
+    // O número participa de vários grupos: só registra o que interessa (grupo do leilão, votos, privado),
+    // para o Registro do bot não ficar lotado de mensagens de outros grupos.
+    const botGroup = (await db.setting.findUnique({ where: { key: "botGroupId" } }))?.value ?? "";
+    const relevant =
+      Array.isArray(body.messages_updates) ||
+      msgs.some((m) => m.type === "action" || String(m.chat_id ?? "") === botGroup || !String(m.chat_id ?? "").includes("@g.us"));
+    if (!relevant) return NextResponse.json({ ok: true, ignored: true });
+    await log("evento", body);
     for (const m of msgs) {
       if (m.from_me === true) continue;
       const action = m.action as Record<string, unknown> | undefined;
