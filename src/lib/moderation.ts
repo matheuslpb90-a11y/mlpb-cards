@@ -78,7 +78,7 @@ export async function saveModConfig(c: ModConfig) {
   await db.setting.upsert({ where: { key: "modConfig" }, create: { key: "modConfig", value: JSON.stringify(c) }, update: { value: JSON.stringify(c) } });
 }
 
-async function moderatedGroups(c: ModConfig) {
+export async function moderatedGroups(c: ModConfig) {
   if (c.groups.length) return c.groups;
   const g = (await db.setting.findUnique({ where: { key: "botGroupId" } }))?.value;
   return g ? [g] : [];
@@ -102,14 +102,14 @@ const partnerWindow = (c: ModConfig) =>
 
 // ---- admins do grupo (cache curto) ----
 const infoCache = new Map<string, { at: number; info: WGroupInfo }>();
-async function groupInfo(group: string, fresh = false) {
+export async function groupInfo(group: string, fresh = false) {
   const hit = infoCache.get(group);
   if (!fresh && hit && Date.now() - hit.at < 5 * 60_000) return hit.info;
   const info = await whapiGroupInfo(group);
   infoCache.set(group, { at: Date.now(), info });
   return info;
 }
-async function isAdmin(c: ModConfig, group: string, phone: string) {
+export async function isAdmin(c: ModConfig, group: string, phone: string) {
   const k = phoneKey(phone);
   if (k === phoneKey(WHATSAPP_NUMBER)) return true;
   if (c.adminPhones.some((p) => phoneKey(p) === k)) return true;
@@ -322,6 +322,8 @@ const HELP = [
   "*!dolar* — cotação do dólar",
   "*!avaliar* 61999999999 — avalia uma negociação/entrega (nota de 1 a 5)",
   "*!referencias* 61999999999 — mostra as avaliações de alguém",
+  "*!pontos* — seus MLPB Points · *!ranking* — top do mês",
+  "*!premios* — prêmios · *!trocar* número — troca pontos por prêmio",
   "",
   "_Admins:_",
   "*!ban* @pessoa — remove do grupo (ou responda a mensagem)",
@@ -335,6 +337,8 @@ const HELP = [
   "*!brother* @pessoa — libera os links do parceiro (nos dias/horários de parceiros)",
   "*!unbrother* @pessoa — tira da lista de parceiros",
   "*!brothers* — lista os parceiros",
+  "*!leilomania* 120 — (respondendo a pessoa) lança compra de R$ 120 no Leilomania",
+  "*!darpontos* 50 motivo — (respondendo a pessoa) dá ou tira pontos (use -50)",
 ].join("\n");
 
 async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<string | null> {
@@ -351,6 +355,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     const link = await whapiInviteLink(g).catch(async (e) => { await log("erro-moderacao", { acao: "link", error: String(e) }); return ""; });
     return say(g, link ? `🔗 Link do grupo: ${link}` : "Não consegui pegar o link agora (o número da loja precisa ser admin).", [], msg.id).then(() => cmd);
   }
+  if (["!pontos", "!ranking", "!premios", "!prêmios", "!trocar"].includes(cmd)) return pointsCommand(c, msg, cmd, args);
   if (cmd === "!avaliar") return startReview(c, msg, args).then(() => cmd);
   if (cmd === "!referencias" || cmd === "!referências" || cmd === "!ref") return showReviews(msg, args).then(() => cmd);
   if (cmd === "!dolar") {
@@ -361,7 +366,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, v ? `💵 Dólar agora: *R$ ${v.toFixed(2).replace(".", ",")}*` : "Não consegui consultar o dólar agora.", [], msg.id).then(() => cmd);
   }
 
-  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!brother", "!unbrother", "!brothers"];
+  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos"];
   if (!ADMIN_CMDS.includes(cmd)) return null;
   if (!msg.fromMe && !(await isAdmin(c, g, msg.phone))) return say(g, "⛔ Esse comando é só para admins.", [], msg.id).then(() => `${cmd} (negado)`);
 
@@ -402,6 +407,20 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       c.partners.phones = c.partners.phones.filter((p) => phoneKey(p) !== k2);
       await saveModConfig(c);
       return say(g, `${mention(target)} saiu da lista de parceiros.`, [target]).then(() => "!unbrother");
+    }
+    case "!leilomania":
+    case "!darpontos": {
+      const who = msg.quotedAuthor || msg.mentions[0] || "";
+      if (!who) return say(g, `Responda a mensagem da pessoa com ${cmd.replace("!", c.prefix || "!")} ${cmd === "!leilomania" ? "120" : "50 motivo"}.`, [], msg.id).then(() => `${cmd} (sem alvo)`);
+      const num = Number((args.replace(/@\d+/g, "").match(/-?\d+(?:[.,]\d{1,2})?/)?.[0] ?? "").replace(",", "."));
+      if (!num) return say(g, "Faltou o valor.", [], msg.id).then(() => `${cmd} (sem valor)`);
+      const P = await import("./points");
+      const r =
+        cmd === "!leilomania"
+          ? await P.creditPurchase(who, "", Math.round(num * 100), "LEILOMANIA", "", `Leilomania R$ ${num}`)
+          : await P.credit({ phone: who, points: Math.round(num), source: "AJUSTE", note: args.replace(/@\d+/g, "").replace(/-?\d+([.,]\d+)?/, "").trim() || "ajuste manual" });
+      if (!r.ok) return say(g, `Não lancei: ${r.reason}.`, [], msg.id).then(() => `${cmd} (${r.reason})`);
+      return say(g, `🪙 ${mention(who)} ${r.points! > 0 ? `ganhou *${r.points} pontos*` : `perdeu *${-r.points!} pontos*`}! Saldo: *${await P.balance(who)}*.`, [who]).then(() => cmd);
     }
     case "!brothers":
       return say(
@@ -541,6 +560,12 @@ async function reviewStep(c: ModConfig, msg: InMsg, text: string): Promise<strin
       : await db.review.create({ data: { targetPhone: st.t, raterPhone: rater, raterName: msg.name, group: msg.group, rating: n, proofJson } });
     await db.modEvent.update({ where: { id: pending.id }, data: { kind: "RATE_COMMENT", note: r.id, until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
     await say(msg.group, `✅ Nota ${stars(n)} registrada para *${fmtPhone(st.t)}*. Obrigado!\nSe quiser, mande um comentário em até ${REVIEW_SECONDS}s (opcional).`, [], msg.id);
+    // MLPB Points: avaliação nova com provas
+    if (!old && st.p.length > 0) {
+      const { credit, getPointsConfig } = await import("./points");
+      const pc = await getPointsConfig();
+      if (pc.enabled && pc.reviewPoints > 0) await credit({ phone: msg.phone, name: msg.name, points: pc.reviewPoints, source: "AVALIACAO", refId: `REV-${r.id}`, note: "avaliação com provas" }).catch(() => {});
+    }
     return `avaliação: nota ${n} para ${st.t}`;
   }
   // comentário opcional
@@ -577,4 +602,54 @@ async function showReviews(msg: InMsg, args: string) {
     [],
     msg.id,
   );
+}
+
+// ---------------- MLPB Points (!pontos / !ranking / !premios / !trocar) ----------------
+
+async function pointsCommand(c: ModConfig, msg: InMsg, cmd: string, args: string): Promise<string> {
+  const P = await import("./points");
+  const pc = await P.getPointsConfig();
+  const g = msg.group;
+  if (!pc.enabled) return say(g, "🪙 O MLPB Points ainda não está ativo.", [], msg.id).then(() => `${cmd} (desligado)`);
+  const pre = c.prefix || "!";
+  if (cmd === "!pontos") {
+    const bal = await P.balance(msg.phone);
+    const rank = await P.monthRanking(100);
+    const pos = rank.findIndex((r) => r.phone === phoneKey(msg.phone));
+    const next = pc.rewards.filter((r) => r.points > bal).sort((a, b) => a.points - b.points)[0];
+    return say(
+      g,
+      `🪙 ${mention(msg.phone)}, você tem *${bal} MLPB Points*.${pos >= 0 ? `\n🏆 ${pos + 1}º no ranking do mês.` : ""}${next ? `\nFaltam ${next.points - bal} para: ${next.name}.` : ""}\nVeja os prêmios com *${pre}premios*.`,
+      [msg.phone],
+      msg.id,
+    ).then(() => cmd);
+  }
+  if (cmd === "!ranking") {
+    const top = await P.monthRanking(10);
+    const medal = ["🥇", "🥈", "🥉"];
+    return say(
+      g,
+      top.length
+        ? `🏆 *Ranking MLPB do mês*\n${top.map((t, i) => `${medal[i] ?? `${i + 1}.`} ${t.name ? t.name.split(" ")[0] : mention(t.phone)} — ${t.points} pts`).join("\n")}\n\nO top 3 ganha bônus no início do mês: ${pc.ranking.map((v) => `+${v}`).join(" / ")} pontos.`
+        : "🏆 Ninguém pontuou este mês ainda. Seja o primeiro!",
+      top.filter((t) => !t.name).map((t) => t.phone),
+      msg.id,
+    ).then(() => cmd);
+  }
+  if (cmd === "!premios" || cmd === "!prêmios") {
+    return say(
+      g,
+      `🎁 *Prêmios MLPB Points*\n${pc.rewards.map((r, i) => `${i + 1}. ${r.name} — *${r.points} pts*`).join("\n")}\n\nPara trocar: *${pre}trocar número* (ex.: ${pre}trocar 1).\nGanhe pontos comprando (${pc.perReal} por R$ 1), em jogos e indicando amigos.`,
+      [],
+      msg.id,
+    ).then(() => cmd);
+  }
+  // !trocar
+  const n = Number(args.match(/\d+/)?.[0]);
+  const reward = pc.rewards[n - 1] ?? pc.rewards.find((r) => r.key === args.trim().toLowerCase());
+  if (!reward) return say(g, `Use *${pre}trocar número* — veja os números em *${pre}premios*.`, [], msg.id).then(() => `${cmd} (sem prêmio)`);
+  const r = await P.requestRedemption(msg.phone, msg.name, reward.key);
+  if (!r.ok) return say(g, `🪙 ${mention(msg.phone)}, não deu: ${r.reason}.`, [msg.phone], msg.id).then(() => `${cmd} (${r.reason})`);
+  await say(g, `🎉 ${mention(msg.phone)} trocou *${reward.points} pontos* por *${reward.name}*! A loja vai falar com você para entregar. Saldo: ${r.balance} pts.`, [msg.phone], msg.id);
+  return `${cmd}: ${reward.name}`;
 }

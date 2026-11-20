@@ -137,6 +137,16 @@ export async function markOrderPaid(code: number, info: { transactionNsu?: strin
       receiptUrl: info.receiptUrl ?? "",
     },
   });
+  // MLPB Points: 1 ponto por R$ 1 (só membros do grupo)
+  try {
+    const u = await db.user.findUnique({ where: { id: updated.userId } });
+    if (u) {
+      const { creditPurchase } = await import("./points");
+      await creditPurchase(u.phone, u.name, updated.subtotalCents, "COMPRA", `ORDER-${updated.code}`, `Pedido #${updated.code}`);
+    }
+  } catch {
+    /* pontos nunca atrapalham o pagamento */
+  }
   if (updated.shippingMethod === ACCUMULATE) {
     const { addOrderToBox } = await import("./boxes");
     await addOrderToBox(updated.id).catch(() => {});

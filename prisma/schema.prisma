@@ -309,3 +309,32 @@ model Review {
 
   @@index([targetPhone, createdAt])
 }
+
+// MLPB Points: extrato de pontos por membro do grupo (positivo = ganhou, negativo = trocou/ajuste)
+model PointEntry {
+  id        String    @id @default(cuid())
+  phone     String // phoneKey
+  name      String    @default("")
+  points    Int
+  source    String // COMPRA | LEILAO | LEILOMANIA | JOGO | AVALIACAO | INDICACAO | RANKING | RESGATE | AJUSTE
+  note      String    @default("")
+  refId     String    @default("") // pedido/invoice/etc. (evita lançar duas vezes)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@index([refId])
+}
+
+// Pedidos de troca de pontos por prêmio (aprovados pela loja)
+model Redemption {
+  id         String    @id @default(cuid())
+  phone      String
+  name       String    @default("")
+  rewardKey  String
+  rewardName String
+  points     Int
+  status     String    @default("PENDENTE") // PENDENTE | ENTREGUE | RECUSADO
+  createdAt  DateTime  @default(now())
+  doneAt     DateTime?
+}

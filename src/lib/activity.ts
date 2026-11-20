@@ -23,6 +23,9 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   sender_updated: "Envios: remetente",
   label_command: "Envios: etiqueta",
   review_deleted: "Avaliação removida",
+  points_config: "Pontos: configuração",
+  points_launch: "Pontos: lançamento",
+  points_redemption: "Pontos: troca",
 };
 
 /** Registra uma ação feita no painel. Nunca interrompe a ação principal se falhar. */

@@ -350,6 +350,8 @@ export async function runSchedule() {
       await db.auction.update({ where: { id: a.id }, data: { status: "AGENDADO" } }); // tenta de novo no próximo minuto
     }
   }
+  // MLPB Points: bônus do ranking do mês anterior (roda uma vez por mês)
+  await import("./points").then((p) => p.payMonthlyRanking()).catch(() => {});
   for (const a of toClose) {
     try {
       await closeAuction(a.id);
@@ -371,6 +373,10 @@ export async function markInvoicePaid(code: number, info: { transactionNsu?: str
   });
   const { addInvoiceToBox } = await import("./boxes");
   const box = await addInvoiceToBox(updated.id).catch(() => null);
+  // MLPB Points: arremate pago
+  await import("./points")
+    .then(({ creditPurchase }) => creditPurchase(inv.phone, inv.name, inv.totalCents, "LEILAO", `INV-${inv.code}`, `Invoice #${inv.code}`))
+    .catch(() => {});
   if (!info.silent) sendText(inv.phone, `✅ Pagamento do invoice #${inv.code} confirmado! Obrigado pela compra na MLPB Cards. 🧡${await boxNote(box?.id)}`).catch(() => {});
   return updated;
 }
