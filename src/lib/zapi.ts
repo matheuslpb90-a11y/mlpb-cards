@@ -198,6 +198,16 @@ export async function probeOmni(groupId: string) {
       signal: AbortSignal.timeout(15000),
     });
     out.push({ tentativa: `POST send-text (${zapiMode()})`, status: r.status, resposta: (await r.text()).slice(0, 400) });
+    if (supportsPolls()) {
+      const p = await fetch(endpoint("send-poll"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ phone: groupId, message: "🤖 Teste de enquete do bot MLPB", poll: [{ name: "R$ 10,00" }, { name: "R$ 15,00" }], pollMaxOptions: 1 }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(15000),
+      });
+      out.push({ tentativa: "POST send-poll (enquete)", status: p.status, resposta: (await p.text()).slice(0, 400) });
+    }
   } catch (e) {
     out.push({ tentativa: "POST send-text", status: "erro", resposta: e instanceof Error ? e.message : String(e) });
   }
