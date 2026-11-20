@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { log } from "@/lib/zapi";
 import { whapiPhone } from "@/lib/whapi";
+import { moderateMessage, onParticipantsAdded, parseWhapiMessage } from "@/lib/moderation";
 import { registerTextBid, registerVote, runSchedule } from "@/lib/auctions";
 
 // Recebe eventos da Z-API (configure em Webhooks → "Ao receber").
@@ -15,17 +16,38 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ ok: false }, { status: 400 });
 
-  // ---- Whapi: { messages: [...] } e { messages_updates: [...] } ----
-  if (Array.isArray(body.messages) || Array.isArray(body.messages_updates)) {
+  // ---- Whapi: { messages: [...] }, { messages_updates: [...] }, { groups_participants: [...] } ----
+  const participantEvents = Object.entries(body)
+    .filter(([k, v]) => /participants/i.test(k) && Array.isArray(v))
+    .flatMap(([, v]) => v as Record<string, unknown>[]);
+  if (Array.isArray(body.messages) || Array.isArray(body.messages_updates) || participantEvents.length) {
     const msgs = (Array.isArray(body.messages) ? body.messages : []) as Record<string, unknown>[];
-    // O número participa de vários grupos: só registra o que interessa (grupo do leilão, votos, privado),
-    // para o Registro do bot não ficar lotado de mensagens de outros grupos.
-    const botGroup = (await db.setting.findUnique({ where: { key: "botGroupId" } }))?.value ?? "";
+    // Só registra o que interessa (votos, enquetes, entradas no grupo, privado). Mensagens comuns de grupo
+    // não vão para o Registro do bot, senão ele lota.
     const relevant =
       Array.isArray(body.messages_updates) ||
-      msgs.some((m) => m.type === "action" || String(m.chat_id ?? "") === botGroup || !String(m.chat_id ?? "").includes("@g.us"));
-    if (!relevant) return NextResponse.json({ ok: true, ignored: true });
-    await log("evento", body);
+      participantEvents.length > 0 ||
+      msgs.some((m) => m.type === "action" || !String(m.chat_id ?? "").includes("@g.us"));
+    if (relevant) await log("evento", body);
+
+    // entrada de participantes: boas-vindas e bloqueio de DDI estrangeiro
+    for (const ev of participantEvents) {
+      if (!/add|join|invite/i.test(String(ev.action ?? ev.type ?? ""))) continue;
+      const group = String(ev.group_id ?? ev.chat_id ?? ev.id ?? "");
+      const people = ((ev.participants ?? []) as unknown[]).map(whapiPhone);
+      await onParticipantsAdded(group, people).catch((e) => log("erro-moderacao", { acao: "entrada", error: String(e) }));
+    }
+
+    // moderação e comandos (!ban, !regras...) nos grupos moderados
+    for (const m of msgs) {
+      if (m.type === "action" || m.source === "api" || !String(m.chat_id ?? "").endsWith("@g.us")) continue;
+      const done = await moderateMessage(parseWhapiMessage(m)).catch(async (e) => {
+        await log("erro-moderacao", { acao: "mensagem", error: String(e) });
+        return null;
+      });
+      if (done) await log("moderacao", { acao: done, de: m.from_name ?? m.from, texto: String((m.text as Record<string, unknown> | undefined)?.body ?? m.type).slice(0, 200) });
+    }
+
     for (const m of msgs) {
       if (m.from_me === true) continue;
       const action = m.action as Record<string, unknown> | undefined;
@@ -59,6 +81,9 @@ export async function POST(req: Request) {
     runSchedule().catch(() => {});
     return NextResponse.json({ ok: true });
   }
+
+  // confirmações de entrega (Whapi "statuses"): não interessam
+  if (Array.isArray(body.statuses)) return NextResponse.json({ ok: true });
 
   const poll = (body.pollVote ?? body.poll_vote ?? body.pollUpdate) as Record<string, unknown> | undefined;
   if (poll) {

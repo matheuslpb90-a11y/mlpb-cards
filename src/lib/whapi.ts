@@ -81,3 +81,59 @@ export async function whapiPollResults(messageId: string): Promise<{ name: strin
   const r = await whapiCall<{ poll?: { results?: { name?: string; voters?: unknown[] }[] } }>(`messages/${encodeURIComponent(messageId)}`);
   return (r?.poll?.results ?? []).map((o) => ({ name: String(o.name ?? ""), voters: ((o.voters ?? []) as unknown[]).map(whapiPhone) }));
 }
+
+// ---------------- Grupos e moderação ----------------
+
+/** Texto com menções (@5561...) e/ou citando (respondendo) uma mensagem. */
+export async function whapiTextEx(chat: string, body: string, opts: { mentions?: string[]; quoted?: string } = {}) {
+  const payload: Record<string, unknown> = { to: to(chat), body };
+  if (opts.mentions?.length) payload.mentions = opts.mentions.map((m) => m.replace(/\D/g, ""));
+  if (opts.quoted) payload.quoted = opts.quoted;
+  return sentId(await whapiCall<Sent>("messages/text", payload));
+}
+
+/** Apaga uma mensagem para todos (no grupo, o número da loja precisa ser admin). */
+export async function whapiDeleteMessage(messageId: string) {
+  return whapiCall(`messages/${encodeURIComponent(messageId)}`, undefined, "DELETE");
+}
+
+export type WGroupInfo = { id: string; name: string; participants: { phone: string; admin: boolean }[] };
+
+export async function whapiGroupInfo(groupId: string): Promise<WGroupInfo> {
+  const r = await whapiCall<{ id?: string; name?: string; subject?: string; participants?: { id?: unknown; phone?: string; rank?: string; admin?: boolean | string }[] }>(
+    `groups/${encodeURIComponent(groupId)}`,
+  );
+  return {
+    id: String(r.id ?? groupId),
+    name: String(r.name ?? r.subject ?? ""),
+    participants: (r.participants ?? []).map((p) => ({
+      phone: String(p.phone ?? whapiPhone(p.id)).replace(/@.*/, ""),
+      admin: /admin|creator|owner|superadmin/i.test(String(p.rank ?? "")) || p.admin === true || /admin/i.test(String(p.admin ?? "")),
+    })),
+  };
+}
+
+export async function whapiRemoveParticipants(groupId: string, phones: string[]) {
+  return whapiCall(`groups/${encodeURIComponent(groupId)}/participants`, { participants: phones.map((p) => p.replace(/\D/g, "")) }, "DELETE");
+}
+
+/** Fecha (só admins falam) ou abre o grupo. */
+export async function whapiSetAnnounce(groupId: string, onlyAdmins: boolean) {
+  const g = encodeURIComponent(groupId);
+  try {
+    return await whapiCall(`groups/${g}/setting`, { setting: "announcement", policy: onlyAdmins ? "admins" : "anyone" }, "PATCH");
+  } catch (e) {
+    // formato alternativo de algumas versões da API
+    try {
+      return await whapiCall(`groups/${g}`, { announce: onlyAdmins }, "PUT");
+    } catch {
+      throw e;
+    }
+  }
+}
+
+export async function whapiInviteLink(groupId: string) {
+  const r = await whapiCall<{ invite_code?: string; code?: string; link?: string }>(`groups/${encodeURIComponent(groupId)}/invite`);
+  const code = r.invite_code ?? r.code ?? "";
+  return r.link ?? (code ? `https://chat.whatsapp.com/${code}` : "");
+}

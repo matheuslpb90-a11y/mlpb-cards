@@ -260,3 +260,17 @@ model ActivityLog {
 
   @@index([createdAt])
 }
+
+// Moderação do grupo: avisos (warn), anúncios do dia, silenciados (timeout)
+model ModEvent {
+  id        String    @id @default(cuid())
+  group     String
+  phone     String // chave do telefone (phoneKey)
+  name      String    @default("")
+  kind      String // WARN | AD | TIMEOUT
+  note      String    @default("")
+  until     DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([group, phone, kind])
+}

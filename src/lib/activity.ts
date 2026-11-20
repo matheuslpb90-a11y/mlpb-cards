@@ -19,6 +19,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   order_updated: "Pedido: atualizado",
   settings_updated: "Aparência e links",
   bot_group_updated: "Bot: grupo",
+  mod_updated: "Moderação: configuração",
 };
 
 /** Registra uma ação feita no painel. Nunca interrompe a ação principal se falhar. */
