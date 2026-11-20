@@ -66,7 +66,7 @@ async function searchPtcg(q: string, num: string): Promise<LookupCard[]> {
       source: "ptcg" as const,
       name: c.name,
       setName: c.set?.name ?? "",
-      number: c.set?.printedTotal ? `${c.number}/${c.set.printedTotal}` : c.number,
+      number: c.set?.printedTotal && /^\d+$/.test(c.number) ? `${c.number}/${c.set.printedTotal}` : c.number,
       rarity: c.rarity ?? "",
       imageSmall: c.images!.small!,
       imageLarge: c.images?.large ?? c.images!.small!,
@@ -186,7 +186,7 @@ async function searchByCode(codigo: string, idioma: string): Promise<{ results: 
           if (!localIds.has(c.localId.toUpperCase()) || !c.image) continue;
           found.push({
             key: `code-${lang}-${c.id}`, source: "tcgdex", tcgdexId: c.id, lang, name: c.name, setName: set.name,
-            number: set.cardCount?.official ? `${c.localId}/${String(set.cardCount.official).padStart(c.localId.length, "0")}` : c.localId,
+            number: set.cardCount?.official && /^\d+$/.test(c.localId) ? `${c.localId}/${String(set.cardCount.official).padStart(c.localId.length, "0")}` : c.localId,
             rarity: "", imageSmall: `${c.image}/low.webp`, imageLarge: `${c.image}/high.webp`,
           });
         }
