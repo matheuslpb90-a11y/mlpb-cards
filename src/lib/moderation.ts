@@ -616,13 +616,17 @@ async function pointsCommand(c: ModConfig, msg: InMsg, cmd: string, args: string
   if (!pc.enabled) return say(g, "🪙 O MLPB Points ainda não está ativo.", [], msg.id).then(() => `${cmd} (desligado)`);
   const pre = c.prefix || "!";
   if (cmd === "!pontos") {
-    const bal = await P.balance(msg.phone);
+    const w = await P.wallet(msg.phone);
+    const bal = w.balance;
+    const exp = w.nextExpiry
+      ? `\n⏳ ${w.nextExpiry.points} pts vencem em ${w.nextExpiry.date.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" })}.`
+      : "";
     const rank = await P.monthRanking(100);
     const pos = rank.findIndex((r) => r.phone === phoneKey(msg.phone));
     const next = pc.rewards.filter((r) => r.points > bal).sort((a, b) => a.points - b.points)[0];
     return say(
       g,
-      `🪙 ${mention(msg.phone)}, você tem *${bal} MLPB Points*.${pos >= 0 ? `\n🏆 ${pos + 1}º no ranking do mês.` : ""}${next ? `\nFaltam ${next.points - bal} para: ${next.name}.` : ""}\nVeja os prêmios com *${pre}premios*.`,
+      `🪙 ${mention(msg.phone)}, você tem *${bal} MLPB Points*.${exp}${pos >= 0 ? `\n🏆 ${pos + 1}º no ranking do mês.` : ""}${next ? `\nFaltam ${next.points - bal} para: ${next.name}.` : ""}\nVeja os prêmios com *${pre}premios*.`,
       [msg.phone],
       msg.id,
     ).then(() => cmd);

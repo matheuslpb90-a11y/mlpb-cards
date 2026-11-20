@@ -73,7 +73,7 @@ export function PointsConfigForm({ initial }: { initial: PointsConfig }) {
         {num("referralStay", "Indicação: amigo ficou 7 dias")}
         {num("referralPurchase", "Indicação: amigo fez a 1ª compra")}
         {num("boxBonus", "Bônus quando a caixa chega no frete grátis (R$ 500)", "1x por caixa")}
-        {num("expiryMonths", "Pontos vencem em (meses)", "0 = nunca")}
+        {num("expiryDays", "Pontos vencem em (dias)", "aviso 7 dias antes · 0 = nunca")}
         {num("spendWindowDays", "Janela da compra mínima (dias)")}
         {num("auctionMinSpend", "Compra mínima (R$) para vencer Leilão de Pontos", "0 = sem exigência")}
       </div>

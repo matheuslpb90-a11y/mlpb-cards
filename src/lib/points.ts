@@ -20,7 +20,7 @@ export type PointsConfig = {
   auctionMinSpend: number; // compra mínima (R$) para vencer um Leilão de Pontos
   boxBonus: number; // caixa chegou no valor do frete grátis (R$ 500): bônus de pontos, 1x por caixa
   ranking: number[]; // bônus do 1º, 2º, 3º do mês
-  expiryMonths: number;
+  expiryDays: number; // pontos vencem N dias depois de ganhos (0 = nunca)
   rewards: Reward[];
 };
 
@@ -37,7 +37,7 @@ export const DEFAULT_POINTS: PointsConfig = {
   auctionMinSpend: 50,
   boxBonus: 300,
   ranking: [300, 150, 75],
-  expiryMonths: 6,
+  expiryDays: 60,
   rewards: [
     { key: "bulk", name: "🃏 Pacotinho surpresa (5 cartas, vai para a sua caixa)", points: 150, minSpend: 0 },
     { key: "cupom5", name: "Cupom de R$ 5", points: 250, minSpend: 0 },
@@ -51,7 +51,8 @@ export const DEFAULT_POINTS: PointsConfig = {
 export async function getPointsConfig(): Promise<PointsConfig> {
   const s = await db.setting.findUnique({ where: { key: "pointsConfig" } });
   try {
-    const c = JSON.parse(s?.value ?? "{}") as Partial<PointsConfig>;
+    const c = JSON.parse(s?.value ?? "{}") as Partial<PointsConfig> & { expiryMonths?: number };
+    delete c.expiryMonths; // regra antiga em meses: agora vale em dias (padrão 60)
     // tabela antiga (com "frete grátis") é trocada pela nova automaticamente
     const old = c.rewards?.length === 4 && c.rewards.some((r) => r.key === "frete");
     const rewards = (c.rewards?.length && !old ? c.rewards : DEFAULT_POINTS.rewards).map((r) =>
@@ -91,14 +92,68 @@ export async function isMember(phone: string) {
 }
 
 // ---- saldo ----
-export async function balance(phone: string) {
+/**
+ * Saldo como programa de milhagem: cada ganho é um "lote" com validade; trocas consomem primeiro os lotes
+ * mais antigos (que vencem antes). Devolve o saldo e o que vai vencer.
+ */
+export async function wallet(phone: string) {
   const k = phoneKey(phone);
-  const now = new Date();
-  const [plus, minus] = await Promise.all([
-    db.pointEntry.aggregate({ _sum: { points: true }, where: { phone: k, points: { gt: 0 }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } }),
-    db.pointEntry.aggregate({ _sum: { points: true }, where: { phone: k, points: { lt: 0 } } }),
-  ]);
-  return Math.max(0, (plus._sum.points ?? 0) + (minus._sum.points ?? 0));
+  const rows = await db.pointEntry.findMany({ where: { phone: k }, orderBy: { createdAt: "asc" }, select: { points: true, expiresAt: true, createdAt: true } });
+  const lots: { left: number; exp: Date | null }[] = [];
+  const expireUntil = (t: Date) => {
+    for (const l of lots) if (l.exp && l.exp <= t) l.left = 0;
+  };
+  for (const r of rows) {
+    if (r.points > 0) {
+      lots.push({ left: r.points, exp: r.expiresAt });
+      continue;
+    }
+    expireUntil(r.createdAt);
+    let debt = -r.points;
+    // consome primeiro o que vence antes (sem validade por último)
+    for (const l of [...lots].sort((a, b) => (a.exp?.getTime() ?? Infinity) - (b.exp?.getTime() ?? Infinity))) {
+      if (debt <= 0) break;
+      const use = Math.min(l.left, debt);
+      l.left -= use;
+      debt -= use;
+    }
+  }
+  expireUntil(new Date());
+  const live = lots.filter((l) => l.left > 0);
+  const next = live.filter((l) => l.exp).sort((a, b) => a.exp!.getTime() - b.exp!.getTime())[0];
+  return {
+    balance: live.reduce((s, l) => s + l.left, 0),
+    lots: live,
+    nextExpiry: next ? { date: next.exp!, points: live.filter((l) => l.exp && l.exp.getTime() === next.exp!.getTime()).reduce((s, l) => s + l.left, 0) } : null,
+  };
+}
+
+export async function balance(phone: string) {
+  return (await wallet(phone)).balance;
+}
+
+/** Uma vez por dia: avisa no privado quem tem pontos vencendo em 7 dias. */
+export async function remindExpiring() {
+  const c = await getPointsConfig();
+  if (!c.enabled || c.expiryDays <= 0) return 0;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const flag = await db.setting.findUnique({ where: { key: "pointsReminderDay" } });
+  if (flag?.value === today) return 0;
+  await db.setting.upsert({ where: { key: "pointsReminderDay" }, create: { key: "pointsReminderDay", value: today }, update: { value: today } });
+  const from = new Date(Date.now() + 6 * 86400_000);
+  const to = new Date(Date.now() + 7 * 86400_000);
+  const phones = await db.pointEntry.findMany({ where: { points: { gt: 0 }, expiresAt: { gt: from, lte: to } }, distinct: ["phone"], select: { phone: true } });
+  const { sendText } = await import("./zapi");
+  let sent = 0;
+  for (const { phone } of phones) {
+    const w = await wallet(phone);
+    const expiring = w.lots.filter((l) => l.exp && l.exp > from && l.exp <= to).reduce((s, l) => s + l.left, 0);
+    if (expiring <= 0) continue;
+    const when = to.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit" });
+    await sendText(phone, `⏳ *${expiring} MLPB Points* vencem em 7 dias (${when})! Seu saldo é ${w.balance} pts.\nTroque antes que expirem — mande *!premios* no grupo para ver as opções. 🪙`).catch(() => {});
+    sent++;
+  }
+  return sent;
 }
 
 type Credit = { phone: string; name?: string; points: number; source: string; note?: string; refId?: string; skipMemberCheck?: boolean };
@@ -111,7 +166,7 @@ export async function credit(x: Credit): Promise<{ ok: boolean; reason?: string;
   const k = phoneKey(x.phone);
   if (x.refId && (await db.pointEntry.findFirst({ where: { refId: x.refId, phone: k } }))) return { ok: false, reason: "já lançado" };
   if (x.points > 0 && !x.skipMemberCheck && !(await isMember(k))) return { ok: false, reason: "fora do grupo" };
-  const expiresAt = x.points > 0 && c.expiryMonths > 0 ? new Date(Date.now() + c.expiryMonths * 30 * 86400_000) : null;
+  const expiresAt = x.points > 0 && c.expiryDays > 0 ? new Date(Date.now() + c.expiryDays * 86400_000) : null;
   await db.pointEntry.create({ data: { phone: k, name: x.name ?? "", points: x.points, source: x.source, note: x.note ?? "", refId: x.refId ?? "", expiresAt } });
   return { ok: true, points: x.points };
 }
