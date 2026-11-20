@@ -221,6 +221,10 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
   const rated = await reviewStep(c, msg, text);
   if (rated) return rated;
 
+  // jogos (Quem é esse Pokémon?, Adivinhe o preço, Pokébola)
+  const played = await import("./games").then((gm) => gm.gameMessage(msg)).catch(() => null);
+  if (played) return played;
+
   if (text.startsWith(c.prefix || "!")) {
     // comandos são escritos com "!" no código; troca o prefixo configurado por "!"
     const r = await runCommand(c, msg, "!" + text.slice((c.prefix || "!").length));
@@ -308,9 +312,12 @@ export async function onParticipantsAdded(group: string, phones: string[]) {
       continue;
     }
     welcome.push(p);
+    await import("./referrals").then((r) => r.recordJoin(group, p)).catch(() => {});
   }
   if (c.welcome.enabled && welcome.length) {
-    await say(group, c.welcome.text.replaceAll("{nome}", welcome.map(mention).join(", ")).replaceAll("{regras}", c.rules).replaceAll("{prefixo}", c.prefix || "!"), welcome);
+    const pts = await import("./points").then((p) => p.getPointsConfig()).catch(() => null);
+    const ref = pts?.enabled ? `\n\n🤝 Alguém te convidou? Mande *${c.prefix || "!"}indicado @pessoa* (ou responda uma mensagem dela) — quem te indicou ganha pontos!` : "";
+    await say(group, c.welcome.text.replaceAll("{nome}", welcome.map(mention).join(", ")).replaceAll("{regras}", c.rules).replaceAll("{prefixo}", c.prefix || "!") + ref, welcome);
   }
 }
 
@@ -323,6 +330,8 @@ const HELP = [
   "*!avaliar* 61999999999 — avalia uma negociação/entrega (nota de 1 a 5)",
   "*!referencias* 61999999999 — mostra as avaliações de alguém",
   "*!pontos* — seus MLPB Points · *!ranking* — top do mês",
+  "*!pokedex* — seus Pokémon capturados · *!captura* — quando um Pokémon aparecer",
+  "*!indicado* @pessoa — diga quem te convidou · *!indicacoes* — suas indicações",
   "*!premios* — prêmios · *!trocar* número — troca pontos por prêmio",
   "",
   "_Admins:_",
@@ -339,6 +348,7 @@ const HELP = [
   "*!brothers* — lista os parceiros",
   "*!leilomania* 120 — (respondendo a pessoa) lança compra de R$ 120 no Leilomania",
   "*!darpontos* 50 motivo — (respondendo a pessoa) dá ou tira pontos (use -50)",
+  "*!jogo* pokemon | preco | pokebola — começa um jogo agora",
 ].join("\n");
 
 async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<string | null> {
@@ -356,6 +366,21 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, link ? `🔗 Link do grupo: ${link}` : "Não consegui pegar o link agora (o número da loja precisa ser admin).", [], msg.id).then(() => cmd);
   }
   if (["!pontos", "!ranking", "!premios", "!prêmios", "!trocar"].includes(cmd)) return pointsCommand(c, msg, cmd, args);
+  if (cmd === "!pokedex") {
+    const { pokedexText } = await import("./games");
+    return say(g, await pokedexText(msg.phone, msg.name), [msg.phone], msg.id).then(() => cmd);
+  }
+  if (cmd === "!indicado" || cmd === "!indicada") {
+    const { registerReferral } = await import("./referrals");
+    const who = msg.mentions[0] || msg.quotedAuthor || (args.match(/\+?\d[\d\s().-]{9,}/)?.[0].replace(/\D/g, "") ?? "");
+    const r = await registerReferral(g, msg.phone, msg.name, who);
+    return say(g, r.ok ? `🤝 Anotado! ${mention(who)} te indicou. Quando você completar 7 dias no grupo, ele ganha pontos — e mais ainda na sua primeira compra. Bem-vindo(a)! 🧡` : `Não deu: ${r.reason}.`, r.ok ? [who] : [], msg.id).then(() => `${cmd}${r.ok ? "" : ` (${r.reason})`}`);
+  }
+  if (cmd === "!indicacoes" || cmd === "!indicações") {
+    const { referralSummary } = await import("./referrals");
+    const s = await referralSummary(msg.phone);
+    return say(g, s.total ? `🤝 ${mention(msg.phone)}, você indicou *${s.total}* pessoa(s): ${s.stayed} completaram 7 dias e ${s.bought} já compraram.` : `🤝 ${mention(msg.phone)}, você ainda não indicou ninguém. Convide amigos para o grupo e peça para eles mandarem *${c.prefix || "!"}indicado* marcando você!`, [msg.phone], msg.id).then(() => cmd);
+  }
   if (cmd === "!avaliar") return startReview(c, msg, args).then(() => cmd);
   if (cmd === "!referencias" || cmd === "!referências" || cmd === "!ref") return showReviews(msg, args).then(() => cmd);
   if (cmd === "!dolar") {
@@ -366,7 +391,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, v ? `💵 Dólar agora: *R$ ${v.toFixed(2).replace(".", ",")}*` : "Não consegui consultar o dólar agora.", [], msg.id).then(() => cmd);
   }
 
-  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos"];
+  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos", "!jogo"];
   if (!ADMIN_CMDS.includes(cmd)) return null;
   if (!msg.fromMe && !(await isAdmin(c, g, msg.phone))) return say(g, "⛔ Esse comando é só para admins.", [], msg.id).then(() => `${cmd} (negado)`);
 
@@ -407,6 +432,13 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       c.partners.phones = c.partners.phones.filter((p) => phoneKey(p) !== k2);
       await saveModConfig(c);
       return say(g, `${mention(target)} saiu da lista de parceiros.`, [target]).then(() => "!unbrother");
+    }
+    case "!jogo": {
+      const kind = /pre[cç]o/i.test(args) ? "PRECO" : /bola|captura/i.test(args) ? "POKEBOLA" : "POKEMON";
+      const { startRound } = await import("./games");
+      return startRound(kind, g)
+        .then(() => `!jogo ${kind}`)
+        .catch((e) => say(g, `Não deu para começar: ${e instanceof Error ? e.message : e}`, [], msg.id).then(() => "!jogo (falhou)"));
     }
     case "!leilomania":
     case "!darpontos": {

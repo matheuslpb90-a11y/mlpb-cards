@@ -367,3 +367,55 @@ model PointBid {
 
   @@unique([auctionId, phone])
 }
+
+// Rodadas dos jogos do grupo (Quem é esse Pokémon?, Adivinhe o preço, Pokébola)
+model GameRound {
+  id          String   @id @default(cuid())
+  type        String // POKEMON | PRECO | POKEBOLA
+  group       String
+  answer      String // nome do Pokémon / preço em centavos / dex
+  dataJson    String   @default("{}")
+  status      String   @default("ATIVO") // ATIVO | ENCERRADO
+  endsAt      DateTime
+  winnerPhone String   @default("")
+  winnerName  String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([status, endsAt])
+}
+
+// Palpites do "Adivinhe o preço" (1 por pessoa)
+model GameGuess {
+  id        String   @id @default(cuid())
+  roundId   String
+  phone     String
+  name      String   @default("")
+  cents     Int
+  createdAt DateTime @default(now())
+
+  @@unique([roundId, phone])
+}
+
+// Pokédex de cada membro (Pokébola)
+model Capture {
+  id        String   @id @default(cuid())
+  phone     String
+  name      String   @default("")
+  dex       Int
+  pokemon   String
+  shiny     Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+// Indicação premiada: quem entrou diz quem indicou
+model Referral {
+  id            String   @id @default(cuid())
+  newPhone      String   @unique
+  newName       String   @default("")
+  referrerPhone String
+  stayPaid      Boolean  @default(false)
+  purchasePaid  Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}

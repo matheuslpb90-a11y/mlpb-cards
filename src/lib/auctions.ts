@@ -357,6 +357,8 @@ export async function runSchedule() {
   // MLPB Points: bônus do ranking do mês anterior (uma vez por mês) e Leilões de Pontos vencidos
   await import("./points").then((p) => p.payMonthlyRanking()).catch(() => {});
   await import("./points").then((p) => p.remindExpiring()).catch(() => {});
+  await import("./referrals").then((r) => r.payReferralStays()).catch(() => {});
+  await import("./games").then((g) => g.gamesTick()).catch((e) => log("erro-jogos", { error: String(e) }));
   await import("./point-auctions").then((p) => p.closePointAuctions()).catch((e) => log("erro-leilao-pontos", { error: String(e) }));
   for (const a of toClose) {
     try {

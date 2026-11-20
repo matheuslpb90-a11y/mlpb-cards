@@ -193,7 +193,10 @@ export async function creditGame(phone: string, name: string, points: number, no
 }
 
 /** Hook para a indicação premiada (1ª compra do indicado) — preenchido na etapa de indicações. */
-async function afterPurchase(_phone: string, _cents: number) {}
+async function afterPurchase(phone: string, cents: number) {
+  const { referralPurchase } = await import("./referrals");
+  await referralPurchase(phone, cents);
+}
 
 // ---- ranking do mês ----
 export function monthStart(d = new Date()) {
