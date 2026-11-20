@@ -330,7 +330,8 @@ export async function sendInvoice(invoiceId: string) {
     "",
     "Suas cartas podem ficar acumuladas na loja para um envio só. Dúvidas? É só responder aqui.",
   ].join("\n");
-  await sendText(inv.phone, msg);
+  const { payAllNote } = await import("./paygroups");
+  await sendText(inv.phone, msg + (await payAllNote(inv.phone).catch(() => "")));
   await db.invoice.update({ where: { id: inv.id }, data: { sentAt: new Date() } });
 }
 
@@ -360,7 +361,7 @@ export async function runSchedule() {
   return done;
 }
 
-export async function markInvoicePaid(code: number, info: { transactionNsu?: string; receiptUrl?: string; paidAmountCents?: number }) {
+export async function markInvoicePaid(code: number, info: { transactionNsu?: string; receiptUrl?: string; paidAmountCents?: number; silent?: boolean }) {
   const inv = await db.invoice.findUnique({ where: { code } });
   if (!inv || inv.status !== "PENDENTE") return inv;
   if (info.paidAmountCents !== undefined && info.paidAmountCents < inv.totalCents) return inv;
@@ -368,15 +369,19 @@ export async function markInvoicePaid(code: number, info: { transactionNsu?: str
     where: { id: inv.id },
     data: { status: "PAGO", paidAt: new Date(), transactionNsu: info.transactionNsu ?? "", receiptUrl: info.receiptUrl ?? "" },
   });
-  const { addInvoiceToBox, boxBalance, boxUrl, freeShippingCents } = await import("./boxes");
+  const { addInvoiceToBox } = await import("./boxes");
   const box = await addInvoiceToBox(updated.id).catch(() => null);
-  let extra = "";
-  if (box) {
-    const full = await db.box.findUnique({ where: { id: box.id }, include: { orders: true, invoices: true } });
-    const bal = full ? boxBalance(full) : 0;
-    const free = await freeShippingCents();
-    extra = `\n\n📦 Suas cartas foram para a sua *caixa #${box.code}* (saldo ${formatBRL(bal)}).${bal >= free ? " Frete grátis liberado! 🎉" : ` Faltam ${formatBRL(free - bal)} para o frete grátis.`}\nPeça o envio quando quiser: ${boxUrl(box)}`;
-  }
-  sendText(inv.phone, `✅ Pagamento do invoice #${inv.code} confirmado! Obrigado pela compra na MLPB Cards. 🧡${extra}`).catch(() => {});
+  if (!info.silent) sendText(inv.phone, `✅ Pagamento do invoice #${inv.code} confirmado! Obrigado pela compra na MLPB Cards. 🧡${await boxNote(box?.id)}`).catch(() => {});
   return updated;
+}
+
+/** Texto "suas cartas foram para a caixa #X..." para a mensagem de pagamento confirmado. */
+export async function boxNote(boxId?: string | null) {
+  if (!boxId) return "";
+  const { boxBalance, boxUrl, freeShippingCents } = await import("./boxes");
+  const full = await db.box.findUnique({ where: { id: boxId }, include: { orders: true, invoices: true } });
+  if (!full) return "";
+  const bal = boxBalance(full);
+  const free = await freeShippingCents();
+  return `\n\n📦 Suas cartas foram para a sua *caixa #${full.code}* (saldo ${formatBRL(bal)}).${bal >= free ? " Frete grátis liberado! 🎉" : ` Faltam ${formatBRL(free - bal)} para o frete grátis.`}\nPeça o envio quando quiser: ${boxUrl(full)}`;
 }

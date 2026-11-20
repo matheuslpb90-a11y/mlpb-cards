@@ -274,3 +274,19 @@ model ModEvent {
 
   @@index([group, phone, kind])
 }
+
+// Pagamento consolidado: vários invoices pendentes do mesmo cliente num só pagamento (order_nsu "G" + código)
+model PaymentGroup {
+  id             String    @id @default(cuid())
+  code           Int       @unique
+  token          String    @unique // link público /pagar/[token]
+  phone          String // phoneKey do cliente
+  name           String    @default("")
+  status         String    @default("ABERTO") // ABERTO | PAGO
+  invoiceIdsJson String    @default("[]") // invoices incluídos no último link de pagamento gerado
+  totalCents     Int       @default(0)
+  paymentUrl     String    @default("")
+  transactionNsu String    @default("")
+  createdAt      DateTime  @default(now())
+  paidAt         DateTime?
+}

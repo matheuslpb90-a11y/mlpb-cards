@@ -11,7 +11,7 @@ import "server-only";
 // IMPORTANTE: confira os nomes dos campos com a documentação atual da InfinitePay
 // (www.infinitepay.io/checkout-integrado) antes de ir para produção.
 
-const API = "https://api.infinitepay.io/invoices/public/checkout";
+const API = (process.env.INFINITEPAY_API_URL || "https://api.infinitepay.io/invoices/public/checkout").replace(/\/+$/, "");
 
 export const INFINITEPAY_HANDLE = (process.env.INFINITEPAY_HANDLE ?? "mlpbcards").replace(/^\$/, "").trim();
 

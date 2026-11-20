@@ -173,7 +173,7 @@ export async function auctionCommandAction(id: string, cmd: "iniciar" | "encerra
   return { ok: true };
 }
 
-export async function invoiceCommandAction(id: string, cmd: "reenviar" | "pago" | "cancelar") {
+export async function invoiceCommandAction(id: string, cmd: "reenviar" | "pago" | "cancelar" | "juntar") {
   await requireAdmin();
   try {
     if (cmd === "reenviar") await sendInvoice(id);
@@ -182,6 +182,13 @@ export async function invoiceCommandAction(id: string, cmd: "reenviar" | "pago" 
       if (inv) await markInvoicePaid(inv.code, { transactionNsu: "MANUAL" });
     }
     if (cmd === "cancelar") await db.invoice.update({ where: { id }, data: { status: "CANCELADO" } });
+    if (cmd === "juntar") {
+      const inv = await db.invoice.findUnique({ where: { id } });
+      const { payAllMessage } = await import("@/lib/paygroups");
+      const msg = inv ? await payAllMessage(inv.phone) : null;
+      if (!msg) return { error: "Esse cliente não tem invoices em aberto." };
+      await sendText(inv!.phone, msg);
+    }
   } catch (e) {
     return { error: e instanceof Error ? e.message : String(e) };
   }

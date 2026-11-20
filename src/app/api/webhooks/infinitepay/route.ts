@@ -3,6 +3,7 @@ import { checkPayment, infinitePayEnabled } from "@/lib/infinitepay";
 import { markOrderPaid } from "@/lib/orders";
 import { markInvoicePaid } from "@/lib/auctions";
 import { markBoxShippingPaid } from "@/lib/boxes";
+import { markPayGroupPaid } from "@/lib/paygroups";
 import { db } from "@/lib/db";
 
 // Webhook chamado pela InfinitePay quando um pagamento é aprovado.
@@ -20,6 +21,16 @@ export async function POST(req: Request) {
     const check = await checkPayment({ orderNsu, transactionNsu, slug });
     if (!check.paid) return NextResponse.json({ ok: false, error: "pagamento não confirmado" }, { status: 400 });
     await markBoxShippingPaid(code, { transactionNsu, paidAmountCents: check.paidAmountCents });
+    return NextResponse.json({ ok: true });
+  }
+
+  // vários invoices juntos: order_nsu = "G" + código
+  if (orderNsu.startsWith("G")) {
+    const code = Number(orderNsu.slice(1));
+    if (!code || !transactionNsu || !slug) return NextResponse.json({ ok: false, error: "payload incompleto" }, { status: 400 });
+    const check = await checkPayment({ orderNsu, transactionNsu, slug });
+    if (!check.paid) return NextResponse.json({ ok: false, error: "pagamento não confirmado" }, { status: 400 });
+    await markPayGroupPaid(code, { transactionNsu, paidAmountCents: check.paidAmountCents });
     return NextResponse.json({ ok: true });
   }
 

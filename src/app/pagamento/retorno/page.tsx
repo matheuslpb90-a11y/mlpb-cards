@@ -3,6 +3,7 @@ import { checkPayment, infinitePayEnabled } from "@/lib/infinitepay";
 import { markOrderPaid } from "@/lib/orders";
 import { markInvoicePaid } from "@/lib/auctions";
 import { markBoxShippingPaid } from "@/lib/boxes";
+import { markPayGroupPaid } from "@/lib/paygroups";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
   const sp = await searchParams;
   const isInvoice = (sp.order_nsu ?? "").startsWith("F");
   const isBox = (sp.order_nsu ?? "").startsWith("B");
-  const code = Number(isInvoice || isBox ? sp.order_nsu!.slice(1) : sp.order_nsu);
+  const isGroup = (sp.order_nsu ?? "").startsWith("G");
+  const code = Number(isInvoice || isBox || isGroup ? sp.order_nsu!.slice(1) : sp.order_nsu);
   let paid = false;
 
   const boxToken = isBox && code ? (await db.box.findUnique({ where: { code }, select: { token: true } }))?.token : undefined;
@@ -33,7 +35,17 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
     }
   }
 
-  if (!isInvoice && !isBox && infinitePayEnabled() && code && sp.transaction_nsu && sp.slug) {
+  let groupToken = "";
+  if (isGroup && code && sp.transaction_nsu && sp.slug) {
+    const check = await checkPayment({ orderNsu: sp.order_nsu!, transactionNsu: sp.transaction_nsu, slug: sp.slug });
+    if (check.paid) {
+      const g = await markPayGroupPaid(code, { transactionNsu: sp.transaction_nsu, paidAmountCents: check.paidAmountCents });
+      paid = g?.status === "PAGO";
+    }
+  }
+  if (isGroup && code) groupToken = (await db.paymentGroup.findUnique({ where: { code }, select: { token: true } }))?.token ?? "";
+
+  if (!isInvoice && !isBox && !isGroup && infinitePayEnabled() && code && sp.transaction_nsu && sp.slug) {
     const check = await checkPayment({ orderNsu: String(code), transactionNsu: sp.transaction_nsu, slug: sp.slug });
     if (check.paid) {
       const order = await markOrderPaid(code, { transactionNsu: sp.transaction_nsu, receiptUrl: sp.receipt_url, paidAmountCents: check.paidAmountCents });
@@ -58,7 +70,8 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
       )}
       <div className="flex justify-center gap-2">
         {code > 0 && isBox && <Link href={`/caixa/${code}?t=${boxToken ?? ""}`} className="btn-primary">Ver minha caixa</Link>}
-        {code > 0 && !isBox && (isInvoice ? <Link href={`/fatura/${code}`} className="btn-primary">Ver invoice #{code}</Link> : <Link href={`/pedido/${code}`} className="btn-primary">Ver pedido #{code}</Link>)}
+        {isGroup && groupToken && <Link href={`/pagar/${groupToken}`} className="btn-primary">Ver pagamento</Link>}
+        {code > 0 && !isBox && !isGroup && (isInvoice ? <Link href={`/fatura/${code}`} className="btn-primary">Ver invoice #{code}</Link> : <Link href={`/pedido/${code}`} className="btn-primary">Ver pedido #{code}</Link>)}
         <Link href="/" className="btn-outline">Voltar ao catálogo</Link>
       </div>
     </div>

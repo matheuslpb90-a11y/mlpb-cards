@@ -5,6 +5,7 @@ import { fmtDate, parseJson } from "@/lib/auctions";
 import { createCheckoutLink, infinitePayEnabled } from "@/lib/infinitepay";
 import { siteUrl } from "@/lib/orders";
 import { whatsappLink } from "@/lib/whatsapp";
+import { openPayGroup, pendingInvoicesFor } from "@/lib/paygroups";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Invoice — MLPB Cards", robots: { index: false } };
@@ -39,6 +40,9 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   }
 
   const late = inv.status === "PENDENTE" && inv.dueAt < new Date();
+  // outros invoices em aberto do mesmo cliente: oferece pagar tudo junto
+  const others = inv.status === "PENDENTE" && !inv.auction?.infinitepayHandle ? await pendingInvoicesFor(inv.phone) : [];
+  const group = others.length >= 2 ? await openPayGroup(inv.phone, inv.name) : null;
   return (
     <div className="card mx-auto max-w-lg space-y-4 p-6">
       <div className="flex items-center justify-between">
@@ -57,6 +61,11 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       {erro === "1" && <p className="rounded bg-red-950/60 p-2 text-sm text-red-300">Não foi possível gerar o pagamento agora. Tente novamente ou fale com a loja.</p>}
       {inv.status === "PENDENTE" && (
         <form action={pay}><button className="btn-primary w-full py-3">Pagar com Pix ou cartão (InfinitePay)</button></form>
+      )}
+      {group && (
+        <a href={`/pagar/${group.token}`} className="btn-outline w-full border-brand text-brand-amber">
+          🧾 Pagar meus {others.length} invoices em aberto juntos ({formatBRL(others.reduce((s, i) => s + i.totalCents, 0))})
+        </a>
       )}
       {inv.receiptUrl && <a href={inv.receiptUrl} target="_blank" rel="noreferrer" className="block text-sm text-brand underline">Ver comprovante</a>}
       <a href={whatsappLink(`Olá! Sobre o invoice #${inv.code}`)} target="_blank" rel="noreferrer" className="btn-outline w-full">Falar com a loja</a>
