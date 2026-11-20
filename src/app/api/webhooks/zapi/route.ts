@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { log } from "@/lib/zapi";
-import { registerVote, runSchedule } from "@/lib/auctions";
+import { registerTextBid, registerVote, runSchedule } from "@/lib/auctions";
 
 // Recebe eventos da Z-API (configure em Webhooks → "Ao receber").
 // Votos de enquete chegam com um campo de "pollVote"; os nomes variam entre versões,
@@ -25,6 +25,19 @@ export async function POST(req: Request) {
     await log("voto", { pollMessageId, phone, name, options, res });
   } else {
     await log("evento", body);
+    // lance por mensagem no grupo (modo TEXT): "1.2 $55"
+    const text = (body.text as Record<string, unknown> | undefined)?.message ?? body.body ?? body.message;
+    const group = String(body.phone ?? body.chatId ?? "");
+    const isGroup = body.isGroup === true || group.includes("-group") || group.includes("@g.us");
+    if (typeof text === "string" && isGroup && body.fromMe !== true) {
+      const res: { ok: boolean; reason?: string } = await registerTextBid({
+        group,
+        phone: String(body.participantPhone ?? body.participant ?? ""),
+        name: String(body.senderName ?? ""),
+        text,
+      }).catch((e) => ({ ok: false, reason: String(e) }));
+      if (res.ok || res.reason !== "não é lance") await log("lance", { text, res });
+    }
   }
   // aproveita para rodar o agendador (abre/encerra leilões no horário)
   runSchedule().catch(() => {});

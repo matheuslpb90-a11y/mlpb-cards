@@ -125,6 +125,8 @@ model Auction {
   infinitepayHandle String       @default("") // vazio = conta padrão da loja
   // AGENDADO | ATIVO | ENCERRADO | CANCELADO
   status            String       @default("AGENDADO")
+  // POLL (enquete) ou TEXT (lance por mensagem "1.2 $55"); definido ao iniciar
+  mode              String       @default("")
   visible           Boolean      @default(true)
   createdAt         DateTime     @default(now())
   lots              AuctionLot[]

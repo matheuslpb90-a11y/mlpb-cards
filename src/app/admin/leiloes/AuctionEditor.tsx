@@ -74,7 +74,7 @@ export function AuctionEditor({ initial, blobEnabled, locked }: { initial: Aucti
       </Section>
 
       <Section title={`Lotes (${d.lots.length}) · ${totalItems} carta(s)`}>
-        <p className="text-sm text-slate-500">Lotes e cartas saem no grupo na ordem em que aparecem aqui. Cada carta vira uma enquete.</p>
+        <p className="text-sm text-slate-500">Lotes e cartas saem no grupo na ordem em que aparecem aqui. Cada carta tem um código (ex.: 1.2) — com a Omni os lances são por mensagem (“1.2 $55”); com a Z-API clássica, cada carta vira uma enquete.</p>
         {d.lots.map((lot, li) => (
           <LotEditor
             key={li}
@@ -244,7 +244,8 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
             <Toggle small checked={it.hideBuyout} onChange={(v) => onChange({ ...it, hideBuyout: v })} label="Ocultar arremate" />
           </div>
           <p className="sm:col-span-6 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
-            Enquete: {p.options.map((c) => formatBRL(c)).join(" · ")}
+            Valores: inicial {formatBRL(p.startCents)} · incremento {formatBRL(p.stepCents)} · arremate {formatBRL(p.buyoutCents)}
+            <span className="block text-slate-500">Enquete (Z-API clássica): {p.options.map((c) => formatBRL(c)).join(" · ")}</span>
           </p>
         </div>
       </div>

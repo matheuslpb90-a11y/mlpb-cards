@@ -17,21 +17,28 @@ const BASE = process.env.ZAPI_BASE_URL || "https://api.z-api.io";
 // Z-API Omni: "URL da API" do canal (ex.: https://api.omni.z-api.io/v1/channels/<ID>)
 const OMNI_URL = clean(process.env.ZAPI_API_URL).replace(/\/+$/, "");
 
+// Com Secret Key => Omni Z-API (modo compatível); senão => Z-API clássica.
+const CHANNEL = INSTANCE || (OMNI_URL.match(/channels\/([^/?#]+)/)?.[1] ?? "");
+const IS_OMNI = Boolean(SECRET_KEY);
+const OMNI_COMPAT = clean(process.env.ZAPI_OMNI_BASE_URL) || "https://zapi.omni.z-api.io";
+
 export function zapiEnabled() {
-  return OMNI_URL ? Boolean(SECRET_KEY || TOKEN) : Boolean(INSTANCE && TOKEN);
+  return Boolean(CHANNEL && TOKEN);
 }
-export const zapiMode = () => (OMNI_URL ? "omni" : "classica");
+export const zapiMode = () => (IS_OMNI ? "omni" : "classica");
+/** A Omni não envia enquetes: nela o leilão é por lance em mensagem. */
+export const supportsPolls = () => !IS_OMNI;
 
 /** Cabeçalhos de autenticação (a Omni recebe o token do canal no cabeçalho). */
 function authHeaders(): Record<string, string> {
-  if (!OMNI_URL) return CLIENT_TOKEN ? { "Client-Token": CLIENT_TOKEN } : {};
-  return { Authorization: `Bearer ${SECRET_KEY || TOKEN}` };
+  if (IS_OMNI) return { Authorization: `Bearer ${SECRET_KEY}` };
+  return CLIENT_TOKEN ? { "Client-Token": CLIENT_TOKEN } : {};
 }
-// Na Omni, os comandos da Z-API clássica ficam em /v1/channels/{id}/zapi/<comando>
-const endpoint = (path: string) => (OMNI_URL ? `${OMNI_URL}/zapi/${path}` : `${BASE}/instances/${INSTANCE}/token/${TOKEN}/${path}`);
+const endpoint = (path: string) =>
+  IS_OMNI ? `${OMNI_COMPAT}/channels/${CHANNEL}/token/${TOKEN}/${path}` : `${BASE}/instances/${CHANNEL}/token/${TOKEN}/${path}`;
 
 async function call<T = unknown>(path: string, body?: unknown, method = body ? "POST" : "GET"): Promise<T> {
-  if (!zapiEnabled()) throw new Error("Z-API não configurada (ZAPI_INSTANCE_ID ou ZAPI_API_URL, e ZAPI_TOKEN).");
+  if (!zapiEnabled()) throw new Error("Z-API não configurada (ZAPI_INSTANCE_ID e ZAPI_TOKEN).");
   const res = await fetch(endpoint(path), {
     method,
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -67,7 +74,12 @@ export async function sendVideo(phone: string, video: string, caption: string) {
   return msgId(await call<SendResult>("send-video", { phone, video, caption }));
 }
 
+export async function sendReaction(phone: string, messageId: string, reaction: string) {
+  return call("send-reaction", { phone, messageId, reaction });
+}
+
 export async function sendPoll(phone: string, message: string, options: string[]) {
+  if (!supportsPolls()) throw new Error("A Omni Z-API não envia enquetes — use o leilão por lance em mensagem.");
   return msgId(
     await call<SendResult>("send-poll", { phone, message, poll: options.map((name) => ({ name })), pollMaxOptions: 1 }),
   );
@@ -86,6 +98,7 @@ function toGroups(data: unknown): ZGroup[] {
 
 /** Lista os grupos da instância. Tenta "groups" e, se vier vazio, "chats". */
 export async function listGroups(): Promise<ZGroup[]> {
+  if (IS_OMNI) return []; // a Omni não lista grupos: usamos os grupos vistos nas mensagens recebidas
   const errors: string[] = [];
   for (const path of ["groups?page=1&pageSize=100", "chats?page=1&pageSize=300"]) {
     try {
@@ -115,6 +128,7 @@ export async function groupsFromLogs(): Promise<ZGroup[]> {
 }
 
 export async function connectionStatus(): Promise<{ connected: boolean; detail: string }> {
+  if (IS_OMNI) return { connected: true, detail: "Omni Z-API (status no painel da Omni)" };
   try {
     const s = await call<{ connected?: boolean; error?: string; smartphoneConnected?: boolean }>("status");
     return { connected: Boolean(s?.connected), detail: s?.error ?? (s?.connected ? "Conectado" : "Desconectado") };
@@ -156,7 +170,7 @@ export async function diagnostics() {
   return {
     configured: {
       mode: zapiMode(),
-      omniUrl: OMNI_URL ? `${OMNI_URL.slice(0, 48)}…` : "",
+      omniUrl: IS_OMNI ? `${OMNI_COMPAT}/channels/${CHANNEL.slice(0, 6)}…` : "",
       instance: mask(INSTANCE),
       instanceFull: INSTANCE,
       instanceLength: INSTANCE.length,
@@ -166,39 +180,27 @@ export async function diagnostics() {
       secretKey: SECRET_KEY ? "configurada" : "não configurada",
       rawHadSpaces: (process.env.ZAPI_INSTANCE_ID ?? "") !== INSTANCE || (process.env.ZAPI_TOKEN ?? "") !== TOKEN,
     },
-    seen: [...seen].map(([id, phone]) => ({ id, phone, matches: id === INSTANCE })),
+    seen: [...seen].map(([id, phone]) => ({ id, phone, matches: id === CHANNEL })),
     eventsCount: logs.length,
   };
 }
 
-/** Testa a conexão Omni em vários formatos e devolve o que cada um respondeu (para diagnóstico). */
+/** Testa o envio (texto) e devolve a resposta (para diagnóstico). */
 export async function probeOmni(groupId: string) {
   const out: { tentativa: string; status: number | string; resposta: string }[] = [];
-  const base = OMNI_URL ? `${OMNI_URL}/zapi` : `${BASE}/instances/${INSTANCE}/token/${TOKEN}`;
-  const tries: { label: string; method: string; path: string; body?: unknown }[] = [
-    { label: "GET zapi/status", method: "GET", path: "status" },
-    { label: "GET zapi/groups", method: "GET", path: "groups?page=1&pageSize=50" },
-    ...(groupId
-      ? [
-          { label: "POST zapi/send-text", method: "POST", path: "send-text", body: { phone: groupId, message: "🤖 Teste do bot MLPB (texto)" } },
-          { label: "POST zapi/send-poll", method: "POST", path: "send-poll", body: { phone: groupId, message: "🤖 Teste de enquete do bot MLPB", poll: [{ name: "R$ 10,00" }, { name: "R$ 15,00" }], pollMaxOptions: 1 } },
-        ]
-      : []),
-  ];
-  for (const t of tries) {
-    try {
-      const r = await fetch(t.path ? `${base}/${t.path}` : base, {
-        method: t.method,
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: t.body ? JSON.stringify(t.body) : undefined,
-        cache: "no-store",
-        signal: AbortSignal.timeout(15000),
-      });
-      out.push({ tentativa: t.label, status: r.status, resposta: (await r.text()).slice(0, 400) });
-    } catch (e) {
-      out.push({ tentativa: t.label, status: "erro", resposta: e instanceof Error ? e.message : String(e) });
-    }
+  if (!groupId) return [{ tentativa: "envio", status: "—", resposta: "Escolha o grupo primeiro." }];
+  try {
+    const r = await fetch(endpoint("send-text"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ phone: groupId, message: "🤖 Teste do bot MLPB Cards — conexão funcionando!" }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(15000),
+    });
+    out.push({ tentativa: `POST send-text (${zapiMode()})`, status: r.status, resposta: (await r.text()).slice(0, 400) });
+  } catch (e) {
+    out.push({ tentativa: "POST send-text", status: "erro", resposta: e instanceof Error ? e.message : String(e) });
   }
-  await log("diagnostico-omni", { modo: zapiMode(), base: TOKEN ? base.replace(TOKEN, "…token…") : base, secretKey: Boolean(SECRET_KEY), out });
+  await log("diagnostico", { modo: zapiMode(), out });
   return out;
 }

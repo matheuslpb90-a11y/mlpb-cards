@@ -2,7 +2,7 @@ import "server-only";
 import type { AuctionItem } from "@prisma/client";
 import { db } from "./db";
 import { formatBRL } from "./money";
-import { log, sendImage, sendPoll, sendText, sendVideo } from "./zapi";
+import { log, sendImage, sendPoll, sendText, sendVideo, supportsPolls } from "./zapi";
 import { phoneKey } from "./phone";
 import { siteUrl } from "./orders";
 
@@ -56,14 +56,22 @@ export async function startAuction(auctionId: string) {
   });
   if (!a || a.status !== "AGENDADO") return;
   const group = await groupId();
-  await db.auction.update({ where: { id: a.id }, data: { status: "ATIVO" } });
+  const mode = supportsPolls() ? "POLL" : "TEXT";
+  await db.auction.update({ where: { id: a.id }, data: { status: "ATIVO", mode } });
 
+  const howTo =
+    mode === "POLL"
+      ? ["🗳️ Vote no valor que quer pagar em cada enquete.", "🏆 Vence o maior valor — empate: quem votou primeiro."]
+      : [
+          "💬 Para dar lance, digite o *código da carta* e o *valor*. Ex.: *1.2 $55*",
+          "🏆 Vence o maior lance — empate: quem mandou primeiro.",
+          "🔨 Quem der o valor de arremate leva na hora.",
+        ];
   const opening = [
     `🔥 *${a.name}* começou!`,
     a.description,
     "",
-    "🗳️ Vote no valor que quer pagar em cada enquete.",
-    "🏆 Vence o maior valor — empate: quem votou primeiro.",
+    ...howTo,
     `⏰ Encerra: *${fmtDate(a.endsAt)}*`,
     `💳 Pagamento em até ${a.paymentDays} dia(s) após o fim.`,
     "",
@@ -84,6 +92,7 @@ export async function startAuction(auctionId: string) {
         it.note ? `📝 ${it.note}` : "",
         !hideMarket && it.marketCents > 0 ? `📊 Mercado: ${formatBRL(it.marketCents)}` : "",
         `🟢 Inicial: ${formatBRL(it.startCents)}${hideBuyout ? "" : ` · 🔨 Arremate: ${formatBRL(it.buyoutCents)}`}`,
+        mode === "TEXT" ? `➕ Incremento mínimo: ${formatBRL(it.stepCents)}\n💬 Lance: *${lot.position}.${it.position} $${(it.startCents / 100).toLocaleString("pt-BR")}*` : "",
       ].filter(Boolean).join("\n");
       const media = itemMedia(it);
       const first = it.imageUrl ? [{ url: it.imageUrl, type: "image" as const }, ...media] : media;
@@ -93,6 +102,7 @@ export async function startAuction(auctionId: string) {
         if (m.type === "video") await sendVideo(group, absolute(m.url), cap);
         else await sendImage(group, absolute(m.url), cap);
       }
+      if (mode === "TEXT") continue;
       const opts = itemOptions(it);
       const pollId = await sendPoll(
         group,
@@ -125,6 +135,70 @@ export async function registerVote(input: { pollMessageId: string; phone: string
     update: { optionCents, name: input.name || existing?.name || "", votedAt: new Date() },
   });
   return { ok: true };
+}
+
+const fmtCode = (lot: number, item: number) => `${lot}.${item}`;
+
+/** Interpreta "1.2 $55", "1.2 55", "$55 1.2", "#1.2 R$ 55,00". Sem código: só vale se o leilão tiver 1 carta. */
+export function parseBid(text: string): { code?: string; cents: number } | null {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (t.length > 60) return null;
+  const code = t.match(/(?:^|\s|#)(\d{1,2})\.(\d{1,3})(?=\s|$)/);
+  const rest = code ? t.replace(code[0], " ") : t;
+  const money = /(?:R?\$)\s*(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)/i;
+  const plain = /(?:^|\s)(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)(?=\s|$)/;
+  const val = rest.match(money) ?? (code ? rest.match(plain) : null);
+  if (!val) return null;
+  const cents = Math.round(Number(val[1].replace(/\./g, "").replace(",", ".")) * 100);
+  if (!Number.isFinite(cents) || cents <= 0) return null;
+  return { code: code ? `${Number(code[1])}.${Number(code[2])}` : undefined, cents };
+}
+
+/** Lance por mensagem no grupo (modo TEXT). Responde no grupo confirmando ou recusando. */
+export async function registerTextBid(input: { group: string; phone: string; name: string; text: string }) {
+  const bid = parseBid(input.text);
+  if (!bid) return { ok: false, reason: "não é lance" };
+  const configured = await db.setting.findUnique({ where: { key: "botGroupId" } });
+  if (!configured?.value || configured.value !== input.group) return { ok: false, reason: "outro grupo" };
+  const a = await db.auction.findFirst({
+    where: { status: "ATIVO", mode: "TEXT" },
+    orderBy: { startsAt: "desc" },
+    include: { lots: { include: { items: { include: { votes: { orderBy: [{ optionCents: "desc" }, { votedAt: "asc" }], take: 1 } } } } } },
+  });
+  if (!a || new Date() > a.endsAt) return { ok: false, reason: "sem leilão ativo" };
+  const all = a.lots.flatMap((l) => l.items.map((it) => ({ lot: l, it })));
+  const target = bid.code ? all.find((x) => fmtCode(x.lot.position, x.it.position) === bid.code) : all.length === 1 ? all[0] : undefined;
+  if (!target) {
+    if (bid.code) await sendText(input.group, `❌ Não encontrei a carta *${bid.code}* neste leilão.`).catch(() => {});
+    return { ok: false, reason: "carta não encontrada" };
+  }
+  const { lot, it } = target;
+  const code = fmtCode(lot.position, it.position);
+  if (it.winningCents != null) {
+    await sendText(input.group, `🔨 *${code}* ${it.name} já foi arrematada.`).catch(() => {});
+    return { ok: false, reason: "arrematada" };
+  }
+  const top = it.votes[0];
+  const min = top ? top.optionCents + it.stepCents : it.startCents;
+  if (bid.cents < min) {
+    await sendText(input.group, `❌ *${code}* ${it.name}: o lance mínimo agora é *${formatBRL(min)}*.`).catch(() => {});
+    return { ok: false, reason: "abaixo do mínimo" };
+  }
+  const phone = phoneKey(input.phone);
+  const cents = it.buyoutCents > 0 && bid.cents >= it.buyoutCents ? it.buyoutCents : bid.cents;
+  await db.auctionVote.upsert({
+    where: { itemId_phone: { itemId: it.id, phone } },
+    create: { itemId: it.id, phone, name: input.name, optionCents: cents },
+    update: { optionCents: cents, name: input.name, votedAt: new Date() },
+  });
+  const who = input.name || `…${phone.slice(-4)}`;
+  if (it.buyoutCents > 0 && cents >= it.buyoutCents) {
+    await db.auctionItem.update({ where: { id: it.id }, data: { winnerPhone: phone, winnerName: input.name, winningCents: cents } });
+    await sendText(input.group, `🔨 *ARREMATADO!* ${code} ${it.name} — *${formatBRL(cents)}* (${who})`).catch(() => {});
+  } else {
+    await sendText(input.group, `✅ *${code}* ${it.name} — maior lance: *${formatBRL(cents)}* (${who})`).catch(() => {});
+  }
+  return { ok: true, code, cents };
 }
 
 /** Encerra: vencedor = maior valor (empate: quem votou primeiro); cria invoices e envia. */
