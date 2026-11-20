@@ -54,3 +54,12 @@ export async function saveModAction(json: string): Promise<{ ok?: string; error?
   revalidatePath("/admin/moderacao");
   return { ok: "Configuração salva ✔" };
 }
+
+export async function deleteReviewAction(id: string) {
+  await requireAdmin();
+  const { db } = await import("@/lib/db");
+  const r = await db.review.delete({ where: { id } }).catch(() => null);
+  if (r) await logActivity("review_deleted", `Avaliação removida (nota ${r.rating} para ${r.targetPhone})`);
+  revalidatePath("/admin/moderacao");
+  return { ok: true };
+}

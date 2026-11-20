@@ -22,6 +22,7 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   mod_updated: "Moderação: configuração",
   sender_updated: "Envios: remetente",
   label_command: "Envios: etiqueta",
+  review_deleted: "Avaliação removida",
 };
 
 /** Registra uma ação feita no painel. Nunca interrompe a ação principal se falhar. */

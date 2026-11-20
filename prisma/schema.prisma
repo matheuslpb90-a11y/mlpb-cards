@@ -294,3 +294,17 @@ model PaymentGroup {
   createdAt      DateTime  @default(now())
   paidAt         DateTime?
 }
+
+// Avaliações de entrega/negociação feitas no grupo (!avaliar / !referencias)
+model Review {
+  id          String   @id @default(cuid())
+  targetPhone String // phoneKey de quem foi avaliado
+  raterPhone  String // phoneKey de quem avaliou
+  raterName   String   @default("")
+  group       String   @default("")
+  rating      Int // 1 a 5
+  comment     String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([targetPhone, createdAt])
+}

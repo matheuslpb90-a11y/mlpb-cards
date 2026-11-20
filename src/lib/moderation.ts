@@ -211,6 +211,10 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
   // Para conferir no painel por que um comando não foi respondido
   if (!c.enabled) return looksCommand ? `ignorado: moderação desligada (${text.slice(0, 20)})` : null;
   if (!(await moderatedGroups(c)).includes(msg.group)) return looksCommand ? `ignorado: grupo não está na lista de moderados (${text.slice(0, 20)})` : null;
+  // avaliação em andamento (!avaliar): nota de 1 a 5 e comentário opcional, cada um em até 45s
+  const rated = await reviewStep(msg, text);
+  if (rated) return rated;
+
   if (text.startsWith(c.prefix || "!")) {
     // comandos são escritos com "!" no código; troca o prefixo configurado por "!"
     const r = await runCommand(c, msg, "!" + text.slice((c.prefix || "!").length));
@@ -310,6 +314,8 @@ const HELP = [
   "*!regras* — regras do grupo",
   "*!link* — link de convite do grupo",
   "*!dolar* — cotação do dólar",
+  "*!avaliar* 61999999999 — avalia uma negociação/entrega (nota de 1 a 5)",
+  "*!referencias* 61999999999 — mostra as avaliações de alguém",
   "",
   "_Admins:_",
   "*!ban* @pessoa — remove do grupo (ou responda a mensagem)",
@@ -339,6 +345,8 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     const link = await whapiInviteLink(g).catch(async (e) => { await log("erro-moderacao", { acao: "link", error: String(e) }); return ""; });
     return say(g, link ? `🔗 Link do grupo: ${link}` : "Não consegui pegar o link agora (o número da loja precisa ser admin).", [], msg.id).then(() => cmd);
   }
+  if (cmd === "!avaliar") return startReview(c, msg, args).then(() => cmd);
+  if (cmd === "!referencias" || cmd === "!referências" || cmd === "!ref") return showReviews(msg, args).then(() => cmd);
   if (cmd === "!dolar") {
     const r = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL", { cache: "no-store", signal: AbortSignal.timeout(8000) })
       .then((x) => x.json() as Promise<{ USDBRL?: { bid?: string } }>)
@@ -432,4 +440,82 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     }
   }
   return null;
+}
+
+// ---------------- Avaliações (!avaliar / !referencias) ----------------
+
+const REVIEW_SECONDS = 45;
+const stars = (n: number) => "⭐".repeat(n) + "☆".repeat(5 - n);
+const targetFrom = (args: string, msg: InMsg) => {
+  const d = (args.match(/\+?\d[\d\s().-]{8,}/)?.[0] ?? "").replace(/\D/g, "") || msg.mentions[0] || msg.quotedAuthor || "";
+  return d.length >= 10 ? d : "";
+};
+const fmtPhone = (p: string) => {
+  let d = phoneKey(p).replace(/^55/, "");
+  if (d.length === 10 && /[6-9]/.test(d[2])) d = d.slice(0, 2) + "9" + d.slice(2); // celular: mostra com o 9
+  return d.length >= 10 ? `(${d.slice(0, 2)}) ${d.slice(2, -4)}-${d.slice(-4)}` : p;
+};
+
+async function startReview(c: ModConfig, msg: InMsg, args: string) {
+  const P = c.prefix || "!";
+  const target = targetFrom(args, msg);
+  if (!target) return say(msg.group, `Use: *${P}avaliar 61999999999* (o número de quem você quer avaliar).`, [], msg.id);
+  const rater = phoneKey(msg.phone);
+  if (phoneKey(target) === rater) return say(msg.group, "Você não pode avaliar a si mesmo. 😅", [], msg.id);
+  const recent = await db.review.findFirst({ where: { targetPhone: phoneKey(target), raterPhone: rater, createdAt: { gt: new Date(Date.now() - 24 * 3600_000) } } });
+  if (recent) return say(msg.group, `${mention(msg.phone)}, você já avaliou ${fmtPhone(target)} nas últimas 24h.`, [msg.phone], msg.id);
+  await db.modEvent.deleteMany({ where: { group: msg.group, phone: rater, kind: { in: ["RATE_PENDING", "RATE_COMMENT"] } } });
+  await db.modEvent.create({ data: { group: msg.group, phone: rater, name: msg.name, kind: "RATE_PENDING", note: phoneKey(target), until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
+  return say(msg.group, `⭐ ${mention(msg.phone)}, qual a sua nota para *${fmtPhone(target)}*?\nResponda só com um número de *1 a 5* em até ${REVIEW_SECONDS}s.`, [msg.phone], msg.id);
+}
+
+/** Trata a resposta de quem está no meio de uma avaliação. Devolve o que fez, ou null se não era resposta. */
+async function reviewStep(msg: InMsg, text: string): Promise<string | null> {
+  const rater = phoneKey(msg.phone);
+  const pending = await db.modEvent.findFirst({
+    where: { group: msg.group, phone: rater, kind: { in: ["RATE_PENDING", "RATE_COMMENT"] }, until: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!pending || /^[!/#.]\w/.test(text)) return null;
+  if (pending.kind === "RATE_PENDING") {
+    const n = Number(text.match(/^\s*([1-5])(?:\s|$|[.,!⭐])/)?.[1]);
+    if (!n) return null; // não é nota: segue a vida (a janela expira sozinha)
+    const r = await db.review.create({ data: { targetPhone: pending.note, raterPhone: rater, raterName: msg.name, group: msg.group, rating: n } });
+    await db.modEvent.update({ where: { id: pending.id }, data: { kind: "RATE_COMMENT", note: r.id, until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
+    await say(msg.group, `✅ Nota ${stars(n)} registrada para *${fmtPhone(pending.note)}*. Obrigado!\nSe quiser, mande um comentário em até ${REVIEW_SECONDS}s (opcional).`, [], msg.id);
+    return `avaliação: nota ${n} para ${pending.note}`;
+  }
+  // comentário opcional
+  if (!text) return null;
+  await db.review.update({ where: { id: pending.note }, data: { comment: text.slice(0, 300) } });
+  await db.modEvent.delete({ where: { id: pending.id } });
+  await say(msg.group, "📝 Comentário registrado. Valeu! 🧡", [], msg.id);
+  return "avaliação: comentário";
+}
+
+async function showReviews(msg: InMsg, args: string) {
+  const target = targetFrom(args, msg);
+  if (!target) return say(msg.group, "Use: *!referencias 61999999999* (o número da pessoa).", [], msg.id);
+  const key = phoneKey(target);
+  const all = await db.review.findMany({ where: { targetPhone: key }, orderBy: { createdAt: "desc" } });
+  if (all.length === 0) return say(msg.group, `📋 *${fmtPhone(target)}* ainda não tem avaliações.`, [], msg.id);
+  const avg = all.reduce((s, r) => s + r.rating, 0) / all.length;
+  const shown = all.slice(0, 20);
+  const lines = shown.map((r) => {
+    const d = r.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const who = r.raterName ? r.raterName.split(" ")[0] : `…${r.raterPhone.slice(-4)}`;
+    return `${stars(r.rating)} · ${who} · ${d}${r.comment ? `\n   “${r.comment}”` : ""}`;
+  });
+  return say(
+    msg.group,
+    [
+      `📋 *Referências de ${fmtPhone(target)}*`,
+      `Média: *${avg.toFixed(1).replace(".", ",")}* ${stars(Math.round(avg))} (${all.length} ${all.length > 1 ? "avaliações" : "avaliação"})`,
+      "",
+      ...lines,
+      all.length > shown.length ? `\n…e mais ${all.length - shown.length} avaliações antigas.` : "",
+    ].join("\n").trim(),
+    [],
+    msg.id,
+  );
 }
