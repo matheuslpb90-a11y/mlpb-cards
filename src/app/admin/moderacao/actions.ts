@@ -22,6 +22,7 @@ export async function saveModAction(json: string): Promise<{ ok?: string; error?
   }
   const clean: ModConfig = {
     enabled: Boolean(c.enabled),
+    prefix: (String(c.prefix ?? "!").trim().slice(0, 3) || "!").replace(/[\sA-Za-z0-9]/g, "") || "!",
     groups: lines(c.groups).filter((g) => g.endsWith("@g.us")),
     adminPhones: lines(c.adminPhones).map((p) => p.replace(/\D/g, "")).filter((p) => p.length >= 10),
     notify: Boolean(c.notify),

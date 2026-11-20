@@ -20,6 +20,7 @@ import {
 
 export type ModConfig = {
   enabled: boolean;
+  prefix: string; // "!" (padrão) — use outro (ex.: "/") enquanto a Janet ainda estiver no grupo
   groups: string[]; // ids "...@g.us" moderados (vazio = grupo do leilão)
   adminPhones: string[]; // números com poder de admin no bot, além dos admins do grupo
   notify: boolean; // avisar no grupo quando apagar algo
@@ -34,10 +35,11 @@ export type ModConfig = {
 
 export const DEFAULT_MOD: ModConfig = {
   enabled: false,
+  prefix: "!",
   groups: [],
   adminPhones: [],
   notify: true,
-  welcome: { enabled: true, text: "Bem-vindo(a) ao grupo, {nome}! 🧡\nLeia as regras com *!regras*." },
+  welcome: { enabled: true, text: "Bem-vindo(a) ao grupo, {nome}! 🧡\nLeia as regras com *{prefixo}regras*." },
   rules: "1. Respeito sempre.\n2. Anúncios só nos dias e limites permitidos.\n3. Proibido links de outros grupos.",
   ads: { enabled: false, maxPerDay: 3, days: [0, 1, 2, 3, 4, 5, 6] },
   links: { allow: true, whitelist: ["mlpbcards.com.br", "mlpb-cards.vercel.app", "youtube.com", "youtu.be", "tiktok.com"], blocked: ["chat.whatsapp.com"], startHour: 0, endHour: 24, days: [0, 1, 2, 3, 4, 5, 6] },
@@ -201,8 +203,9 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
   if (!c.enabled || !(await moderatedGroups(c)).includes(msg.group)) return null;
 
   const text = msg.text.trim();
-  if (text.startsWith("!")) {
-    const r = await runCommand(c, msg, text);
+  if (text.startsWith(c.prefix || "!")) {
+    // comandos são escritos com "!" no código; troca o prefixo configurado por "!"
+    const r = await runCommand(c, msg, "!" + text.slice((c.prefix || "!").length));
     if (r) return r;
   }
   if (msg.fromMe || (await isAdmin(c, msg.group, msg.phone))) return null;
@@ -280,7 +283,7 @@ export async function onParticipantsAdded(group: string, phones: string[]) {
     welcome.push(p);
   }
   if (c.welcome.enabled && welcome.length) {
-    await say(group, c.welcome.text.replaceAll("{nome}", welcome.map(mention).join(", ")).replaceAll("{regras}", c.rules), welcome);
+    await say(group, c.welcome.text.replaceAll("{nome}", welcome.map(mention).join(", ")).replaceAll("{regras}", c.rules).replaceAll("{prefixo}", c.prefix || "!"), welcome);
   }
 }
 
@@ -309,7 +312,8 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
   const g = msg.group;
 
   // comandos de todos
-  if (cmd === "!help" || cmd === "!ajuda" || cmd === "!comandos") return say(g, HELP, [], msg.id).then(() => cmd);
+  const P = c.prefix || "!";
+  if (cmd === "!help" || cmd === "!ajuda" || cmd === "!comandos") return say(g, HELP.replaceAll("*!", `*${P}`), [], msg.id).then(() => cmd);
   if (cmd === "!regras") return say(g, `📜 *Regras do grupo*\n\n${c.rules}`, [], msg.id).then(() => cmd);
   if (cmd === "!link") {
     const link = await whapiInviteLink(g).catch(async (e) => { await log("erro-moderacao", { acao: "link", error: String(e) }); return ""; });
@@ -328,7 +332,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
   if (!msg.fromMe && !(await isAdmin(c, g, msg.phone))) return say(g, "⛔ Esse comando é só para admins.", [], msg.id).then(() => `${cmd} (negado)`);
 
   const target = msg.mentions[0] || msg.quotedAuthor || (args.match(/\+?\d[\d\s()-]{9,}/)?.[0].replace(/\D/g, "") ?? "");
-  const needTarget = () => say(g, `Use ${cmd} marcando a pessoa (@) ou respondendo a mensagem dela.`, [], msg.id).then(() => `${cmd} (sem alvo)`);
+  const needTarget = () => say(g, `Use ${cmd.replace("!", c.prefix || "!")} marcando a pessoa (@) ou respondendo a mensagem dela.`, [], msg.id).then(() => `${cmd} (sem alvo)`);
   const reason = args.replace(/@\d+/g, "").trim();
 
   switch (cmd) {
@@ -359,7 +363,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       return say(g, `🔇 ${mention(target)} silenciado(a) por ${min} min. As mensagens serão apagadas.`, [target]).then(() => "!timeout");
     }
     case "!del":
-      if (!msg.quotedId) return say(g, "Responda a mensagem que quer apagar com !del.", [], msg.id).then(() => "!del (sem alvo)");
+      if (!msg.quotedId) return say(g, `Responda a mensagem que quer apagar com ${c.prefix || "!"}del.`, [], msg.id).then(() => "!del (sem alvo)");
       await del(msg.quotedId);
       await del(msg.id);
       return "!del";

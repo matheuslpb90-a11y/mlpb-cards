@@ -61,6 +61,11 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
     <div className="space-y-4">
       <section className="card space-y-3 p-5">
         <Toggle checked={c.enabled} onChange={(v) => set("enabled", v)} label="Moderação ligada" />
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          Símbolo dos comandos:
+          <input className="input w-20 text-center" maxLength={3} value={c.prefix} onChange={(e) => set("prefix", e.target.value)} />
+          <span className="text-xs text-slate-500">Padrão “!”. Enquanto a Janet estiver no grupo, use outro (ex.: “/” → /help, /ban) para os dois bots não responderem juntos.</span>
+        </div>
         <Toggle checked={c.notify} onChange={(v) => set("notify", v)} label="Avisar no grupo quando apagar uma mensagem" />
         <div>
           <p className="label">Grupos moderados</p>
@@ -86,7 +91,7 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
         <h2 className="font-semibold">👋 Boas-vindas e regras</h2>
         <Toggle checked={c.welcome.enabled} onChange={(v) => set("welcome", { ...c.welcome, enabled: v })} label="Mandar boas-vindas para quem entrar" />
         <div>
-          <label className="label">Mensagem de boas-vindas ({"{nome}"} marca a pessoa, {"{regras}"} insere as regras)</label>
+          <label className="label">Mensagem de boas-vindas ({"{nome}"} marca a pessoa, {"{regras}"} insere as regras, {"{prefixo}"} o símbolo dos comandos)</label>
           <textarea className="input min-h-20" value={c.welcome.text} onChange={(e) => set("welcome", { ...c.welcome, text: e.target.value })} />
         </div>
         <div>
