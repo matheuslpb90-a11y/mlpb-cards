@@ -74,6 +74,8 @@ export function PointsConfigForm({ initial }: { initial: PointsConfig }) {
         {num("referralPurchase", "Indicação: amigo fez a 1ª compra")}
         {num("boxBonus", "Bônus quando a caixa chega no frete grátis (R$ 500)", "1x por caixa")}
         {num("expiryMonths", "Pontos vencem em (meses)", "0 = nunca")}
+        {num("spendWindowDays", "Janela da compra mínima (dias)")}
+        {num("auctionMinSpend", "Compra mínima (R$) para vencer Leilão de Pontos", "0 = sem exigência")}
       </div>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         Bônus do ranking do mês (1º / 2º / 3º):
@@ -82,11 +84,12 @@ export function PointsConfigForm({ initial }: { initial: PointsConfig }) {
         ))}
       </div>
       <div className="space-y-2">
-        <p className="label">Prêmios</p>
+        <p className="label">Prêmios <span className="text-xs font-normal text-slate-500">(nome · pontos · compra mínima em R$ na janela — 0 = qualquer um troca)</span></p>
         {c.rewards.map((r, i) => (
           <div key={i} className="flex gap-2">
             <input className="input flex-1" value={r.name} onChange={(e) => { const rw = [...c.rewards]; rw[i] = { ...r, name: e.target.value }; setC({ ...c, rewards: rw }); }} />
-            <input type="number" className="input w-28" value={r.points} onChange={(e) => { const rw = [...c.rewards]; rw[i] = { ...r, points: Number(e.target.value) }; setC({ ...c, rewards: rw }); }} />
+            <input type="number" className="input w-24" title="pontos" value={r.points} onChange={(e) => { const rw = [...c.rewards]; rw[i] = { ...r, points: Number(e.target.value) }; setC({ ...c, rewards: rw }); }} />
+            <input type="number" className="input w-24" title="compra mínima (R$)" placeholder="R$ mín." value={r.minSpend ?? 0} onChange={(e) => { const rw = [...c.rewards]; rw[i] = { ...r, minSpend: Number(e.target.value) }; setC({ ...c, rewards: rw }); }} />
             <button type="button" className="rounded-lg border px-2 text-xs text-red-300" onClick={() => setC({ ...c, rewards: c.rewards.filter((_, j) => j !== i) })}>✕</button>
           </div>
         ))}

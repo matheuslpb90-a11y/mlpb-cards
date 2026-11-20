@@ -6,7 +6,7 @@ import { phoneKey } from "./phone";
 // MLPB Points — pontos para membros do grupo, trocados por prêmios na loja.
 // Configuração em Setting "pointsConfig" (Painel → 🪙 Pontos).
 
-export type Reward = { key: string; name: string; points: number };
+export type Reward = { key: string; name: string; points: number; minSpend?: number }; // minSpend: R$ em compras na janela
 export type PointsConfig = {
   enabled: boolean;
   perReal: number; // pontos por R$ 1 em compras/arremates pagos
@@ -16,6 +16,8 @@ export type PointsConfig = {
   referralStay: number; // indicado ficou 7 dias
   referralPurchase: number; // indicado fez a 1ª compra
   referralMinCents: number;
+  spendWindowDays: number; // janela da "compra mínima" dos prêmios
+  auctionMinSpend: number; // compra mínima (R$) para vencer um Leilão de Pontos
   boxBonus: number; // caixa chegou no valor do frete grátis (R$ 500): bônus de pontos, 1x por caixa
   ranking: number[]; // bônus do 1º, 2º, 3º do mês
   expiryMonths: number;
@@ -31,16 +33,18 @@ export const DEFAULT_POINTS: PointsConfig = {
   referralStay: 100,
   referralPurchase: 200,
   referralMinCents: 3000,
+  spendWindowDays: 90,
+  auctionMinSpend: 50,
   boxBonus: 300,
   ranking: [300, 150, 75],
   expiryMonths: 6,
   rewards: [
-    { key: "bulk", name: "🃏 Pacotinho surpresa (5 cartas, vai para a sua caixa)", points: 150 },
-    { key: "cupom5", name: "Cupom de R$ 5", points: 250 },
-    { key: "holo", name: "✨ Holo ou Reverse surpresa (vai para a sua caixa)", points: 400 },
-    { key: "cupom10", name: "Cupom de R$ 10", points: 500 },
-    { key: "frete15", name: "📦 R$ 15 de desconto no frete (caixas abaixo de R$ 500)", points: 800 },
-    { key: "booster", name: "🎁 1 booster de alguma coleção + frete grátis", points: 1500 },
+    { key: "bulk", name: "🃏 Pacotinho surpresa (5 cartas, vai para a sua caixa)", points: 150, minSpend: 0 },
+    { key: "cupom5", name: "Cupom de R$ 5", points: 250, minSpend: 0 },
+    { key: "holo", name: "✨ Holo ou Reverse surpresa (vai para a sua caixa)", points: 400, minSpend: 50 },
+    { key: "cupom10", name: "Cupom de R$ 10", points: 500, minSpend: 0 },
+    { key: "frete15", name: "📦 R$ 15 de desconto no frete (caixas abaixo de R$ 500)", points: 800, minSpend: 0 },
+    { key: "booster", name: "🎁 1 booster de alguma coleção + frete grátis", points: 1500, minSpend: 200 },
   ],
 };
 
@@ -52,6 +56,9 @@ export async function getPointsConfig(): Promise<PointsConfig> {
     const old = c.rewards?.length === 4 && c.rewards.some((r) => r.key === "frete");
     const rewards = (c.rewards?.length && !old ? c.rewards : DEFAULT_POINTS.rewards).map((r) =>
       r.key === "booster" && r.name === "1 booster" ? { ...r, name: "🎁 1 booster de alguma coleção + frete grátis" } : r,
+    ).map((r) =>
+      // prêmios salvos antes da regra de compra mínima: assume o padrão
+      r.minSpend === undefined ? { ...r, minSpend: DEFAULT_POINTS.rewards.find((d) => d.key === r.key)?.minSpend ?? 0 } : r,
     );
     return { ...DEFAULT_POINTS, ...c, rewards };
   } catch {
@@ -165,12 +172,29 @@ export async function payMonthlyRanking() {
   return { mes: prev.toISOString().slice(0, 7), top };
 }
 
+// ---- compras recentes (para prêmios que exigem compra mínima) ----
+/** Quanto a pessoa comprou (R$) na janela: site, leilões do bot e Leilomania. */
+export async function recentSpend(phone: string, c?: PointsConfig) {
+  const cfg = c ?? (await getPointsConfig());
+  const since = new Date(Date.now() - cfg.spendWindowDays * 86400_000);
+  const s = await db.pointEntry.aggregate({
+    _sum: { points: true },
+    where: { phone: phoneKey(phone), source: { in: ["COMPRA", "LEILAO", "LEILOMANIA"] }, points: { gt: 0 }, createdAt: { gte: since } },
+  });
+  return cfg.perReal > 0 ? (s._sum.points ?? 0) / cfg.perReal : 0;
+}
+
 // ---- trocas ----
 export async function requestRedemption(phone: string, name: string, rewardKey: string) {
   const c = await getPointsConfig();
   const reward = c.rewards.find((r) => r.key === rewardKey);
   if (!reward) return { ok: false as const, reason: "prêmio não encontrado" };
   if (!(await isMember(phone))) return { ok: false as const, reason: "só membros do grupo podem trocar pontos" };
+  if ((reward.minSpend ?? 0) > 0) {
+    const spent = await recentSpend(phone, c);
+    if (spent < (reward.minSpend ?? 0))
+      return { ok: false as const, reason: `esse prêmio exige R$ ${reward.minSpend} em compras nos últimos ${c.spendWindowDays} dias (você tem R$ ${Math.floor(spent)})` };
+  }
   const bal = await balance(phone);
   if (bal < reward.points) return { ok: false as const, reason: `saldo insuficiente (${bal} de ${reward.points})` };
   const k = phoneKey(phone);
@@ -196,7 +220,7 @@ export async function checkBoxBonus(boxId: string) {
   if (!box) return;
   const free = await freeShippingCents();
   if (boxBalance(box) < free) return;
-  const r = await credit({ phone: box.phone, name: box.name, points: c.boxBonus, source: "COMPRA", refId: `BOX500-${box.id}`, note: `Caixa #${box.code} chegou em R$ ${Math.round(free / 100)}` });
+  const r = await credit({ phone: box.phone, name: box.name, points: c.boxBonus, source: "BONUS", refId: `BOX500-${box.id}`, note: `Caixa #${box.code} chegou em R$ ${Math.round(free / 100)}` });
   if (r.ok) {
     const { sendText } = await import("./zapi");
     sendText(box.phone, `🎉 Sua caixa #${box.code} passou de R$ ${Math.round(free / 100)}: *frete grátis liberado* e você ganhou *+${c.boxBonus} MLPB Points*! 🪙`).catch(() => {});

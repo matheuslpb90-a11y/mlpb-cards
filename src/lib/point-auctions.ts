@@ -4,7 +4,7 @@ import { db } from "./db";
 import { log, sendImage, sendPoll, sendText, zapiMode } from "./zapi";
 import { phoneKey } from "./phone";
 import { WHATSAPP_NUMBER } from "./whatsapp";
-import { balance, getPointsConfig, isMember } from "./points";
+import { balance, getPointsConfig, isMember, recentSpend } from "./points";
 import { whapiPollResults } from "./whapi";
 
 // Leilão de Pontos: o bot posta uma enquete no grupo e o lance é em MLPB Points.
@@ -42,6 +42,7 @@ export async function startPointAuction(input: { title: string; imageUrl?: strin
     "O lance é em *MLPB Points*! Vote na enquete o quanto quer pagar.",
     "🏆 Vence o maior lance (empate: quem votou primeiro).",
     "⚠️ Só vale se você tiver os pontos no encerramento — veja seu saldo com *!pontos*.",
+    ...(pc.auctionMinSpend > 0 ? [`🛒 Para levar, é preciso ter comprado ao menos R$ ${pc.auctionMinSpend} nos últimos ${pc.spendWindowDays} dias.`] : []),
     `⏰ Encerra às *${fim}*.`,
   ].join("\n");
   if (input.imageUrl) await sendImage(group, input.imageUrl, intro);
@@ -99,11 +100,12 @@ export async function closePointAuctions() {
       await log("erro-leilao-pontos", { leilao: a.id, error: String(e) });
     }
     // maior lance válido: membro do grupo e com saldo no encerramento
+    const pc = await getPointsConfig();
     const sorted = [...a.bids].sort((x, y) => y.points - x.points || x.votedAt.getTime() - y.votedAt.getTime());
     let winner: (typeof sorted)[number] | null = null;
     const skipped: string[] = [];
     for (const b of sorted) {
-      if ((await isMember(b.phone)) && (await balance(b.phone)) >= b.points) {
+      if ((await isMember(b.phone)) && (await balance(b.phone)) >= b.points && (pc.auctionMinSpend <= 0 || (await recentSpend(b.phone, pc)) >= pc.auctionMinSpend)) {
         winner = b;
         break;
       }
@@ -121,7 +123,7 @@ export async function closePointAuctions() {
     const who = winner.name ? winner.name.split(" ")[0] : `…${winner.phone.slice(-4)}`;
     await sendText(
       a.group,
-      `🏁 *Leilão de Pontos encerrado!*\n🎁 ${a.title}\n🏆 *${who}* levou por *${winner.points} pontos*! 🎉${skipped.length ? `\n_(Lances maiores sem saldo suficiente foram desconsiderados.)_` : ""}\n\nA loja vai falar com você para entregar.`,
+      `🏁 *Leilão de Pontos encerrado!*\n🎁 ${a.title}\n🏆 *${who}* levou por *${winner.points} pontos*! 🎉${skipped.length ? `\n_(Lances maiores sem saldo ou sem a compra mínima foram desconsiderados.)_` : ""}\n\nA loja vai falar com você para entregar.`,
     ).catch(() => {});
   }
   return due.length;

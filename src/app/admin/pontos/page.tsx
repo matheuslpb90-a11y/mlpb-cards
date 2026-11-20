@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 const SOURCE: Record<string, string> = {
   COMPRA: "Compra no site", LEILAO: "Leilão (bot)", LEILOMANIA: "Leilomania", JOGO: "Jogo", AVALIACAO: "Avaliação",
-  INDICACAO: "Indicação", RANKING: "Ranking", RESGATE: "Troca", AJUSTE: "Ajuste",
+  INDICACAO: "Indicação", BONUS: "Bônus caixa R$ 500", RANKING: "Ranking", RESGATE: "Troca", AJUSTE: "Ajuste",
 };
 
 export default async function PontosPage() {

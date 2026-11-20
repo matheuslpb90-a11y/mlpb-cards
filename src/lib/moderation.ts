@@ -642,7 +642,7 @@ async function pointsCommand(c: ModConfig, msg: InMsg, cmd: string, args: string
   if (cmd === "!premios" || cmd === "!prêmios") {
     return say(
       g,
-      `🎁 *Prêmios MLPB Points*\n${pc.rewards.map((r, i) => `${i + 1}. ${r.name} — *${r.points} pts*`).join("\n")}\n\nPara trocar: *${pre}trocar número* (ex.: ${pre}trocar 1).\nGanhe pontos comprando (${pc.perReal} por R$ 1), em jogos e indicando amigos.`,
+      `🎁 *Prêmios MLPB Points*\n${pc.rewards.map((r, i) => `${i + 1}. ${r.name} — *${r.points} pts*${r.minSpend ? ` _(exige R$ ${r.minSpend} em compras nos últimos ${pc.spendWindowDays} dias)_` : ""}`).join("\n")}\n\nPara trocar: *${pre}trocar número* (ex.: ${pre}trocar 1).\nGanhe pontos comprando (${pc.perReal} por R$ 1), em jogos e indicando amigos.`,
       [],
       msg.id,
     ).then(() => cmd);

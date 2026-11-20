@@ -24,10 +24,12 @@ export async function savePointsConfigAction(c: PointsConfig) {
     referralPurchase: int(c.referralPurchase, 0, 100000, 200),
     referralMinCents: int(c.referralMinCents, 0, 10_000_000, 3000),
     boxBonus: int(c.boxBonus, 0, 100000, 300),
+    spendWindowDays: int(c.spendWindowDays, 1, 3650, 90),
+    auctionMinSpend: int(c.auctionMinSpend, 0, 1_000_000, 50),
     ranking: (c.ranking ?? []).slice(0, 3).map((v) => int(v, 0, 100000, 0)),
     expiryMonths: int(c.expiryMonths, 0, 60, 6),
     rewards: (c.rewards ?? [])
-      .map((r, i) => ({ key: r.key || `premio${i + 1}`, name: String(r.name ?? "").trim().slice(0, 60), points: int(r.points, 1, 1_000_000, 100) }))
+      .map((r, i) => ({ key: r.key || `premio${i + 1}`, name: String(r.name ?? "").trim().slice(0, 80), points: int(r.points, 1, 1_000_000, 100), minSpend: int(r.minSpend, 0, 1_000_000, 0) }))
       .filter((r) => r.name),
   };
   await savePointsConfig(clean);
