@@ -20,6 +20,8 @@ export const ACTIVITY_LABELS: Record<string, string> = {
   settings_updated: "Aparência e links",
   bot_group_updated: "Bot: grupo",
   mod_updated: "Moderação: configuração",
+  sender_updated: "Envios: remetente",
+  label_command: "Envios: etiqueta",
 };
 
 /** Registra uma ação feita no painel. Nunca interrompe a ação principal se falhar. */

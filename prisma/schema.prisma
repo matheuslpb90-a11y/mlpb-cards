@@ -74,6 +74,8 @@ model Order {
   transactionNsu String      @default("")
   receiptUrl     String      @default("")
   trackingCode   String      @default("")
+  sfOrderId      String      @default("") // etiqueta SuperFrete
+  sfStatus       String      @default("")
   createdAt      DateTime    @default(now())
   paidAt         DateTime?
   items          OrderItem[]
@@ -239,6 +241,8 @@ model Box {
   shippingPaid   Boolean   @default(false)
   addressJson    String    @default("")
   trackingCode   String    @default("")
+  sfOrderId      String    @default("") // etiqueta SuperFrete
+  sfStatus       String    @default("")
   notes          String    @default("")
   archived       Boolean   @default(false)
   createdAt      DateTime  @default(now())
