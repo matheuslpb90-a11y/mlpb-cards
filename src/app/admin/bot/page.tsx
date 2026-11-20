@@ -4,6 +4,7 @@ import { siteUrl } from "@/lib/orders";
 import { diagnostics, zapiEnabled } from "@/lib/zapi";
 import { fmtDate } from "@/lib/auctions";
 import { BotSetup } from "./BotSetup";
+import { CopyText } from "@/components/admin/CopyText";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function BotPage() {
     await db.setting.create({ data: { key: "botWebhookKey", value: key } });
   }
   const group = await db.setting.findMany({ where: { key: { in: ["botGroupId", "botGroupName"] } } });
-  const logs = await db.botLog.findMany({ orderBy: { createdAt: "desc" }, take: 40 });
+  const logs = await db.botLog.findMany({ orderBy: { createdAt: "desc" }, take: 80 });
   const webhook = `${siteUrl()}/api/webhooks/zapi?key=${key}`;
   const diag = await diagnostics();
 
@@ -75,7 +76,15 @@ export default async function BotPage() {
       <BotSetup current={{ id: group.find((g) => g.key === "botGroupId")?.value ?? "", name: group.find((g) => g.key === "botGroupName")?.value ?? "" }} />
 
       <section className="card space-y-2 p-5">
-        <h2 className="text-lg font-bold">Registro do bot</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-bold">Registro do bot</h2>
+          <CopyText
+            text={logs
+              .filter((l) => !l.payload.startsWith('{"statuses"'))
+              .map((l) => `${l.kind} · ${fmtDate(l.createdAt)}\n${l.payload}`)
+              .join("\n\n")}
+          />
+        </div>
         <p className="text-sm text-slate-500">Últimas mensagens que a Z-API enviou ao site e erros de envio. Útil para conferir os primeiros testes.</p>
         <div className="max-h-[28rem] space-y-1 overflow-y-auto text-xs">
           {logs.map((l) => (

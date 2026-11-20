@@ -249,7 +249,17 @@ export async function closeAuction(auctionId: string) {
             for (const voter of r.voters) {
               const cents = optionCentsFor(it, r.name);
               const ph = phoneKey(voter);
-              if (cents == null || known.has(ph) || ph === phoneKey(WHATSAPP_NUMBER)) continue;
+              if (cents == null || ph === phoneKey(WHATSAPP_NUMBER)) continue;
+              const prev = it.votes.find((v) => v.phone === ph);
+              if (prev) {
+                // A enquete é a fonte da verdade: se a pessoa trocou o voto e o aviso se perdeu, vale o atual
+                if (prev.optionCents !== cents) {
+                  await log("voto-corrigido", { item: it.id, phone: ph, de: prev.optionCents, para: cents });
+                  Object.assign(prev, await db.auctionVote.update({ where: { id: prev.id }, data: { optionCents: cents, votedAt: new Date() } }));
+                }
+                continue;
+              }
+              if (known.has(ph)) continue;
               const v = await db.auctionVote.create({ data: { itemId: it.id, phone: ph, name: "", optionCents: cents } });
               it.votes.push(v);
             }
