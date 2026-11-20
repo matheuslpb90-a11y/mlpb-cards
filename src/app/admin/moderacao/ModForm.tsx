@@ -157,6 +157,20 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
       </section>
 
       <section className="card space-y-3 p-5">
+        <h2 className="font-semibold">⭐ Avaliações entre membros</h2>
+        <p className="text-xs text-slate-500">
+          Para avaliar <strong>outro membro</strong> com {c.prefix || "!"}avaliar, a pessoa precisa mandar imagens de comprovação antes da nota. Avaliar a <strong>loja</strong> não exige provas.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          Imagens exigidas:
+          <input type="number" min={0} max={10} className="input w-20" value={c.reviews.proofs} onChange={(e) => set("reviews", { ...c.reviews, proofs: Number(e.target.value) })} />
+          · prazo para mandar:
+          <input type="number" min={1} max={60} className="input w-20" value={c.reviews.proofMinutes} onChange={(e) => set("reviews", { ...c.reviews, proofMinutes: Number(e.target.value) })} />
+          minutos <span className="text-xs text-slate-500">(0 imagens = sem exigência)</span>
+        </div>
+      </section>
+
+      <section className="card space-y-3 p-5">
         <h2 className="font-semibold">🚫 Palavras proibidas e avisos</h2>
         <div>
           <label className="label">Palavras ou frases proibidas (uma por linha) — apaga e dá aviso</label>

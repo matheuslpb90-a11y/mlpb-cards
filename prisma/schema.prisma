@@ -304,6 +304,7 @@ model Review {
   group       String   @default("")
   rating      Int // 1 a 5
   comment     String   @default("")
+  proofJson   String   @default("[]") // imagens de comprovação [{mediaId, messageId}]
   createdAt   DateTime @default(now())
 
   @@index([targetPhone, createdAt])

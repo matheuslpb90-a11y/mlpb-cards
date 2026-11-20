@@ -34,6 +34,23 @@ export default async function ModeracaoPage() {
                 {r.createdAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
               </p>
               {r.comment && <p className="text-slate-500">“{r.comment}”</p>}
+              {(() => {
+                const proofs = JSON.parse(r.proofJson || "[]") as { mediaId: string }[];
+                return proofs.length > 0 ? (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {proofs.map((p, i) =>
+                      p.mediaId ? (
+                        <a key={i} href={`/api/admin/midia/${encodeURIComponent(p.mediaId)}`} target="_blank" rel="noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={`/api/admin/midia/${encodeURIComponent(p.mediaId)}`} alt={`prova ${i + 1}`} className="h-16 w-16 rounded border object-cover" />
+                        </a>
+                      ) : (
+                        <span key={i} className="text-slate-500">📎 prova {i + 1}</span>
+                      ),
+                    )}
+                  </div>
+                ) : null;
+              })()}
             </div>
             <DeleteReview id={r.id} />
           </div>

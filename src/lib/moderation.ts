@@ -33,6 +33,8 @@ export type ModConfig = {
   warns: { max: number }; // ao atingir, remove do grupo (0 = nunca remove)
   // parceiros (donos de outros grupos/lojas): podem divulgar links nos dias/horários deles, sem aviso
   partners: { phones: string[]; days: number[]; startHour: number; endHour: number };
+  // avaliar outros membros exige provas (imagens); avaliar a loja não
+  reviews: { proofs: number; proofMinutes: number };
 };
 
 export const DEFAULT_MOD: ModConfig = {
@@ -49,6 +51,7 @@ export const DEFAULT_MOD: ModConfig = {
   ddi: { blockForeign: true, whitelist: [] },
   warns: { max: 3 },
   partners: { phones: [], days: [1, 3, 5], startHour: 8, endHour: 20 }, // seg, qua, sex 8h–19:59
+  reviews: { proofs: 3, proofMinutes: 5 },
 };
 
 export async function getModConfig(): Promise<ModConfig> {
@@ -64,6 +67,7 @@ export async function getModConfig(): Promise<ModConfig> {
       ddi: { ...DEFAULT_MOD.ddi, ...c.ddi },
       warns: { ...DEFAULT_MOD.warns, ...c.warns },
       partners: { ...DEFAULT_MOD.partners, ...c.partners },
+      reviews: { ...DEFAULT_MOD.reviews, ...c.reviews },
     };
   } catch {
     return DEFAULT_MOD;
@@ -180,6 +184,7 @@ export type InMsg = {
   quotedId: string;
   quotedAuthor: string;
   mentions: string[];
+  mediaId: string; // id da imagem/vídeo (Whapi), para guardar provas
 };
 
 /** Lê a mensagem no formato da Whapi. */
@@ -199,6 +204,7 @@ export function parseWhapiMessage(m: Record<string, unknown>): InMsg {
     quotedId: String(ctx.quoted_id ?? ""),
     quotedAuthor: whapiPhone(ctx.quoted_author ?? ""),
     mentions: ((ctx.mentions ?? []) as unknown[]).map(whapiPhone).map((p) => p.replace(/@.*/, "")),
+    mediaId: String(part(t).id ?? ""),
   };
 }
 
@@ -212,7 +218,7 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
   if (!c.enabled) return looksCommand ? `ignorado: moderação desligada (${text.slice(0, 20)})` : null;
   if (!(await moderatedGroups(c)).includes(msg.group)) return looksCommand ? `ignorado: grupo não está na lista de moderados (${text.slice(0, 20)})` : null;
   // avaliação em andamento (!avaliar): nota de 1 a 5 e comentário opcional, cada um em até 45s
-  const rated = await reviewStep(msg, text);
+  const rated = await reviewStep(c, msg, text);
   if (rated) return rated;
 
   if (text.startsWith(c.prefix || "!")) {
@@ -445,6 +451,17 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
 // ---------------- Avaliações (!avaliar / !referencias) ----------------
 
 const REVIEW_SECONDS = 45;
+const RATE_KINDS = ["RATE_PROOF", "RATE_PENDING", "RATE_COMMENT"];
+/** Estado da avaliação guardado no ModEvent: alvo + provas recebidas. */
+function readRate(note: string): { t: string; p: { mediaId: string; messageId: string }[] } {
+  try {
+    const o = JSON.parse(note) as { t?: string; p?: { mediaId: string; messageId: string }[] };
+    if (o && typeof o === "object" && o.t) return { t: o.t, p: o.p ?? [] };
+  } catch {
+    /* formato antigo: só o telefone */
+  }
+  return { t: note, p: [] };
+}
 const stars = (n: number) => "⭐".repeat(n) + "☆".repeat(5 - n);
 const targetFrom = (args: string, msg: InMsg) => {
   const d = (args.match(/\+?\d[\d\s().-]{8,}/)?.[0] ?? "").replace(/\D/g, "") || msg.mentions[0] || msg.quotedAuthor || "";
@@ -463,35 +480,68 @@ async function startReview(c: ModConfig, msg: InMsg, args: string) {
   const rater = phoneKey(msg.phone);
   if (phoneKey(target) === rater) return say(msg.group, "Você não pode avaliar a si mesmo. 😅", [], msg.id);
   const before = await db.review.findFirst({ where: { targetPhone: phoneKey(target), raterPhone: rater } });
-  await db.modEvent.deleteMany({ where: { group: msg.group, phone: rater, kind: { in: ["RATE_PENDING", "RATE_COMMENT"] } } });
-  await db.modEvent.create({ data: { group: msg.group, phone: rater, name: msg.name, kind: "RATE_PENDING", note: phoneKey(target), until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
+  await db.modEvent.deleteMany({ where: { group: msg.group, phone: rater, kind: { in: RATE_KINDS } } });
+  const replacing = before ? `\n_(Você já tinha avaliado com ${before.rating} — a nova avaliação vai substituir a anterior.)_` : "";
+  // avaliar outro membro: primeiro as provas. Avaliar a loja: direto para a nota.
+  const isStore = phoneKey(target) === phoneKey(WHATSAPP_NUMBER);
+  const need = isStore ? 0 : Math.max(0, c.reviews.proofs);
+  if (need > 0) {
+    await db.modEvent.create({
+      data: { group: msg.group, phone: rater, name: msg.name, kind: "RATE_PROOF", note: JSON.stringify({ t: phoneKey(target), p: [] }), until: new Date(Date.now() + c.reviews.proofMinutes * 60_000) },
+    });
+    return say(
+      msg.group,
+      `📸 ${mention(msg.phone)}, para avaliar *${fmtPhone(target)}* mande aqui *${need} imagens* que comprovem a negociação/entrega (ex.: print da conversa, comprovante de pagamento, foto do pacote ou rastreio).\nVocê tem ${c.reviews.proofMinutes} minutos. Depois disso eu peço a nota.${replacing}`,
+      [msg.phone],
+      msg.id,
+    );
+  }
+  await db.modEvent.create({ data: { group: msg.group, phone: rater, name: msg.name, kind: "RATE_PENDING", note: JSON.stringify({ t: phoneKey(target), p: [] }), until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
   return say(
     msg.group,
-    `⭐ ${mention(msg.phone)}, qual a sua nota para *${fmtPhone(target)}*?\nResponda só com um número de *1 a 5* em até ${REVIEW_SECONDS}s.${before ? `\n_(Você já tinha avaliado com ${before.rating} — a nova avaliação vai substituir a anterior.)_` : ""}`,
+    `⭐ ${mention(msg.phone)}, qual a sua nota para *${fmtPhone(target)}*?\nResponda só com um número de *1 a 5* em até ${REVIEW_SECONDS}s.${replacing}`,
     [msg.phone],
     msg.id,
   );
 }
 
 /** Trata a resposta de quem está no meio de uma avaliação. Devolve o que fez, ou null se não era resposta. */
-async function reviewStep(msg: InMsg, text: string): Promise<string | null> {
+async function reviewStep(c: ModConfig, msg: InMsg, text: string): Promise<string | null> {
   const rater = phoneKey(msg.phone);
   const pending = await db.modEvent.findFirst({
-    where: { group: msg.group, phone: rater, kind: { in: ["RATE_PENDING", "RATE_COMMENT"] }, until: { gt: new Date() } },
+    where: { group: msg.group, phone: rater, kind: { in: RATE_KINDS }, until: { gt: new Date() } },
     orderBy: { createdAt: "desc" },
   });
   if (!pending || /^[!/#.]\w/.test(text)) return null;
+
+  // etapa das provas: conta as imagens da pessoa
+  if (pending.kind === "RATE_PROOF") {
+    if (!["image", "album"].includes(msg.type)) return null;
+    const st = readRate(pending.note);
+    st.p.push({ mediaId: msg.mediaId, messageId: msg.id });
+    const need = Math.max(1, c.reviews.proofs);
+    if (st.p.length < need) {
+      await db.modEvent.update({ where: { id: pending.id }, data: { note: JSON.stringify(st) } });
+      return `avaliação: prova ${st.p.length}/${need}`;
+    }
+    await db.modEvent.update({ where: { id: pending.id }, data: { kind: "RATE_PENDING", note: JSON.stringify(st), until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
+    await say(msg.group, `✅ ${mention(msg.phone)}, provas recebidas! Agora, qual a sua nota para *${fmtPhone(st.t)}*?\nResponda só com um número de *1 a 5* em até ${REVIEW_SECONDS}s.`, [msg.phone], msg.id);
+    return "avaliação: provas completas";
+  }
+
   if (pending.kind === "RATE_PENDING") {
+    const st = readRate(pending.note);
     const n = Number(text.match(/^\s*([1-5])(?:\s|$|[.,!⭐])/)?.[1]);
     if (!n) return null; // não é nota: segue a vida (a janela expira sozinha)
     // uma avaliação por pessoa para cada número: reavaliar substitui nota e comentário
-    const old = await db.review.findFirst({ where: { targetPhone: pending.note, raterPhone: rater } });
+    const old = await db.review.findFirst({ where: { targetPhone: st.t, raterPhone: rater } });
+    const proofJson = JSON.stringify(st.p);
     const r = old
-      ? await db.review.update({ where: { id: old.id }, data: { rating: n, comment: "", raterName: msg.name || old.raterName, group: msg.group, createdAt: new Date() } })
-      : await db.review.create({ data: { targetPhone: pending.note, raterPhone: rater, raterName: msg.name, group: msg.group, rating: n } });
+      ? await db.review.update({ where: { id: old.id }, data: { rating: n, comment: "", proofJson, raterName: msg.name || old.raterName, group: msg.group, createdAt: new Date() } })
+      : await db.review.create({ data: { targetPhone: st.t, raterPhone: rater, raterName: msg.name, group: msg.group, rating: n, proofJson } });
     await db.modEvent.update({ where: { id: pending.id }, data: { kind: "RATE_COMMENT", note: r.id, until: new Date(Date.now() + REVIEW_SECONDS * 1000) } });
-    await say(msg.group, `✅ Nota ${stars(n)} registrada para *${fmtPhone(pending.note)}*. Obrigado!\nSe quiser, mande um comentário em até ${REVIEW_SECONDS}s (opcional).`, [], msg.id);
-    return `avaliação: nota ${n} para ${pending.note}`;
+    await say(msg.group, `✅ Nota ${stars(n)} registrada para *${fmtPhone(st.t)}*. Obrigado!\nSe quiser, mande um comentário em até ${REVIEW_SECONDS}s (opcional).`, [], msg.id);
+    return `avaliação: nota ${n} para ${st.t}`;
   }
   // comentário opcional
   if (!text) return null;
@@ -512,7 +562,8 @@ async function showReviews(msg: InMsg, args: string) {
   const lines = shown.map((r) => {
     const d = r.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
     const who = r.raterName ? r.raterName.split(" ")[0] : `…${r.raterPhone.slice(-4)}`;
-    return `${stars(r.rating)} · ${who} · ${d}${r.comment ? `\n   “${r.comment}”` : ""}`;
+    const proofs = (JSON.parse(r.proofJson || "[]") as unknown[]).length;
+    return `${stars(r.rating)} · ${who} · ${d}${proofs ? ` · 📎 ${proofs} provas` : ""}${r.comment ? `\n   “${r.comment}”` : ""}`;
   });
   return say(
     msg.group,

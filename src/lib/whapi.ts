@@ -137,3 +137,14 @@ export async function whapiInviteLink(groupId: string) {
   const code = r.invite_code ?? r.code ?? "";
   return r.link ?? (code ? `https://chat.whatsapp.com/${code}` : "");
 }
+
+/** Baixa uma mídia recebida (imagem de prova etc.). */
+export async function whapiDownloadMedia(mediaId: string) {
+  const res = await fetch(`${BASE}/media/${encodeURIComponent(mediaId)}`, {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    cache: "no-store",
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) throw new Error(`Whapi media ${res.status}`);
+  return { type: res.headers.get("content-type") ?? "application/octet-stream", body: await res.arrayBuffer() };
+}
