@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { saveCardAction, uploadImageAction } from "@/app/admin/actions";
 import { CardImage } from "@/components/CardImage";
 import { CONDITIONS, FINISHES, LANGUAGES, PRODUCT_CATEGORIES } from "@/lib/catalog";
@@ -41,8 +41,47 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
   });
 
   const [market, setMarket] = useState<{ cents: number; basis?: string; link?: string } | null>(null);
+  const [marketMsg, setMarketMsg] = useState("");
+  const reqRef = useRef(0);
+  const fmt = (c: number) => (c / 100).toFixed(2).replace(".", ",");
+
+  /** Busca o valor de mercado no Brasil (MYP Cards) e preenche o preço se estiver vazio. */
+  async function fetchMarket(name: string, number: string, language: string, finish: string, fill: boolean) {
+    if (!name.trim()) return;
+    const id = ++reqRef.current;
+    setMarketMsg("Buscando preço de mercado na MYP…");
+    try {
+      const q = new URLSearchParams({ myp: name, num: number, idioma: language, finish });
+      const j = (await (await fetch(`/api/admin/buscar-carta?${q}`)).json()) as {
+        results?: { link: string; price: { cents: number; basis: string } | null }[];
+        message?: string;
+      };
+      if (id !== reqRef.current) return; // chegou uma busca mais nova
+      const best = (j.results ?? []).find((c) => c.price);
+      if (!best?.price) {
+        setMarket(null);
+        setMarketMsg(j.message ?? "A MYP não tem oferta dessa carta agora — defina o preço manualmente.");
+        return;
+      }
+      const cents = best.price.cents;
+      setMarket({ cents, basis: best.price.basis, link: best.link });
+      setMarketMsg("");
+      if (fill) setV((prev) => (prev.price ? prev : { ...prev, price: fmt(cents) }));
+    } catch {
+      if (id === reqRef.current) setMarketMsg("Não deu para consultar a MYP agora.");
+    }
+  }
+
   function applyLookup(r: LookupResult) {
-    if (r.marketCents) setMarket({ cents: r.marketCents, basis: r.marketBasis, link: r.marketLink });
+    if (r.marketCents) {
+      reqRef.current++;
+      setMarket({ cents: r.marketCents, basis: r.marketBasis, link: r.marketLink });
+      setMarketMsg("");
+      setV((prev) => (prev.price ? prev : { ...prev, price: fmt(r.marketCents!) }));
+    } else {
+      // carta escolhida no TCGdex: procura o preço dela na MYP (nome + número + idioma + variante)
+      fetchMarket(r.name, r.number, r.language || v.language, v.finish, true);
+    }
     setV((prev) => ({
       ...prev,
       name: r.name || prev.name,
@@ -113,13 +152,20 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
           <div>
             <label className="label">Preço (R$)</label>
             <input className="input" required inputMode="decimal" placeholder="12,50" {...bind("price")} />
-            {market && (
+            {isCard && (
               <p className="mt-1 text-xs text-slate-500">
-                Mercado BR: <strong className="text-green-300">R$ {(market.cents / 100).toFixed(2).replace(".", ",")}</strong>
-                {market.basis ? ` (${market.basis})` : ""} ·{" "}
-                <button type="button" className="text-brand underline" onClick={() => setV((prev) => ({ ...prev, price: (market.cents / 100).toFixed(2).replace(".", ",") }))}>usar este preço</button>{" "}
-                · fonte{" "}
-                <a href={market.link || "https://mypcards.com"} target="_blank" rel="noreferrer" className="underline">MYP Cards</a>
+                {market ? (
+                  <>
+                    Mercado BR: <strong className="text-green-300">R$ {fmt(market.cents)}</strong>
+                    {market.basis ? ` (${market.basis})` : ""} ·{" "}
+                    <button type="button" className="text-brand underline" onClick={() => setV((prev) => ({ ...prev, price: fmt(market.cents) }))}>usar este preço</button> · fonte{" "}
+                    <a href={market.link || "https://mypcards.com"} target="_blank" rel="noreferrer" className="underline">MYP Cards</a> ·{" "}
+                  </>
+                ) : (
+                  marketMsg && <>{marketMsg} · </>
+                )}
+                <button type="button" className="text-brand underline" onClick={() => fetchMarket(v.name, v.number, v.language, v.finish, false)}>🔄 preço MYP</button>
+                <span className="text-slate-600"> (usa nome, número, idioma e variante preenchidos)</span>
               </p>
             )}
           </div>
