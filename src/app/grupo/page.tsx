@@ -4,7 +4,7 @@ import { getPointsConfig } from "@/lib/points";
 import { getGamesConfig } from "@/lib/games";
 import { getSettings } from "@/lib/settings";
 import { freeShippingCents } from "@/lib/free-shipping";
-import { db } from "@/lib/db";
+import { leilomaniaLinks } from "@/lib/leilomania";
 import { WhatsIcon } from "@/components/SocialIcons";
 
 export const dynamic = "force-dynamic";
@@ -13,13 +13,13 @@ export const metadata = { title: "Nosso grupo — MLPB Cards", description: "Reg
 const DAY = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
 export default async function GroupPage() {
-  const [mod, pts, games, s, free, lmRef] = await Promise.all([
+  const [mod, pts, games, s, free, lm] = await Promise.all([
     getModConfig(),
     getPointsConfig(),
     getGamesConfig(),
     getSettings(),
     freeShippingCents(),
-    db.setting.findUnique({ where: { key: "leilomaniaRefUrl" } }),
+    leilomaniaLinks(),
   ]);
   const P = mod.prefix || "!";
   const cmd = (c: string) => <code className="rounded bg-slate-100 px-1 font-bold text-brand-amber">{P}{c}</code>;
@@ -43,7 +43,7 @@ export default async function GroupPage() {
           <li>As cartas pagas ficam na sua <strong>caixa</strong> na loja. Junte compras e arremates e peça o envio quando quiser — frete grátis a partir de R$ {(free / 100).toLocaleString("pt-BR")}.</li>
         </ol>
         <p>Também fazemos leilões na Leilomania — veja em <Link href="/leiloes" className="text-brand underline">Leilões</Link>.
-          {lmRef?.value && <> Ainda não tem conta lá? <a href={lmRef.value} target="_blank" rel="noreferrer" className="text-purple-300 underline">Cadastre-se pelo nosso link ↗</a></>}
+          {lm.refUrl && <> Para participar lá é preciso um cadastro prévio — <a href={lm.refUrl} target="_blank" rel="noreferrer" className="text-purple-300 underline">cadastre-se pelo nosso link ↗</a></>}
         </p>
       </section>
 
