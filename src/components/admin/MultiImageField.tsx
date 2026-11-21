@@ -13,20 +13,22 @@ export function MultiImageField({ label, value, onChange, max = 12, maxSide = 12
     e.target.value = "";
     if (!files.length) return setMsg(`Máximo de ${max} fotos.`);
     const added: string[] = [];
+    const errors: string[] = [];
+    let current = value;
     for (const [i, f] of files.entries()) {
       setMsg(`Enviando ${i + 1} de ${files.length}…`);
       try {
         const r = await uploadImageAction(await shrinkImage(f, maxSide));
-        if (r.url) added.push(r.url);
-        else setMsg(r.error ?? "Falha ao enviar");
+        if (r.url) {
+          added.push(r.url);
+          current = [...current, r.url];
+          onChange(current); // aparece na hora, uma por uma
+        } else errors.push(`foto ${i + 1}: ${r.error ?? "falha ao enviar"}`);
       } catch {
-        setMsg("Não foi possível ler uma das imagens. Use JPG ou PNG.");
+        errors.push(`foto ${i + 1}: não consegui enviar (tente de novo ou use JPG/PNG)`);
       }
     }
-    if (added.length) {
-      onChange([...value, ...added]);
-      setMsg(`${added.length} foto(s) enviada(s) ✓ — clique em Salvar`);
-    }
+    setMsg([added.length ? `${added.length} foto(s) enviada(s) ✓ — clique em Salvar leilão` : "", ...errors].filter(Boolean).join(" · "));
   }
   const move = (i: number, to: number) => {
     const v = [...value];

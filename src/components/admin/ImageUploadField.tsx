@@ -18,7 +18,17 @@ export async function shrinkImage(file: File, maxSide = 1000): Promise<string> {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return keepAlpha ? canvas.toDataURL("image/webp", 0.9) : canvas.toDataURL("image/jpeg", 0.85);
+  if (keepAlpha) {
+    const webp = canvas.toDataURL("image/webp", 0.9);
+    if (webp.length < 1_100_000) return webp;
+  }
+  // garante que a foto fique leve (fotos de celular são muito detalhadas)
+  let out = "";
+  for (const q of [0.85, 0.75, 0.65, 0.5]) {
+    out = canvas.toDataURL("image/jpeg", q);
+    if (out.length < 1_100_000) break;
+  }
+  return out;
 }
 
 export function ImageUploadField({ name, label, value, onChange, maxSide }: { name: string; label: string; value: string; onChange: (v: string) => void; maxSide?: number }) {
