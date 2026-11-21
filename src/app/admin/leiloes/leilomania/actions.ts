@@ -41,10 +41,13 @@ export async function deleteExternalAuctionAction(id: string) {
   return { ok: true };
 }
 
-export async function saveLeilomaniaProfileAction(url: string) {
+export async function saveLeilomaniaProfileAction(url: string, refUrl = "") {
   await requireAdmin();
   const value = normUrl(url);
   await db.setting.upsert({ where: { key: "leilomaniaUrl" }, create: { key: "leilomaniaUrl", value }, update: { value } });
+  const ref = normUrl(refUrl);
+  await db.setting.upsert({ where: { key: "leilomaniaRefUrl" }, create: { key: "leilomaniaRefUrl", value: ref }, update: { value: ref } });
+  revalidatePath("/grupo");
   revalidatePath("/leiloes");
   revalidatePath("/admin/leiloes/leilomania");
   return { ok: "Link salvo ✔" };

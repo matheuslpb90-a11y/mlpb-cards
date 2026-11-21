@@ -11,7 +11,7 @@ export const metadata = { title: "Leilões — MLPB Cards" };
 export default async function AuctionsPage() {
   await runSchedule().catch(() => {});
   const now = new Date();
-  const [s, auctions, external, lmProfile] = await Promise.all([
+  const [s, auctions, external, lmProfile, lmRef] = await Promise.all([
     getSettings(),
     db.auction.findMany({
       where: { visible: true, status: { not: "CANCELADO" } },
@@ -21,6 +21,7 @@ export default async function AuctionsPage() {
     }),
     db.externalAuction.findMany({ where: { visible: true, endsAt: { gt: new Date(Date.now() - 30 * 86400_000) } }, orderBy: { startsAt: "desc" }, take: 30 }),
     db.setting.findUnique({ where: { key: "leilomaniaUrl" } }),
+    db.setting.findUnique({ where: { key: "leilomaniaRefUrl" } }),
   ]);
   const extStatus = (a: { startsAt: Date; endsAt: Date }) => (now < a.startsAt ? 1 : now <= a.endsAt ? 0 : 2);
   external.sort((a, b) => extStatus(a) - extStatus(b));
@@ -39,6 +40,13 @@ export default async function AuctionsPage() {
           {lmProfile?.value && <a href={lmProfile.value} target="_blank" rel="noreferrer" className="btn border border-purple-500 text-purple-300 hover:bg-purple-950/40">🟣 Meus leilões na Leilomania ↗</a>}
         </div>
       </div>
+      {lmRef?.value && (
+        <div className="card flex flex-wrap items-center justify-between gap-3 border-purple-700 p-4 text-sm">
+          <p>🟣 Ainda não tem conta na <strong>Leilomania</strong>? Cadastre-se pelo nosso link para participar dos leilões de lá.</p>
+          <a href={lmRef.value} target="_blank" rel="noreferrer" className="btn bg-purple-700 text-white hover:bg-purple-600">Cadastrar na Leilomania ↗</a>
+        </div>
+      )}
+      <p className="text-sm text-slate-500">Primeira vez? Veja <Link href="/grupo" className="text-brand underline">como funcionam os leilões e o grupo</Link> e o programa <Link href="/pontos" className="text-brand underline">🪙 MLPB Points</Link>.</p>
 
       {external.length > 0 && (
         <section className="space-y-3">

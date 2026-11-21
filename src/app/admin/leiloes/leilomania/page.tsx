@@ -5,9 +5,10 @@ import { ExternalAuctionsEditor } from "./Editor";
 export const dynamic = "force-dynamic";
 
 export default async function LeilomaniaAdmin() {
-  const [list, profile] = await Promise.all([
+  const [list, profile, refUrl] = await Promise.all([
     db.externalAuction.findMany({ orderBy: { startsAt: "desc" }, take: 100 }),
     db.setting.findUnique({ where: { key: "leilomaniaUrl" } }),
+    db.setting.findUnique({ where: { key: "leilomaniaRefUrl" } }),
   ]);
   return (
     <div className="space-y-4">
@@ -16,6 +17,7 @@ export default async function LeilomaniaAdmin() {
       <p className="text-sm text-slate-500">Cadastre aqui os leilões que você faz na Leilomania. Eles aparecem na aba <strong>Leilões</strong> do site, junto com os do WhatsApp, com o botão para participar lá.</p>
       <ExternalAuctionsEditor
         profileUrl={profile?.value ?? ""}
+        refUrl={refUrl?.value ?? ""}
         items={list.map((a) => ({
           id: a.id, title: a.title, description: a.description, url: a.url, imageUrl: a.imageUrl, visible: a.visible,
           startsAt: toLocal(a.startsAt), endsAt: toLocal(a.endsAt),

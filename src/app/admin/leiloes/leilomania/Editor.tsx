@@ -8,9 +8,10 @@ import { deleteExternalAuctionAction, saveExternalAuctionAction, saveLeilomaniaP
 
 const empty: ExtInput = { title: "", description: "", url: "", imageUrl: "", startsAt: "", endsAt: "", visible: true };
 
-export function ExternalAuctionsEditor({ items, profileUrl }: { items: ExtInput[]; profileUrl: string }) {
+export function ExternalAuctionsEditor({ items, profileUrl, refUrl }: { items: ExtInput[]; profileUrl: string; refUrl: string }) {
   const [f, setF] = useState<ExtInput>(empty);
   const [profile, setProfile] = useState(profileUrl);
+  const [ref, setRef] = useState(refUrl);
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>();
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -19,11 +20,11 @@ export function ExternalAuctionsEditor({ items, profileUrl }: { items: ExtInput[
   return (
     <div className="space-y-4">
       <section className="card space-y-2 p-5">
-        <label className="label">Link do seu perfil/loja na Leilomania (aparece como botão na aba Leilões)</label>
-        <div className="flex gap-2">
-          <input className="input" placeholder="https://www.leilomania.com.br/…" value={profile} onChange={(e) => setProfile(e.target.value)} />
-          <button className="btn-outline" disabled={pending} onClick={() => start(async () => { setMsg(await saveLeilomaniaProfileAction(profile)); router.refresh(); })}>Salvar</button>
-        </div>
+        <label className="label">Link do seu perfil/loja na Leilomania (botão “Meus leilões na Leilomania”)</label>
+        <input className="input" placeholder="https://www.leilomania.com.br/…" value={profile} onChange={(e) => setProfile(e.target.value)} />
+        <label className="label">Seu link de indicação da Leilomania (botão “Cadastre-se pelo meu link”)</label>
+        <input className="input" placeholder="https://www.leilomania.com.br/…?ref=…" value={ref} onChange={(e) => setRef(e.target.value)} />
+        <button className="btn-outline" disabled={pending} onClick={() => start(async () => { setMsg(await saveLeilomaniaProfileAction(profile, ref)); router.refresh(); })}>Salvar links</button>
       </section>
 
       <section className="card space-y-3 p-5">

@@ -29,6 +29,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/catalogo?tipo=cartas" className={navLink}>Cartas Avulsas</Link>
                 <Link href="/catalogo?tipo=selados" className={navLink}>Selados</Link>
                 <Link href="/leiloes" className={navLink}>Leilões</Link>
+                <Link href="/grupo" className={navLink}>Grupo</Link>
+                <Link href="/pontos" className={navLink}>🪙 Pontos</Link>
                 {s.youtubeUrl && (
                   <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className={`${navLink} flex items-center gap-1`}>
                     <YoutubeIcon className="h-4 w-4 text-youtube" /> YouTube
@@ -63,6 +65,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <span>Cartas Pokémon avulsas e selados</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <Link href="/grupo" className="rounded-lg px-3 py-2 hover:bg-slate-100">Como funciona o grupo</Link>
+                <Link href="/pontos" className="rounded-lg px-3 py-2 hover:bg-slate-100">🪙 MLPB Points</Link>
                 <a href={whatsappLink("Olá, MLPB Cards!")} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
                   <WhatsIcon className="h-4 w-4 text-whats" /> Loja
                 </a>
