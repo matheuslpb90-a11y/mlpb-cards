@@ -433,7 +433,8 @@ model ExternalAuction {
   title       String
   description String   @default("")
   url         String
-  imageUrl    String   @default("")
+  imageUrl    String   @default("") // capa (= primeira foto)
+  imagesJson  String   @default("[]") // todas as fotos, em ordem
   startsAt    DateTime
   endsAt      DateTime
   visible     Boolean  @default(true)

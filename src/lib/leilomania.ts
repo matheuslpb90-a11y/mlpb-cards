@@ -8,3 +8,11 @@ export async function leilomaniaLinks() {
   const get = (k: string) => rows.find((r) => r.key === k)?.value?.trim() ?? "";
   return { profileUrl: get("leilomaniaUrl"), refUrl: get("leilomaniaRefUrl") || LEILOMANIA_REF_DEFAULT };
 }
+
+/** Fotos de um leilão da Leilomania (a primeira é a capa). */
+export function extImages(a: { imageUrl: string; imagesJson?: string | null }) {
+  let list: string[] = [];
+  try { list = JSON.parse(a.imagesJson || "[]"); } catch {}
+  if (!list.length && a.imageUrl) list = [a.imageUrl];
+  return list.filter((u) => typeof u === "string" && u);
+}

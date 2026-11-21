@@ -3,7 +3,8 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { AUCTION_STATUS, fmtDate, runSchedule } from "@/lib/auctions";
 import { getSettings } from "@/lib/settings";
-import { leilomaniaLinks } from "@/lib/leilomania";
+import { extImages, leilomaniaLinks } from "@/lib/leilomania";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { WhatsIcon } from "@/components/SocialIcons";
 
 export const dynamic = "force-dynamic";
@@ -87,17 +88,18 @@ export default async function AuctionsPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {external.map((a) => {
               const live = now >= a.startsAt;
+              const imgs = extImages(a);
               return (
-                <a key={a.id} href={a.url} target="_blank" rel="noreferrer" className="card flex gap-4 p-4 hover:border-purple-500">
-                  {a.imageUrl ? <img src={a.imageUrl} alt="" className="w-28 shrink-0 rounded-lg object-cover" /> : <div className="flex w-28 shrink-0 items-center justify-center rounded-lg bg-purple-950/40 text-4xl">🔨</div>}
+                <div key={a.id} className="card flex gap-4 p-4 hover:border-purple-500">
+                  {imgs.length ? <PhotoGallery images={imgs} className="w-32 shrink-0 sm:w-40" /> : <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-purple-950/40 text-4xl">🔨</div>}
                   <div className="min-w-0 space-y-1">
                     <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${live ? "bg-green-950/60 text-green-300" : "bg-purple-950/60 text-purple-300"}`}>{live ? "🔴 AO VIVO" : "Agendado"} · Leilomania</span>
                     <h3 className="font-bold leading-tight">{a.title}</h3>
                     {a.description && <p className="line-clamp-2 text-sm text-slate-600">{a.description}</p>}
                     <p className="text-xs text-slate-500">{fmtDate(a.startsAt)} → {fmtDate(a.endsAt)}</p>
-                    <span className="inline-block text-sm font-semibold text-purple-300">Participar na Leilomania ↗</span>
+                    <a href={a.url} target="_blank" rel="noreferrer" className="btn mt-1 bg-purple-700 text-sm text-white hover:bg-purple-600">Participar na Leilomania ↗</a>
                   </div>
-                </a>
+                </div>
               );
             })}
           </div>

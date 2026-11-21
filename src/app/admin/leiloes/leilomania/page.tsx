@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { LEILOMANIA_REF_DEFAULT } from "@/lib/leilomania";
+import { LEILOMANIA_REF_DEFAULT, extImages } from "@/lib/leilomania";
 import { ExternalAuctionsEditor } from "./Editor";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function LeilomaniaAdmin() {
         profileUrl={profile?.value ?? ""}
         refUrl={refUrl?.value || LEILOMANIA_REF_DEFAULT}
         items={list.map((a) => ({
-          id: a.id, title: a.title, description: a.description, url: a.url, imageUrl: a.imageUrl, visible: a.visible,
+          id: a.id, title: a.title, description: a.description, url: a.url, imageUrl: a.imageUrl, images: extImages(a), visible: a.visible,
           startsAt: toLocal(a.startsAt), endsAt: toLocal(a.endsAt),
         }))}
       />

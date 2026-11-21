@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
 
-export type ExtInput = { id?: string; title: string; description: string; url: string; imageUrl: string; startsAt: string; endsAt: string; visible: boolean };
+export type ExtInput = { id?: string; title: string; description: string; url: string; imageUrl: string; images: string[]; startsAt: string; endsAt: string; visible: boolean };
 
 const normUrl = (u: string) => {
   const s = u.trim();
@@ -24,7 +24,8 @@ export async function saveExternalAuctionAction(x: ExtInput) {
   if (!/^https?:\/\/[^\s]+\.[^\s]+/.test(url)) return { error: "Cole o link do leilão na Leilomania." };
   if (isNaN(startsAt.getTime()) || isNaN(endsAt.getTime())) return { error: "Preencha início e fim." };
   if (endsAt <= startsAt) return { error: "O fim precisa ser depois do início." };
-  const data = { title, description: x.description.trim(), url, imageUrl: x.imageUrl.trim(), startsAt, endsAt, visible: x.visible };
+  const images = (x.images ?? []).map((u) => u.trim()).filter(Boolean).slice(0, 12);
+  const data = { title, description: x.description.trim(), url, imageUrl: images[0] ?? "", imagesJson: JSON.stringify(images), startsAt, endsAt, visible: x.visible };
   if (x.id) await db.externalAuction.update({ where: { id: x.id }, data });
   else await db.externalAuction.create({ data });
   await logActivity("auction_saved", `Leilão na Leilomania: ${title}`);

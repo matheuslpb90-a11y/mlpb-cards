@@ -3,11 +3,11 @@
 /* eslint-disable @next/next/no-img-element */
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { MultiImageField } from "@/components/admin/MultiImageField";
 import { ScheduleFields } from "@/components/admin/ScheduleFields";
 import { deleteExternalAuctionAction, saveExternalAuctionAction, saveLeilomaniaProfileAction, type ExtInput } from "./actions";
 
-const empty: ExtInput = { title: "", description: "", url: "", imageUrl: "", startsAt: "", endsAt: "", visible: true };
+const empty: ExtInput = { title: "", description: "", url: "", imageUrl: "", images: [], startsAt: "", endsAt: "", visible: true };
 
 export function ExternalAuctionsEditor({ items, profileUrl, refUrl }: { items: ExtInput[]; profileUrl: string; refUrl: string }) {
   const [f, setF] = useState<ExtInput>(empty);
@@ -36,7 +36,7 @@ export function ExternalAuctionsEditor({ items, profileUrl, refUrl }: { items: E
         <ScheduleFields defaultMinutes={4320}
           value={{ startDate: f.startsAt.slice(0, 10), startTime: f.startsAt.slice(11, 16), endDate: f.endsAt.slice(0, 10), endTime: f.endsAt.slice(11, 16) }}
           onChange={(v) => setF((p) => ({ ...p, startsAt: v.startDate ? `${v.startDate}T${v.startTime || "00:00"}` : "", endsAt: v.endDate ? `${v.endDate}T${v.endTime || "00:00"}` : "" }))} />
-        <ImageUploadField name="imageUrl" label="Imagem de capa (opcional)" value={f.imageUrl} onChange={(x) => setF({ ...f, imageUrl: x })} maxSide={1000} />
+        <MultiImageField label="Fotos do leilão (opcional)" value={f.images} onChange={(images) => setF((p) => ({ ...p, images }))} />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[#ff7a00]" checked={f.visible} onChange={(e) => setF({ ...f, visible: e.target.checked })} /> Mostrar no site</label>
         {msg?.error && <p className="text-sm text-red-300">{msg.error}</p>}
         {msg?.ok && <p className="text-sm text-green-300">{msg.ok}</p>}
@@ -52,9 +52,9 @@ export function ExternalAuctionsEditor({ items, profileUrl, refUrl }: { items: E
         {items.length === 0 && <div className="card p-6 text-center text-slate-500">Nenhum leilão da Leilomania cadastrado.</div>}
         {items.map((a) => (
           <div key={a.id} className="card flex flex-wrap items-center gap-3 p-3 text-sm">
-            {a.imageUrl && <img src={a.imageUrl} alt="" className="h-14 w-14 rounded object-cover" />}
+            {a.images[0] && <img src={a.images[0]} alt="" className="h-14 w-14 rounded object-cover" />}
             <div className="min-w-0 flex-1">
-              <p className="font-semibold">{a.title} {!a.visible && <span className="text-xs text-slate-500">(oculto)</span>}</p>
+              <p className="font-semibold">{a.title} {a.images.length > 1 && <span className="text-xs text-slate-500">· {a.images.length} fotos</span>} {!a.visible && <span className="text-xs text-slate-500">(oculto)</span>}</p>
               <p className="text-xs text-slate-500">{a.startsAt.replace("T", " ")} → {a.endsAt.replace("T", " ")}</p>
             </div>
             <a href={a.url} target="_blank" rel="noreferrer" className="rounded-lg border px-2 py-1 text-xs">Abrir ↗</a>
