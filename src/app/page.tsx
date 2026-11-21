@@ -2,7 +2,6 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { ProductTile } from "@/components/ProductTile";
 import { CardFan } from "@/components/CardFan";
-import { CONDITIONS, LANGUAGES } from "@/lib/catalog";
 import { whatsappLink } from "@/lib/whatsapp";
 import { getSettings, youtubeId } from "@/lib/settings";
 import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
@@ -157,30 +156,6 @@ export default async function HomePage() {
           </div>
         </section>
       )}
-
-      {/* Navegação por idioma e estado */}
-      <section className="grid gap-6 md:grid-cols-2">
-        <div className="card p-5">
-          <h2 className="mb-3 text-lg font-bold">Cartas por idioma</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {LANGUAGES.map((l) => (
-              <Link key={l.value} href={`/catalogo?tipo=cartas&idioma=${encodeURIComponent(l.value)}`} className="rounded-lg border p-3 font-semibold hover:border-brand hover:bg-brand-light">
-                {l.flag} {l.value}
-              </Link>
-            ))}
-          </div>
-        </div>
-        <div className="card p-5">
-          <h2 className="mb-3 text-lg font-bold">Cartas por estado</h2>
-          <div className="space-y-1">
-            {CONDITIONS.map((c) => (
-              <Link key={c.value} href={`/catalogo?tipo=cartas&condicao=${c.value}`} className="block rounded-lg border px-3 py-2 text-sm hover:border-brand hover:bg-brand-light">
-                <strong>{c.value}</strong> — {c.label.split("— ")[1]}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Como comprar */}
       <section className="card p-6">
