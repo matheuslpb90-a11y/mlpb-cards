@@ -6,7 +6,7 @@ import { CONDITIONS, LANGUAGES } from "@/lib/catalog";
 import { whatsappLink } from "@/lib/whatsapp";
 import { getSettings, youtubeId } from "@/lib/settings";
 import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
-import { extImages } from "@/lib/leilomania";
+import { leilomaniaAuctions } from "@/lib/leilomania";
 import { fmtDate } from "@/lib/auctions";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export default async function HomePage() {
       take: 4,
       include: { lots: { take: 1, orderBy: { position: "asc" }, include: { items: { take: 1, orderBy: { position: "asc" }, select: { imageUrl: true } } } } },
     }),
-    db.externalAuction.findMany({ where: { visible: true, endsAt: { gt: now } }, orderBy: { startsAt: "asc" }, take: 4 }),
+    leilomaniaAuctions().catch(() => []),
   ]);
   const auctionsHome = [
     ...groupAuctions.map((a) => ({
@@ -38,8 +38,8 @@ export default async function HomePage() {
       img: a.imageUrl || a.lots[0]?.items[0]?.imageUrl || "", live: a.status === "ATIVO", startsAt: a.startsAt, endsAt: a.endsAt,
     })),
     ...lmAuctions.map((a) => ({
-      key: a.id, href: a.url, external: true, title: a.title, where: "Leilomania",
-      img: extImages(a)[0] ?? "", live: now >= a.startsAt, startsAt: a.startsAt, endsAt: a.endsAt,
+      key: a.key, href: a.url, external: true, title: a.title, where: "Leilomania",
+      img: a.images[0] ?? "", live: now >= a.startsAt, startsAt: a.startsAt, endsAt: a.endsAt,
     })),
   ].sort((a, b) => Number(b.live) - Number(a.live) || a.startsAt.getTime() - b.startsAt.getTime()).slice(0, 4);
 

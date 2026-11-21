@@ -15,7 +15,8 @@ export default async function LeilomaniaAdmin() {
     <div className="space-y-4">
       <Link href="/admin/leiloes" className="text-sm text-slate-500 hover:text-white">← Leilões</Link>
       <h1 className="text-2xl font-bold">🟣 Leilões na Leilomania</h1>
-      <p className="text-sm text-slate-500">Cadastre aqui os leilões que você faz na Leilomania. Eles aparecem na aba <strong>Leilões</strong> do site, junto com os do WhatsApp, com o botão para participar lá.</p>
+      <p className="rounded-lg bg-green-950/40 p-3 text-sm text-green-200">✅ <strong>Automático:</strong> seus leilões ativos e agendados na Leilomania (com as fotos das cartas) já aparecem sozinhos no site, puxados da Leilomania a cada 2 minutos. Não precisa cadastrar nada aqui.</p>
+      <p className="text-sm text-slate-500">O formulário abaixo é só para casos especiais (ex.: um leilão privado ou de outra conta). Se cadastrar à mão um leilão que já vem automático, o site mostra só um.</p>
       <ExternalAuctionsEditor
         profileUrl={profile?.value ?? ""}
         refUrl={refUrl?.value || LEILOMANIA_REF_DEFAULT}
