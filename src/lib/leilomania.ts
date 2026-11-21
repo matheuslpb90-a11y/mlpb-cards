@@ -35,7 +35,26 @@ export function hostIdFromRef(ref: string) {
 }
 
 type ApiAuction = { id: string; title: string; description?: string; status: string; startTime: string; endTime: string; hostId: string; isPrivate?: boolean; itemCount?: number };
-type ApiItem = { imageUrl?: string | null; name?: string };
+type ApiItem = {
+  id: string; name?: string; imageUrl?: string | null; condition?: string | null; language?: string | null; cardCode?: string | null; rarity?: string | null;
+  isHolo?: boolean; isReverseHolo?: boolean; pollValues?: number[] | null; pollBuyoutValue?: number | null; startingPrice?: number | null; buyoutPrice?: number | null;
+  currentPrice?: number | null; soldPrice?: number | null; status?: string; description?: string | null;
+};
+
+/** Carta de um leilão da Leilomania — só dados públicos da carta (nada do arrematante). */
+export type LmItem = {
+  id: string; name: string; imageUrl: string; condition: string; language: string; code: string; rarity: string; finish: string; note: string;
+  startCents: number | null; buyoutCents: number | null; currentCents: number | null; sold: boolean;
+};
+
+const cents = (v: number | null | undefined) => (typeof v === "number" && v > 0 ? Math.round(v * 100) : null);
+const toItem = (i: ApiItem): LmItem => ({
+  id: i.id, name: i.name ?? "", imageUrl: /^https?:\/\//.test(i.imageUrl ?? "") ? i.imageUrl! : "",
+  condition: i.condition ?? "", language: i.language ?? "", code: i.cardCode ?? "", rarity: i.rarity ?? "",
+  finish: i.isReverseHolo ? "Reverse" : i.isHolo ? "Holo" : "", note: (i.description ?? "").slice(0, 200),
+  startCents: cents(i.pollValues?.[0] ?? i.startingPrice), buyoutCents: cents(i.pollBuyoutValue ?? i.buyoutPrice),
+  currentCents: cents(i.currentPrice), sold: !!i.soldPrice || /sold|vendid/i.test(i.status ?? ""),
+});
 
 export type LmAuction = {
   key: string;
@@ -46,6 +65,7 @@ export type LmAuction = {
   startsAt: Date;
   endsAt: Date;
   itemCount: number | null;
+  items: LmItem[];
   auto: boolean; // veio da API (true) ou foi cadastrado à mão (false)
 };
 
@@ -61,11 +81,12 @@ async function fromApi(hostId: string): Promise<LmAuction[]> {
   const mine = all.filter((a) => a.hostId?.toLowerCase() === hostId.toLowerCase() && !a.isPrivate && new Date(a.endTime) > new Date());
   return Promise.all(
     mine.map(async (a) => {
-      const items = await get<ApiItem[]>(`/auctions/${a.id}/items`, 600).catch(() => [] as ApiItem[]);
-      const images = [...new Set(items.map((i) => i.imageUrl ?? "").filter((u) => /^https?:\/\//.test(u)))].slice(0, 12);
+      const items = await get<ApiItem[]>(`/auctions/${a.id}/items`, 120).catch(() => [] as ApiItem[]);
+      const list = items.map(toItem);
+      const images = [...new Set(list.map((i) => i.imageUrl).filter(Boolean))].slice(0, 12);
       return {
         key: a.id, title: a.title, description: a.description ?? "", url: `https://leilomania.com.br/auction/${a.id}`,
-        images, startsAt: new Date(a.startTime), endsAt: new Date(a.endTime), itemCount: a.itemCount ?? items.length ?? null, auto: true,
+        images, startsAt: new Date(a.startTime), endsAt: new Date(a.endTime), itemCount: a.itemCount ?? items.length ?? null, items: list, auto: true,
       };
     }),
   );
@@ -85,6 +106,6 @@ export async function leilomaniaAuctions(): Promise<LmAuction[]> {
   const autoIds = new Set(auto.map((a) => a.key));
   const extra = manual
     .filter((m) => ![...autoIds].some((id) => m.url.includes(id)))
-    .map((m) => ({ key: m.id, title: m.title, description: m.description, url: m.url, images: extImages(m), startsAt: m.startsAt, endsAt: m.endsAt, itemCount: null, auto: false }));
+    .map((m) => ({ key: m.id, title: m.title, description: m.description, url: m.url, images: extImages(m), startsAt: m.startsAt, endsAt: m.endsAt, itemCount: null, items: [] as LmItem[], auto: false }));
   return [...auto, ...extra].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
 }

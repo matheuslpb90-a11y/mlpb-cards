@@ -5,6 +5,7 @@ import { AUCTION_STATUS, fmtDate, runSchedule } from "@/lib/auctions";
 import { getSettings } from "@/lib/settings";
 import { leilomaniaAuctions, leilomaniaLinks } from "@/lib/leilomania";
 import { PhotoGallery } from "@/components/PhotoGallery";
+import { LmItemsCarousel } from "@/components/LmItemsCarousel";
 import { WhatsIcon } from "@/components/SocialIcons";
 
 export const dynamic = "force-dynamic";
@@ -85,20 +86,30 @@ export default async function AuctionsPage() {
         {external.length === 0 ? (
           <div className="card p-8 text-center text-slate-500">Nenhum leilão ativo na Leilomania no momento.</div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-5">
             {external.map((a) => {
               const live = now >= a.startsAt;
-              const imgs = a.images;
+              const withItems = a.items.length > 0;
               return (
-                <div key={a.key} className="card flex gap-4 p-4 hover:border-purple-500">
-                  {imgs.length ? <PhotoGallery images={imgs} className="w-32 shrink-0 sm:w-40" /> : <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-purple-950/40 text-4xl">🔨</div>}
-                  <div className="min-w-0 space-y-1">
-                    <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${live ? "bg-green-950/60 text-green-300" : "bg-purple-950/60 text-purple-300"}`}>{live ? "🔴 AO VIVO" : "Agendado"} · Leilomania</span>
-                    <h3 className="font-bold leading-tight">{a.title}</h3>
-                    {a.description && <p className="line-clamp-2 text-sm text-slate-600">{a.description}</p>}
-                    <p className="text-xs text-slate-500">{fmtDate(a.startsAt)} → {fmtDate(a.endsAt)}{a.itemCount ? ` · ${a.itemCount} carta(s)` : ""}</p>
-                    <a href={a.url} target="_blank" rel="noreferrer" className="btn mt-1 bg-purple-700 text-sm text-white hover:bg-purple-600">Participar na Leilomania ↗</a>
+                <div key={a.key} className="card space-y-3 p-4">
+                  <div className="flex flex-wrap items-start gap-4">
+                    {!withItems && (a.images.length
+                      ? <PhotoGallery images={a.images} className="w-32 shrink-0 sm:w-40" />
+                      : <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg bg-purple-950/40 text-4xl">🔨</div>)}
+                    <div className="min-w-0 flex-1 basis-full space-y-1 sm:basis-0">
+                      <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${live ? "bg-green-950/60 text-green-300" : "bg-purple-950/60 text-purple-300"}`}>{live ? "🔴 AO VIVO" : "Agendado"} · Leilomania</span>
+                      <h3 className="text-lg font-bold leading-tight">{a.title}</h3>
+                      {a.description && <p className="line-clamp-3 whitespace-pre-line text-sm text-slate-600">{a.description}</p>}
+                      <p className="text-xs text-slate-500">{fmtDate(a.startsAt)} → {fmtDate(a.endsAt)}{a.itemCount ? ` · ${a.itemCount} carta(s)` : ""}</p>
+                    </div>
+                    <a href={a.url} target="_blank" rel="noreferrer" className="btn w-full bg-purple-700 text-sm text-white hover:bg-purple-600 sm:w-auto">Participar na Leilomania ↗</a>
                   </div>
+                  {withItems && (
+                    <>
+                      <p className="text-xs text-slate-500">Toque numa carta para ver os detalhes · arraste para o lado para ver todas →</p>
+                      <LmItemsCarousel items={a.items} url={a.url} />
+                    </>
+                  )}
                 </div>
               );
             })}
