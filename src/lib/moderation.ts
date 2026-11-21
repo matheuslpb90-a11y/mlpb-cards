@@ -5,6 +5,7 @@ import { phoneKey } from "./phone";
 import { WHATSAPP_NUMBER } from "./whatsapp";
 import {
   whapiDeleteMessage,
+  whapiReact,
   whapiEnabled,
   whapiGroupInfo,
   whapiInviteLink,
@@ -128,6 +129,7 @@ function domainsIn(text: string) {
     .filter((d) => /[a-z]/.test(d.split(".").pop() ?? "") && !/^\d+(\.\d+)*$/.test(d));
 }
 const matchesDomain = (d: string, list: string[]) => list.some((x) => { const y = x.trim().toLowerCase().replace(/^www\./, ""); return y && (d === y || d.endsWith(`.${y}`) || (y.includes("/") && d.startsWith(y.split("/")[0]))); });
+const KEYCAPS = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const mention = (phone: string) => `@${phone.replace(/\D/g, "")}`;
 
@@ -279,7 +281,14 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
     }
   }
 
-  // anúncios (foto/vídeo)
+  // convite de grupo enviado como cartão (sem link escrito)
+  if (/invite/i.test(msg.type) && !(await isAdmin(c, msg.group, msg.phone))) {
+    await del(msg.id);
+    await addWarn(c, msg.group, msg.phone, msg.name, "convite de outro grupo");
+    return "apagada (convite de grupo)";
+  }
+
+  // anúncios (foto/vídeo): cada anúncio do dia ganha a reação 1️⃣, 2️⃣, 3️⃣…
   if (c.ads.enabled && ["image", "video", "album", "gif"].includes(msg.type)) {
     const { weekday } = nowBR();
     if (!c.ads.days.includes(weekday)) {
@@ -287,13 +296,22 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
       if (c.notify) await say(msg.group, `📵 ${mention(msg.phone)}, anúncios só ${c.ads.days.map((d) => DAY_NAMES[d]).join(", ")}.`, [msg.phone]);
       return "apagada (anúncio fora do dia)";
     }
+    const last = await db.modEvent.findFirst({ where: { group: msg.group, phone: k, kind: "AD" }, orderBy: { createdAt: "desc" } });
+    // várias fotos seguidas (álbum / fotos enviadas juntas) contam como um anúncio só
+    if (last && Date.now() - last.createdAt.getTime() < 2 * 60_000) {
+      await db.modEvent.update({ where: { id: last.id }, data: { createdAt: new Date() } });
+      return null;
+    }
     const today = await db.modEvent.count({ where: { group: msg.group, phone: k, kind: "AD", createdAt: { gte: startOfDayBR() } } });
     if (today >= c.ads.maxPerDay) {
       await del(msg.id);
-      if (c.notify) await say(msg.group, `📵 ${mention(msg.phone)}, limite de ${c.ads.maxPerDay} anúncio(s) por dia atingido.`, [msg.phone]);
+      if (c.notify) await say(msg.group, `📵 ${mention(msg.phone)}, limite de ${c.ads.maxPerDay} anúncio(s) por dia atingido. Volte amanhã! 😉`, [msg.phone]);
       return "apagada (limite de anúncios)";
     }
     await db.modEvent.create({ data: { group: msg.group, phone: k, name: msg.name, kind: "AD" } });
+    const n = today + 1;
+    await whapiReact(msg.id, KEYCAPS[n] ?? "✅").catch((e) => log("whapi-react", String(e)));
+    return `anúncio ${n}/${c.ads.maxPerDay}`;
   }
   return null;
 }

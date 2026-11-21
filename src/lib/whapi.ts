@@ -97,6 +97,11 @@ export async function whapiDeleteMessage(messageId: string) {
   return whapiCall(`messages/${encodeURIComponent(messageId)}`, undefined, "DELETE");
 }
 
+/** Reage a uma mensagem com um emoji (ex.: 1️⃣ no 1º anúncio do dia). */
+export async function whapiReact(messageId: string, emoji: string) {
+  return whapiCall(`messages/${encodeURIComponent(messageId)}/reaction`, { emoji }, "PUT");
+}
+
 export type WGroupInfo = { id: string; name: string; participants: { phone: string; admin: boolean }[] };
 
 export async function whapiGroupInfo(groupId: string): Promise<WGroupInfo> {
