@@ -31,6 +31,7 @@ export type MypCard = {
   setName: string;
   number: string;
   imageUrl: string;
+  imageAlt: string; // outra imagem (inglês/português) caso a primeira não abra
   minCents: number | null; // menor preço (PT/EN, NM, não graduada)
   avgCents: number | null; // média ponderada
   prices: { language: string; printing: string; cents: number }[];
@@ -63,6 +64,7 @@ const map = (p: Produto): MypCard => ({
   setName: p.edition_pt || p.edition_en || "",
   number: p.card_code || "",
   imageUrl: p.img_pt || p.img_en || "",
+  imageAlt: p.img_pt && p.img_en ? p.img_en : "",
   minCents: toCents(p.min_price),
   avgCents: toCents(p.avg_price),
   prices: (p.prices ?? []).map((x) => ({ language: x.language, printing: x.printing, cents: toCents(x.min_price) ?? 0 })),

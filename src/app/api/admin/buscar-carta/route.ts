@@ -21,6 +21,7 @@ export type LookupCard = {
   rarity: string;
   imageSmall: string;
   imageLarge: string;
+  imageAlt?: string; // imagem reserva (se a principal não abrir)
 };
 
 const TCGDEX = "https://api.tcgdex.net/v2";
@@ -148,7 +149,7 @@ export async function GET(req: Request) {
       errors.push(`MYP: ${e instanceof Error ? e.message : String(e)}`);
       return [] as LookupCard[];
     },
-  );
+  ).then((list) => list.sort((a, b) => Number(Boolean(b.priceCents)) - Number(Boolean(a.priceCents)))); // com preço primeiro
   const settled = await Promise.allSettled(langs.map((l) => searchTcgdex(l, q, num)));
   const merged = new Map<string, LookupCard>();
   settled.forEach((r, i) => {
@@ -240,6 +241,7 @@ function mypToLookup(c: MypCard, idioma: string): LookupCard {
     rarity: "",
     imageSmall: c.imageUrl,
     imageLarge: c.imageUrl,
+    imageAlt: c.imageAlt,
     priceCents: price?.cents ?? null,
     priceBasis: price?.basis,
     link: c.link,

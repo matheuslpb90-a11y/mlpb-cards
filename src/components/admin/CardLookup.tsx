@@ -7,6 +7,26 @@ import { LANGUAGES } from "@/lib/catalog";
 
 export type LookupResult = { name: string; setName: string; number: string; rarity: string; imageUrl: string; language?: string; marketCents?: number | null; marketBasis?: string; marketLink?: string };
 
+// imagens que não abriram (a MYP às vezes tem link sem foto): usa a reserva ou um quadro com o nome
+const broken = new Set<string>();
+function LookupImage({ c }: { c: LookupCard }) {
+  const [src, setSrc] = useState(c.imageSmall);
+  if (!src)
+    return <div className="flex aspect-[63/88] w-full items-center justify-center rounded bg-slate-100 p-1 text-center text-[11px] text-slate-500">🃏<br />{c.number}</div>;
+  return (
+    <img
+      src={src}
+      alt={c.name}
+      loading="lazy"
+      className="aspect-[63/88] w-full rounded object-cover"
+      onError={() => {
+        broken.add(src);
+        setSrc(src !== c.imageAlt && c.imageAlt && !broken.has(c.imageAlt) ? c.imageAlt : "");
+      }}
+    />
+  );
+}
+
 export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResult) => void; defaultLanguage: string }) {
   const [q, setQ] = useState("");
   const [num, setNum] = useState("");
@@ -50,7 +70,8 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
   }
 
   async function pick(c: LookupCard) {
-    const base = { name: c.name, setName: c.setName, number: c.number, rarity: c.rarity, imageUrl: c.imageLarge, language: lang, marketCents: c.priceCents ?? undefined, marketBasis: c.priceBasis, marketLink: c.link };
+    const img = broken.has(c.imageLarge) ? (c.imageAlt && !broken.has(c.imageAlt) ? c.imageAlt : "") : c.imageLarge;
+    const base = { name: c.name, setName: c.setName, number: c.number, rarity: c.rarity, imageUrl: img, language: lang, marketCents: c.priceCents ?? undefined, marketBasis: c.priceBasis, marketLink: c.link };
     onPick(base);
     setStatus("Imagem preenchida! Confira os dados, escolha o estado, defina preço e estoque e salve.");
     if (c.source === "tcgdex" && c.tcgdexId) {
@@ -91,7 +112,7 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
         <div className="grid max-h-[32rem] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4 lg:grid-cols-6">
           {shown.map((c) => (
             <button type="button" key={c.key} onClick={() => pick(c)} className="rounded-lg p-1 text-left hover:bg-brand-light">
-              <img src={c.imageSmall} alt={c.name} loading="lazy" className="w-full rounded" />
+              <LookupImage c={c} />
               <span className="block truncate text-[11px] font-medium">{c.name}</span>
               <span className="block truncate text-[10px] text-slate-500">{c.setName || c.tcgdexId} · {c.number}{c.source === "myp" || (c.lang && c.lang !== "en") ? "" : " · img EN"}</span>
               {c.source === "myp" && (
