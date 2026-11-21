@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { createSession, destroySession, getCurrentUser, hashPassword, verifyPassword } from "@/lib/auth";
+import { createSession, destroySession, finishLogin, getCurrentUser, hashPassword, profileComplete, safeNext, verifyPassword } from "@/lib/auth";
 import { logActivity } from "@/lib/activity";
 import { onlyDigits } from "@/lib/money";
 import { cartTotals, placeOrder, type CartLine } from "@/lib/orders";
@@ -11,13 +11,9 @@ import { quoteShipping, type ShippingOption } from "@/lib/shipping";
 
 export type FormState = { error?: string; ok?: boolean } | undefined;
 
-function safeNext(next: unknown) {
-  const s = typeof next === "string" ? next : "";
-  return s.startsWith("/") && !s.startsWith("//") ? s : "/minha-conta";
-}
 
 const signupSchema = z.object({
-  name: z.string().trim().min(3, "Informe seu nome completo"),
+  name: z.string().trim().min(3, "Informe seu nome completo").refine((n) => n.split(/\s+/).length >= 2, "Informe nome e sobrenome"),
   email: z.string().trim().toLowerCase().email("E-mail inválido"),
   password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
   phone: z.string().transform(onlyDigits).pipe(z.string().min(10, "Telefone inválido")),
@@ -47,9 +43,8 @@ export async function loginAction(_: FormState, form: FormData): Promise<FormSta
   const password = String(form.get("password") ?? "");
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !(await verifyPassword(password, user.passwordHash))) return { error: "E-mail ou senha incorretos." };
-  await createSession(user.id);
-  if (user.role === "ADMIN") await logActivity("login", `${user.name} entrou no painel`, { id: user.id, name: user.name });
-  redirect(safeNext(form.get("next")));
+  if (user.role === "ADMIN") await logActivity("login", `${user.name} entrou no painel${user.totpEnabled ? " (senha ok, aguardando código)" : ""}`, { id: user.id, name: user.name });
+  await finishLogin(user, safeNext(form.get("next")));
 }
 
 export async function logoutAction() {
@@ -65,6 +60,8 @@ export async function updateProfileAction(_: FormState, form: FormData): Promise
   const parsed = updateProfileSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   await db.user.update({ where: { id: user.id }, data: parsed.data });
+  // vindo de "completar cadastro": segue para onde a pessoa ia
+  if (form.get("next")) redirect(safeNext(form.get("next")));
   return { ok: true };
 }
 
@@ -83,6 +80,7 @@ export async function quoteShippingAction(lines: CartLine[]): Promise<{ options?
 export async function checkoutAction(lines: CartLine[], shippingId: string): Promise<{ url?: string; error?: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Faça login ou crie seu cadastro para pagar pelo site." };
+  if (!profileComplete(user)) return { error: "Complete seu cadastro (nome completo, CPF, telefone e endereço) em Minha conta antes de pagar." };
   if (!shippingId) return { error: "Escolha uma forma de envio." };
   try {
     const url = await placeOrder(user, lines, shippingId);

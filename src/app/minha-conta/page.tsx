@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { profileComplete, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatBRL } from "@/lib/money";
 import { STATUS_LABEL } from "@/lib/orders";
@@ -35,6 +35,17 @@ export default async function AccountPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Minha conta</h1>
         <form action={logoutAction}><button className="btn-outline">Sair</button></form>
+      </div>
+
+      {!profileComplete(user) && (
+        <div className="card flex flex-wrap items-center justify-between gap-3 border-amber-700 bg-amber-950/50 p-4">
+          <p>Seu cadastro está incompleto. Para comprar, confirme <strong>nome completo, CPF, telefone e endereço</strong>.</p>
+          <Link href="/completar-cadastro" className="btn-primary">Completar cadastro</Link>
+        </div>
+      )}
+      <div className="card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+        <p>🔐 Verificação em duas etapas: {user.totpEnabled ? <strong className="text-green-300">ativada</strong> : <strong className="text-amber-300">desativada</strong>}</p>
+        <Link href="/minha-conta/seguranca" className="btn-outline">Segurança da conta</Link>
       </div>
 
       {accumulated.length > 0 && (

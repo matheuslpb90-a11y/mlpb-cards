@@ -2,9 +2,15 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireAdmin();
+  const admin = await requireAdmin();
   return (
     <div className="space-y-6">
+      {!admin.totpEnabled && (
+        <div className="card flex flex-wrap items-center justify-between gap-3 border-amber-700 bg-amber-950/50 p-4 text-sm">
+          <p>🔐 <strong>Proteja o painel:</strong> ative a verificação em duas etapas. Assim, mesmo com sua senha, ninguém entra sem o código do seu celular.</p>
+          <Link href="/minha-conta/seguranca" className="btn-primary">Ativar agora</Link>
+        </div>
+      )}
       <nav className="card flex flex-wrap gap-1 p-2 text-sm font-medium">
         <Link href="/admin" className="rounded-lg px-3 py-2 hover:bg-slate-100">Resumo</Link>
         <Link href="/admin/cartas?tipo=cartas" className="rounded-lg px-3 py-2 hover:bg-slate-100">Cartas</Link>

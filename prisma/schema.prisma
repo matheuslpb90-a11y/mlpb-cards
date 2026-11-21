@@ -23,16 +23,22 @@ model User {
   city         String
   state        String
   role         String    @default("CUSTOMER") // CUSTOMER | ADMIN
+  googleId     String?   // login com Google (sem @unique para o "db push" da Vercel não travar)
+  totpSecret   String    @default("") // verificação em duas etapas (aplicativo autenticador)
+  totpEnabled  Boolean   @default(false)
+  recoveryJson String    @default("[]") // códigos de recuperação (hash)
   createdAt    DateTime  @default(now())
   sessions     Session[]
   orders       Order[]
 }
 
 model Session {
-  id        String   @id // token aleatório (cookie)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
+  id         String   @id // token aleatório (cookie)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  pending2fa Boolean  @default(false) // senha/Google ok, falta o código do aplicativo
+  attempts   Int      @default(0)
 }
 
 model Card {
