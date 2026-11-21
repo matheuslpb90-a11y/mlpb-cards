@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
@@ -8,11 +8,19 @@ import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
 import { getCurrentUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
+import { InstallApp, InstallAppLink } from "@/components/InstallApp";
 
 export const metadata: Metadata = {
   title: "MLPB Cards — Cartas Pokémon avulsas e selados",
   description: "Cartas Pokémon avulsas e produtos selados. Compre pelo site ou direto pelo WhatsApp.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.mlpbcards.com.br"),
+  applicationName: "MLPB Cards",
+  appleWebApp: { capable: true, title: "MLPB Cards", statusBarStyle: "black" },
+  formatDetection: { telephone: false },
+  openGraph: { type: "website", siteName: "MLPB Cards", locale: "pt_BR" },
 };
+
+export const viewport: Viewport = { themeColor: "#0a0a0a", width: "device-width", initialScale: 1 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [user, s] = await Promise.all([getCurrentUser(), getSettings()]);
@@ -67,6 +75,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="flex flex-wrap items-center gap-2">
                 <Link href="/grupo" className="rounded-lg px-3 py-2 hover:bg-slate-100">Como funciona o grupo</Link>
                 <Link href="/pontos" className="rounded-lg px-3 py-2 hover:bg-slate-100">🪙 MLPB Points</Link>
+                <InstallAppLink className="rounded-lg px-3 py-2 hover:bg-slate-100" />
                 <a href={whatsappLink("Olá, MLPB Cards!")} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
                   <WhatsIcon className="h-4 w-4 text-whats" /> Loja
                 </a>
@@ -88,6 +97,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
             </div>
           </footer>
+          <InstallApp />
         </CartProvider>
       </body>
     </html>
