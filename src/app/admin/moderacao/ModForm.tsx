@@ -109,8 +109,13 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
           Máximo por pessoa por dia:
           <input type="number" min={0} className="input w-24" value={c.ads.maxPerDay} onChange={(e) => set("ads", { ...c.ads, maxPerDay: Number(e.target.value) })} />
         </div>
+        <div className="flex items-center gap-2 text-sm">
+          Máximo de fotos por anúncio:
+          <input type="number" min={0} className="input w-24" value={c.ads.maxPhotos} onChange={(e) => set("ads", { ...c.ads, maxPhotos: Number(e.target.value) })} />
+          <span className="text-xs text-slate-500">(0 = sem limite)</span>
+        </div>
         <div><p className="label">Dias permitidos</p><DayPicker value={c.ads.days} onChange={(v) => set("ads", { ...c.ads, days: v })} /></div>
-        <p className="text-xs text-slate-500">Fotos/vídeos acima do limite ou fora dos dias são apagados.</p>
+        <p className="text-xs text-slate-500">Cada anúncio ganha a reação 1️⃣, 2️⃣, 3️⃣… Fotos enviadas juntas (em até 2 min) contam como um anúncio; as que passarem do máximo de fotos, os anúncios acima do limite do dia e os fora dos dias são apagados.</p>
       </section>
 
       <section className="card space-y-3 p-5">

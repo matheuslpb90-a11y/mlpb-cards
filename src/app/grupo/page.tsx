@@ -56,7 +56,7 @@ export default async function GroupPage() {
           ) : (
             <p className="text-slate-500">Links de membros não são permitidos no grupo.</p>
           )}
-          {mod.ads.enabled && <p className="text-slate-500">Anúncios (fotos/vídeos): até {mod.ads.maxPerDay} por dia, {mod.ads.days.length === 7 ? "todos os dias" : mod.ads.days.map((d) => DAY[d]).join(", ")}.</p>}
+          {mod.ads.enabled && <p className="text-slate-500">Anúncios (fotos/vídeos): até {mod.ads.maxPerDay} por dia{mod.ads.maxPhotos ? `, com até ${mod.ads.maxPhotos} fotos cada` : ""}, {mod.ads.days.length === 7 ? "todos os dias" : mod.ads.days.map((d) => DAY[d]).join(", ")}.</p>}
           {mod.warns.max > 0 && <p className="text-slate-500">Quem desrespeitar as regras recebe advertências; com {mod.warns.max}, é removido do grupo.</p>}
         </section>
       )}

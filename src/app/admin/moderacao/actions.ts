@@ -28,7 +28,7 @@ export async function saveModAction(json: string): Promise<{ ok?: string; error?
     notify: Boolean(c.notify),
     welcome: { enabled: Boolean(c.welcome?.enabled), text: String(c.welcome?.text ?? DEFAULT_MOD.welcome.text).slice(0, 2000) },
     rules: String(c.rules ?? "").slice(0, 4000),
-    ads: { enabled: Boolean(c.ads?.enabled), maxPerDay: int(c.ads?.maxPerDay, 0, 100, 3), days: days(c.ads?.days) },
+    ads: { enabled: Boolean(c.ads?.enabled), maxPerDay: int(c.ads?.maxPerDay, 0, 100, 3), maxPhotos: int(c.ads?.maxPhotos, 0, 30, 3), days: days(c.ads?.days) },
     links: {
       allow: Boolean(c.links?.allow),
       whitelist: lines(c.links?.whitelist).map((d) => d.toLowerCase()),

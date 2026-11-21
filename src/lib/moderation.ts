@@ -27,7 +27,7 @@ export type ModConfig = {
   notify: boolean; // avisar no grupo quando apagar algo
   welcome: { enabled: boolean; text: string };
   rules: string;
-  ads: { enabled: boolean; maxPerDay: number; days: number[] }; // anúncio = foto/vídeo; days 0=dom..6=sáb
+  ads: { enabled: boolean; maxPerDay: number; maxPhotos: number; days: number[] }; // anúncio = foto/vídeo; days 0=dom..6=sáb; maxPhotos = fotos por anúncio (0 = sem limite)
   links: { allow: boolean; whitelist: string[]; blocked: string[]; startHour: number; endHour: number; days: number[] };
   words: string[]; // palavras proibidas
   ddi: { blockForeign: boolean; whitelist: string[] };
@@ -46,7 +46,7 @@ export const DEFAULT_MOD: ModConfig = {
   notify: true,
   welcome: { enabled: true, text: "Bem-vindo(a) ao grupo, {nome}! 🧡\nLeia as regras com *{prefixo}regras*." },
   rules: "1. Respeito sempre.\n2. Anúncios só nos dias e limites permitidos.\n3. Proibido links de outros grupos.",
-  ads: { enabled: false, maxPerDay: 3, days: [0, 1, 2, 3, 4, 5, 6] },
+  ads: { enabled: false, maxPerDay: 3, maxPhotos: 3, days: [0, 1, 2, 3, 4, 5, 6] },
   links: { allow: true, whitelist: ["mlpbcards.com.br", "mlpb-cards.vercel.app", "youtube.com", "youtu.be", "tiktok.com"], blocked: ["chat.whatsapp.com"], startHour: 0, endHour: 24, days: [0, 1, 2, 3, 4, 5, 6] },
   words: [],
   ddi: { blockForeign: true, whitelist: [] },
@@ -296,22 +296,35 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
       if (c.notify) await say(msg.group, `📵 ${mention(msg.phone)}, anúncios só ${c.ads.days.map((d) => DAY_NAMES[d]).join(", ")}.`, [msg.phone]);
       return "apagada (anúncio fora do dia)";
     }
-    const last = await db.modEvent.findFirst({ where: { group: msg.group, phone: k, kind: "AD" }, orderBy: { createdAt: "desc" } });
-    // várias fotos seguidas (álbum / fotos enviadas juntas) contam como um anúncio só
-    if (last && Date.now() - last.createdAt.getTime() < 2 * 60_000) {
-      await db.modEvent.update({ where: { id: last.id }, data: { createdAt: new Date() } });
-      return null;
+    // As fotos de um álbum chegam quase juntas: a trava garante que sejam contadas uma de cada vez.
+    const verdict = await db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`ad:${msg.group}:${k}`}))`;
+      const last = await tx.modEvent.findFirst({ where: { group: msg.group, phone: k, kind: "AD" }, orderBy: { createdAt: "desc" } });
+      // várias fotos seguidas (álbum / fotos enviadas juntas) = um anúncio só, até o limite de fotos
+      if (last && Date.now() - last.createdAt.getTime() < 2 * 60_000) {
+        const photos = (Number(last.note) || 1) + 1;
+        await tx.modEvent.update({ where: { id: last.id }, data: { createdAt: new Date(), note: String(photos) } });
+        if (c.ads.maxPhotos > 0 && photos > c.ads.maxPhotos) return { kind: "extra" as const, first: photos === c.ads.maxPhotos + 1 };
+        return { kind: "same" as const };
+      }
+      const today = await tx.modEvent.count({ where: { group: msg.group, phone: k, kind: "AD", createdAt: { gte: startOfDayBR() } } });
+      if (today >= c.ads.maxPerDay) return { kind: "limit" as const };
+      await tx.modEvent.create({ data: { group: msg.group, phone: k, name: msg.name, kind: "AD", note: "1" } });
+      return { kind: "new" as const, n: today + 1 };
+    });
+    if (verdict.kind === "same") return null;
+    if (verdict.kind === "extra") {
+      await del(msg.id);
+      if (verdict.first && c.notify) await say(msg.group, `📸 ${mention(msg.phone)}, cada anúncio pode ter até ${c.ads.maxPhotos} foto(s). As fotos a mais foram apagadas.`, [msg.phone]);
+      return "apagada (foto a mais no anúncio)";
     }
-    const today = await db.modEvent.count({ where: { group: msg.group, phone: k, kind: "AD", createdAt: { gte: startOfDayBR() } } });
-    if (today >= c.ads.maxPerDay) {
+    if (verdict.kind === "limit") {
       await del(msg.id);
       if (c.notify) await say(msg.group, `📵 ${mention(msg.phone)}, limite de ${c.ads.maxPerDay} anúncio(s) por dia atingido. Volte amanhã! 😉`, [msg.phone]);
       return "apagada (limite de anúncios)";
     }
-    await db.modEvent.create({ data: { group: msg.group, phone: k, name: msg.name, kind: "AD" } });
-    const n = today + 1;
-    await whapiReact(msg.id, KEYCAPS[n] ?? "✅").catch((e) => log("whapi-react", String(e)));
-    return `anúncio ${n}/${c.ads.maxPerDay}`;
+    await whapiReact(msg.id, KEYCAPS[verdict.n] ?? "✅").catch((e) => log("whapi-react", String(e)));
+    return `anúncio ${verdict.n}/${c.ads.maxPerDay}`;
   }
   return null;
 }
