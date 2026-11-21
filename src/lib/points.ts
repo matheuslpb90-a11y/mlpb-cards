@@ -39,11 +39,11 @@ export const DEFAULT_POINTS: PointsConfig = {
   ranking: [300, 150, 75],
   expiryDays: 60,
   rewards: [
-    { key: "bulk", name: "🃏 Pacotinho surpresa (5 cartas, vai para a sua caixa)", points: 150, minSpend: 0 },
-    { key: "cupom5", name: "Cupom de R$ 5", points: 250, minSpend: 0 },
+    { key: "bulk", name: "🃏 Pacotinho surpresa (5 cartas, vai para a sua caixa)", points: 150, minSpend: 30 },
+    { key: "cupom5", name: "Cupom de R$ 5", points: 250, minSpend: 30 },
     { key: "holo", name: "✨ Holo ou Reverse surpresa (vai para a sua caixa)", points: 400, minSpend: 50 },
-    { key: "cupom10", name: "Cupom de R$ 10", points: 500, minSpend: 0 },
-    { key: "frete15", name: "📦 R$ 15 de desconto no frete (caixas abaixo de R$ 500)", points: 800, minSpend: 0 },
+    { key: "cupom10", name: "Cupom de R$ 10", points: 500, minSpend: 50 },
+    { key: "frete15", name: "📦 R$ 15 de desconto no frete (caixas abaixo de R$ 500)", points: 800, minSpend: 100 },
     { key: "booster", name: "🎁 1 booster de alguma coleção + frete grátis", points: 1500, minSpend: 200 },
   ],
 };
@@ -61,13 +61,20 @@ export async function getPointsConfig(): Promise<PointsConfig> {
       // prêmios salvos antes da regra de compra mínima: assume o padrão
       r.minSpend === undefined ? { ...r, minSpend: DEFAULT_POINTS.rewards.find((d) => d.key === r.key)?.minSpend ?? 0 } : r,
     );
-    return { ...DEFAULT_POINTS, ...c, rewards };
+    // regra nova (todos os prêmios exigem compra recente): aplica uma vez sobre a tabela padrão salva antes
+    const MIN_V2: Record<string, number> = { bulk: 30, cupom5: 30, cupom10: 50, frete15: 100 };
+    const fixed = (c as { minSpendV2?: boolean }).minSpendV2
+      ? rewards
+      : rewards.map((r) => (MIN_V2[r.key] !== undefined && !r.minSpend ? { ...r, minSpend: MIN_V2[r.key] } : r));
+    return { ...DEFAULT_POINTS, ...c, rewards: fixed };
   } catch {
     return DEFAULT_POINTS;
   }
 }
 export async function savePointsConfig(c: PointsConfig) {
-  await db.setting.upsert({ where: { key: "pointsConfig" }, create: { key: "pointsConfig", value: JSON.stringify(c) }, update: { value: JSON.stringify(c) } });
+  // a partir daqui o que vale é o que você salvar no painel (inclusive 0 = sem compra mínima)
+  const value = JSON.stringify({ ...c, minSpendV2: true });
+  await db.setting.upsert({ where: { key: "pointsConfig" }, create: { key: "pointsConfig", value }, update: { value } });
 }
 
 // ---- quem está no grupo (só membros ganham/trocam pontos) ----
