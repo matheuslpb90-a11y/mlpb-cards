@@ -9,6 +9,7 @@ import { formatBRL } from "@/lib/money";
 import { priceItem } from "@/lib/auction-pricing";
 import { centsToReais, emptyItem, emptyLot, reaisToCents, type AuctionDraft, type ItemDraft, type LotDraft } from "@/lib/auction-draft";
 import { MediaUploader, uploadMedia } from "@/components/admin/MediaUploader";
+import { ScheduleFields } from "@/components/admin/ScheduleFields";
 import type { LookupCard } from "@/app/api/admin/buscar-carta/route";
 import { saveAuctionAction, searchStockAction } from "./actions";
 
@@ -41,11 +42,10 @@ export function AuctionEditor({ initial, blobEnabled, locked }: { initial: Aucti
       <Section title="Dados básicos">
         <Field label="Nome do leilão *"><input className="input" value={d.name} onChange={(e) => set("name", e.target.value)} placeholder="Ex.: 7º LEILÃO DE MLPB Cards" /></Field>
         <Field label="Descrição do banner"><input className="input" value={d.description} onChange={(e) => set("description", e.target.value)} placeholder="Ex.: Participe ao vivo no YouTube e vote no grupo do WhatsApp" /></Field>
-        <div className="grid gap-3 sm:grid-cols-5">
-          <Field label="Início — data *"><input type="date" className="input" value={d.startDate} onChange={(e) => { set("startDate", e.target.value); if (!d.endDate || d.endDate < e.target.value) set("endDate", e.target.value); }} /></Field>
-          <Field label="Início — hora *"><input type="time" className="input" value={d.startTime} onChange={(e) => set("startTime", e.target.value)} /></Field>
-          <Field label="Fim — data *"><input type="date" className="input" value={d.endDate} onChange={(e) => set("endDate", e.target.value)} /></Field>
-          <Field label="Fim — hora *"><input type="time" className="input" value={d.endTime} onChange={(e) => set("endTime", e.target.value)} /></Field>
+        <ScheduleFields disabled={locked} defaultMinutes={120}
+          value={{ startDate: d.startDate, startTime: d.startTime, endDate: d.endDate, endTime: d.endTime }}
+          onChange={(v) => setD((p) => ({ ...p, ...v }))} />
+        <div className="max-w-xs">
           <Field label="Prazo de pagamento (dias) *"><input type="number" min={1} className="input" value={d.paymentDays} onChange={(e) => set("paymentDays", Number(e.target.value))} /></Field>
         </div>
         <p className="text-xs text-slate-500">Horários de Brasília. No início o bot posta as enquetes no grupo; no fim ele encerra e envia os invoices.</p>

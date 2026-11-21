@@ -4,6 +4,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { ScheduleFields } from "@/components/admin/ScheduleFields";
 import { deleteExternalAuctionAction, saveExternalAuctionAction, saveLeilomaniaProfileAction, type ExtInput } from "./actions";
 
 const empty: ExtInput = { title: "", description: "", url: "", imageUrl: "", startsAt: "", endsAt: "", visible: true };
@@ -32,10 +33,9 @@ export function ExternalAuctionsEditor({ items, profileUrl, refUrl }: { items: E
         <input className="input" placeholder="Nome do leilão (ex.: Leilão de sexta — Escarlate e Violeta)" value={f.title} onChange={set("title")} />
         <input className="input" placeholder="Link do leilão na Leilomania" value={f.url} onChange={set("url")} />
         <textarea className="input min-h-16" placeholder="Descrição (opcional): destaques, quantidade de cartas…" value={f.description} onChange={set("description")} />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div><label className="label">Início</label><input type="datetime-local" className="input" value={f.startsAt} onChange={set("startsAt")} /></div>
-          <div><label className="label">Fim</label><input type="datetime-local" className="input" value={f.endsAt} onChange={set("endsAt")} /></div>
-        </div>
+        <ScheduleFields defaultMinutes={4320}
+          value={{ startDate: f.startsAt.slice(0, 10), startTime: f.startsAt.slice(11, 16), endDate: f.endsAt.slice(0, 10), endTime: f.endsAt.slice(11, 16) }}
+          onChange={(v) => setF((p) => ({ ...p, startsAt: v.startDate ? `${v.startDate}T${v.startTime || "00:00"}` : "", endsAt: v.endDate ? `${v.endDate}T${v.endTime || "00:00"}` : "" }))} />
         <ImageUploadField name="imageUrl" label="Imagem de capa (opcional)" value={f.imageUrl} onChange={(x) => setF({ ...f, imageUrl: x })} maxSide={1000} />
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-[#ff7a00]" checked={f.visible} onChange={(e) => setF({ ...f, visible: e.target.checked })} /> Mostrar no site</label>
         {msg?.error && <p className="text-sm text-red-300">{msg.error}</p>}
