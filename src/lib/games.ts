@@ -51,6 +51,13 @@ export async function getGamesConfig(): Promise<GamesConfig> {
   const s = await db.setting.findUnique({ where: { key: "gamesConfig" } });
   try {
     const c = JSON.parse(s?.value ?? "{}") as Partial<GamesConfig>;
+    // Agenda inicial combinada com a loja (aplicada uma vez, enquanto a agenda nunca foi salva):
+    // jogos ligados, terça, quinta e domingo, 12:30 surpresa e 20:30 "Quem é esse Pokémon?"
+    if (!c.mode) {
+      const scheduled = { ...c, enabled: true, mode: "fixo" as const, days: [0, 2, 4], slots: [{ time: "12:30", kind: "SURPRESA" as const }, { time: "20:30", kind: "POKEMON" as const }] };
+      await db.setting.upsert({ where: { key: "gamesConfig" }, create: { key: "gamesConfig", value: JSON.stringify(scheduled) }, update: { value: JSON.stringify(scheduled) } });
+      Object.assign(c, scheduled);
+    }
     return {
       ...DEFAULT_GAMES,
       ...c,
