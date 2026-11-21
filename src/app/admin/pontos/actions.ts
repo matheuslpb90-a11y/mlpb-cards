@@ -24,7 +24,7 @@ export async function savePointsConfigAction(c: PointsConfig) {
     referralPurchase: int(c.referralPurchase, 0, 100000, 200),
     referralMinCents: int(c.referralMinCents, 0, 10_000_000, 3000),
     boxBonus: int(c.boxBonus, 0, 100000, 300),
-    spendWindowDays: int(c.spendWindowDays, 1, 3650, 90),
+    spendWindowDays: int(c.spendWindowDays, 1, 3650, 60),
     auctionMinSpend: int(c.auctionMinSpend, 0, 1_000_000, 50),
     ranking: (c.ranking ?? []).slice(0, 3).map((v) => int(v, 0, 100000, 0)),
     expiryDays: int(c.expiryDays, 0, 3650, 60),

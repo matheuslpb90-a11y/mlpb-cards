@@ -33,7 +33,7 @@ export const DEFAULT_POINTS: PointsConfig = {
   referralStay: 100,
   referralPurchase: 200,
   referralMinCents: 3000,
-  spendWindowDays: 90,
+  spendWindowDays: 60,
   auctionMinSpend: 50,
   boxBonus: 300,
   ranking: [300, 150, 75],
@@ -66,7 +66,10 @@ export async function getPointsConfig(): Promise<PointsConfig> {
     const fixed = (c as { minSpendV2?: boolean }).minSpendV2
       ? rewards
       : rewards.map((r) => (MIN_V2[r.key] !== undefined && !r.minSpend ? { ...r, minSpend: MIN_V2[r.key] } : r));
-    return { ...DEFAULT_POINTS, ...c, rewards: fixed };
+    const out = { ...DEFAULT_POINTS, ...c, rewards: fixed };
+    // janela da compra mínima passou de 90 para 60 dias (igual à validade dos pontos): aplica uma vez
+    if (!(c as { minSpendV2?: boolean }).minSpendV2 || out.spendWindowDays === 90) out.spendWindowDays = 60;
+    return out;
   } catch {
     return DEFAULT_POINTS;
   }
