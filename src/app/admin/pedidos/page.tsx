@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { formatBRL } from "@/lib/money";
 import { STATUS_LABEL } from "@/lib/orders";
 import { whatsappLinkTo } from "@/lib/whatsapp";
-import { updateOrderAction } from "../actions";
+import { OrderControls } from "./OrderControls";
 
 export const dynamic = "force-dynamic";
 
@@ -51,15 +51,7 @@ export default async function AdminOrders({ searchParams }: { searchParams: Prom
           <ul className="text-sm text-slate-700">
             {o.items.map((i) => <li key={i.id}>{i.quantity}x {i.name} — {formatBRL(i.priceCents * i.quantity)}</li>)}
           </ul>
-          <form action={updateOrderAction} className="flex flex-wrap items-center gap-2 border-t pt-3">
-            <input type="hidden" name="id" value={o.id} />
-            <select name="status" defaultValue={o.status} className="input max-w-[240px] py-1 text-sm">
-              {Object.entries(STATUS_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-            <input name="trackingCode" defaultValue={o.trackingCode} placeholder="Código de rastreio" className="input max-w-[220px] py-1 text-sm" />
-            <button className="btn-outline py-1 text-sm">Atualizar</button>
-            {o.receiptUrl && <a href={o.receiptUrl} target="_blank" rel="noreferrer" className="text-sm text-brand hover:underline">Comprovante</a>}
-          </form>
+          <OrderControls key={o.id} id={o.id} status={o.status} tracking={o.trackingCode} labels={STATUS_LABEL} receiptUrl={o.receiptUrl} />
         </div>
       ))}
     </div>

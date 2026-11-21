@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseBRLToCents } from "@/lib/money";
-import { cancelOrder } from "@/lib/orders";
+import { cancelOrder, cancelPaidOrder } from "@/lib/orders";
 import { CSV_COLUMNS, parseCSV } from "@/lib/csv";
 import { SETTING_KEYS } from "@/lib/settings";
 import { logActivity } from "@/lib/activity";
@@ -145,16 +145,24 @@ export async function importCsvAction(_: State, form: FormData): Promise<State> 
 
 const ORDER_STATUSES = ["AGUARDANDO_PAGAMENTO", "PAGO", "ACUMULANDO", "ENVIADO", "CANCELADO"];
 
-export async function updateOrderAction(form: FormData) {
+export async function updateOrderAction(id: string, status: string, trackingCode: string): Promise<{ ok?: string; error?: string }> {
   await requireAdmin();
-  const id = String(form.get("id"));
-  const status = String(form.get("status"));
-  const trackingCode = String(form.get("trackingCode") ?? "").trim();
-  if (!ORDER_STATUSES.includes(status)) return;
-  if (status === "CANCELADO") await cancelOrder(id); // devolve estoque se ainda não foi pago
-  await db.order.update({ where: { id }, data: { trackingCode, status } });
-  await logActivity("order_updated", `Pedido ${id.slice(-6)}: ${status}${trackingCode ? ` · rastreio ${trackingCode}` : ""}`);
+  if (!ORDER_STATUSES.includes(status)) return { error: "Status inválido." };
+  const order = await db.order.findUnique({ where: { id } });
+  if (!order) return { error: "Pedido não encontrado." };
+  let note = "";
+  if (status === "CANCELADO" && order.status !== "CANCELADO") {
+    if (order.status === "AGUARDANDO_PAGAMENTO") await cancelOrder(id); // devolve o estoque
+    else {
+      await cancelPaidOrder(id); // devolve estoque, tira da caixa e tira os pontos
+      note = " Lembre de estornar o valor na InfinitePay, se for o caso.";
+    }
+  }
+  await db.order.update({ where: { id }, data: { trackingCode: trackingCode.trim().toUpperCase(), status } });
+  await logActivity("order_updated", `Pedido #${order.code}: ${status}${trackingCode ? ` · rastreio ${trackingCode}` : ""}`);
   revalidatePath("/admin/pedidos");
+  revalidatePath(`/pedido/${order.code}`);
+  return { ok: `Pedido #${order.code} atualizado ✔${note}` };
 }
 
 export async function saveSettingsAction(_: State, form: FormData): Promise<State> {

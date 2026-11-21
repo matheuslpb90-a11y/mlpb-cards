@@ -159,6 +159,18 @@ export async function markOrderPaid(code: number, info: { transactionNsu?: strin
 }
 
 /** Cancela e devolve as cartas ao estoque (somente pedidos ainda não pagos). */
+/** Cancela um pedido JÁ PAGO (ex.: teste ou desistência): devolve ao estoque, tira da caixa e tira os pontos.
+ *  O dinheiro precisa ser estornado na InfinitePay à parte. */
+export async function cancelPaidOrder(orderId: string) {
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  if (!order || order.status === "CANCELADO") return;
+  await db.$transaction(async (tx) => {
+    for (const item of order.items) await tx.card.update({ where: { id: item.cardId }, data: { stock: { increment: item.quantity } } });
+    await tx.order.update({ where: { id: orderId }, data: { status: "CANCELADO", boxId: null } });
+    await tx.pointEntry.deleteMany({ where: { refId: `ORDER-${order.code}` } });
+  });
+}
+
 export async function cancelOrder(orderId: string) {
   await db.$transaction(async (tx) => {
     const order = await tx.order.findUnique({ where: { id: orderId }, include: { items: true } });
