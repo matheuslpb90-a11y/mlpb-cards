@@ -274,7 +274,7 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
           </div>
           <p className="sm:col-span-6 text-xs text-slate-500">
             {myp && <>{myp} · </>}
-            {it.name && <a href={ligaUrl(it.name)} target="_blank" rel="noreferrer" className="font-semibold text-amber-300 underline">verificar na Liga ↗</a>}
+            {it.name && <a href={ligaUrl(it.name, it.number)} target="_blank" rel="noreferrer" className="font-semibold text-amber-300 underline">verificar na Liga ↗</a>}
           </p>
           <p className="sm:col-span-6 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
             Valores: inicial {formatBRL(p.startCents)} · incremento {formatBRL(p.stepCents)} · arremate {formatBRL(p.buyoutCents)}

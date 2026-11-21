@@ -167,7 +167,7 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
                 )}
                 {v.name && (
                   <>
-                    <a href={ligaUrl(v.name)} target="_blank" rel="noreferrer" className="font-semibold text-amber-300 underline">verificar na Liga ↗</a> ·{" "}
+                    <a href={ligaUrl(v.name, v.number)} target="_blank" rel="noreferrer" className="font-semibold text-amber-300 underline">verificar na Liga ↗</a> ·{" "}
                   </>
                 )}
                 <button type="button" className="text-brand underline" onClick={() => fetchMarket(v.name, v.number, v.language, v.finish, false)}>🔄 preço MYP</button>
