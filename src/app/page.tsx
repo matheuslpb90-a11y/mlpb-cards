@@ -6,12 +6,15 @@ import { CONDITIONS, LANGUAGES } from "@/lib/catalog";
 import { whatsappLink } from "@/lib/whatsapp";
 import { getSettings, youtubeId } from "@/lib/settings";
 import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
+import { extImages } from "@/lib/leilomania";
+import { fmtDate } from "@/lib/auctions";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const available = { active: true, stock: { gt: 0 } };
-  const [s, fanCards, featured, newCards, newProducts] = await Promise.all([
+  const now = new Date();
+  const [s, fanCards, featured, newCards, newProducts, groupAuctions, lmAuctions] = await Promise.all([
     getSettings(),
     db.card.findMany({
       where: { ...available, kind: "CARTA", imageUrl: { not: "" } },
@@ -21,7 +24,24 @@ export default async function HomePage() {
     db.card.findMany({ where: { ...available, featured: true }, orderBy: { updatedAt: "desc" }, take: 10 }),
     db.card.findMany({ where: { ...available, kind: "CARTA" }, orderBy: { createdAt: "desc" }, take: 10 }),
     db.card.findMany({ where: { ...available, kind: "PRODUTO" }, orderBy: { createdAt: "desc" }, take: 5 }),
+    db.auction.findMany({
+      where: { visible: true, status: { in: ["ATIVO", "AGENDADO"] } },
+      orderBy: { startsAt: "asc" },
+      take: 4,
+      include: { lots: { take: 1, orderBy: { position: "asc" }, include: { items: { take: 1, orderBy: { position: "asc" }, select: { imageUrl: true } } } } },
+    }),
+    db.externalAuction.findMany({ where: { visible: true, endsAt: { gt: now } }, orderBy: { startsAt: "asc" }, take: 4 }),
   ]);
+  const auctionsHome = [
+    ...groupAuctions.map((a) => ({
+      key: a.id, href: `/leiloes/${a.code}`, external: false, title: a.name, where: "Grupo do WhatsApp",
+      img: a.imageUrl || a.lots[0]?.items[0]?.imageUrl || "", live: a.status === "ATIVO", startsAt: a.startsAt, endsAt: a.endsAt,
+    })),
+    ...lmAuctions.map((a) => ({
+      key: a.id, href: a.url, external: true, title: a.title, where: "Leilomania",
+      img: extImages(a)[0] ?? "", live: now >= a.startsAt, startsAt: a.startsAt, endsAt: a.endsAt,
+    })),
+  ].sort((a, b) => Number(b.live) - Number(a.live) || a.startsAt.getTime() - b.startsAt.getTime()).slice(0, 4);
 
   return (
     <div className="space-y-10">
@@ -38,6 +58,7 @@ export default async function HomePage() {
               </a>
               <Link href="/catalogo?tipo=cartas" className="btn-outline px-5 py-3">Cartas Avulsas →</Link>
               <Link href="/catalogo?tipo=selados" className="btn-outline px-5 py-3">Selados →</Link>
+              <Link href="/leiloes" className="btn-outline px-5 py-3">🔨 Leilões →</Link>
               {s.youtubeUrl && (
                 <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className="btn-youtube px-5 py-3"><YoutubeIcon /> YouTube</a>
               )}
@@ -58,7 +79,7 @@ export default async function HomePage() {
       </section>
 
       {/* Atalhos por seção */}
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-3">
         <Link href="/catalogo?tipo=cartas" className="card flex items-center gap-4 p-5 hover:border-brand">
           <span className="text-4xl">🃏</span>
           <span><span className="block text-lg font-bold">Cartas avulsas</span><span className="text-sm text-slate-500">Filtre por coleção, estado e idioma</span></span>
@@ -67,7 +88,44 @@ export default async function HomePage() {
           <span className="text-4xl">📦</span>
           <span><span className="block text-lg font-bold">Selados</span><span className="text-sm text-slate-500">Boosters, boxes, ETBs e acessórios</span></span>
         </Link>
+        <Link href="/leiloes" className="card flex items-center gap-4 p-5 hover:border-brand">
+          <span className="text-4xl">🔨</span>
+          <span><span className="block text-lg font-bold">Leilões</span><span className="text-sm text-slate-500">No grupo do WhatsApp e na Leilomania</span></span>
+        </Link>
       </section>
+
+      {/* Leilões ao vivo e próximos (grupo + Leilomania) */}
+      {auctionsHome.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-end justify-between">
+            <h2 className="text-xl font-bold">🔨 Leilões</h2>
+            <Link href="/leiloes" className="text-sm font-semibold text-brand hover:underline">Ver todos →</Link>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {auctionsHome.map((a) => {
+              const inner = (
+                <>
+                  {a.img
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={a.img} alt="" className="h-24 w-20 shrink-0 rounded-lg object-cover" />
+                    : <div className="flex h-24 w-20 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-3xl">🔨</div>}
+                  <div className="min-w-0 space-y-1">
+                    <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${a.live ? "bg-green-950/60 text-green-300" : a.external ? "bg-purple-950/60 text-purple-300" : "bg-brand/20 text-brand"}`}>
+                      {a.live ? "🔴 AO VIVO" : "Em breve"} · {a.where}
+                    </span>
+                    <h3 className="font-bold leading-tight">{a.title}</h3>
+                    <p className="text-xs text-slate-500">{a.live ? `até ${fmtDate(a.endsAt)}` : `começa ${fmtDate(a.startsAt)}`}</p>
+                  </div>
+                </>
+              );
+              const cls = `card flex items-center gap-4 p-4 ${a.external ? "hover:border-purple-500" : "hover:border-brand"}`;
+              return a.external
+                ? <a key={a.key} href={a.href} target="_blank" rel="noreferrer" className={cls}>{inner}</a>
+                : <Link key={a.key} href={a.href} className={cls}>{inner}</Link>;
+            })}
+          </div>
+        </section>
+      )}
 
       {featured.length > 0 && <Shelf title="⭐ Destaques" href="/catalogo" items={featured} />}
       {newCards.length > 0 && <Shelf title="Novidades em cartas avulsas" href="/catalogo?tipo=cartas" items={newCards} />}
