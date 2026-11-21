@@ -22,7 +22,11 @@ export type GamesConfig = {
   pokemon: { enabled: boolean; perDay: number; points: number };
   preco: { enabled: boolean; perDay: number; points: number };
   pokebola: { enabled: boolean; perDay: number; points: number; shinyPoints: number; shinyChance: number };
+  days: number[]; // dias da semana com jogos (0=dom..6=sáb)
+  mode: "aleatorio" | "fixo"; // aleatório: horários sorteados na janela · fixo: nos horários da agenda
+  slots: GameSlot[]; // agenda do modo fixo
 };
+export type GameSlot = { time: string; kind: GameKind | "SURPRESA" };
 
 export const DEFAULT_GAMES: GamesConfig = {
   enabled: false,
@@ -34,6 +38,13 @@ export const DEFAULT_GAMES: GamesConfig = {
   pokemon: { enabled: true, perDay: 3, points: 10 },
   preco: { enabled: true, perDay: 2, points: 15 },
   pokebola: { enabled: true, perDay: 3, points: 5, shinyPoints: 50, shinyChance: 5 },
+  days: [0, 1, 2, 3, 4, 5, 6],
+  mode: "aleatorio",
+  slots: [
+    { time: "12:00", kind: "POKEBOLA" },
+    { time: "19:00", kind: "POKEMON" },
+    { time: "21:00", kind: "PRECO" },
+  ],
 };
 
 export async function getGamesConfig(): Promise<GamesConfig> {
@@ -65,8 +76,13 @@ const mention = (p: string) => `@${p.replace(/\D/g, "")}`;
 const first = (name: string, phone: string) => (name ? name.split(" ")[0] : `…${phone.slice(-4)}`);
 
 function brNow() {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", minute: "numeric", hour12: false }).formatToParts(new Date());
-  return { hour: Number(parts.find((p) => p.type === "hour")?.value ?? 0) % 24, minute: Number(parts.find((p) => p.type === "minute")?.value ?? 0) };
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", minute: "numeric", weekday: "short", hour12: false }).formatToParts(new Date());
+  const wd = parts.find((p) => p.type === "weekday")?.value ?? "Sun";
+  return {
+    hour: Number(parts.find((p) => p.type === "hour")?.value ?? 0) % 24,
+    minute: Number(parts.find((p) => p.type === "minute")?.value ?? 0),
+    weekday: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd),
+  };
 }
 function startOfDayBR() {
   const ymd = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
@@ -212,9 +228,29 @@ export async function gamesTick() {
   if (!c.enabled) return;
   const g = await gameGroup();
   if (!g) return;
-  const { hour, minute } = brNow();
-  if (hour < c.startHour || hour >= c.endHour) return;
+  const { hour, minute, weekday } = brNow();
+  if (!c.days.includes(weekday)) return;
   if (await db.gameRound.findFirst({ where: { group: g, status: "ATIVO" } })) return;
+
+  // modo fixo: começa no horário marcado (tolerância de 15 min se o agendador atrasar)
+  if (c.mode === "fixo") {
+    const nowMin = hour * 60 + minute;
+    for (const s of [...c.slots].sort((a, b) => a.time.localeCompare(b.time))) {
+      const [h, m] = s.time.split(":").map(Number);
+      const at = h * 60 + m;
+      if (!Number.isFinite(at) || nowMin < at || nowMin > at + 15) continue;
+      const since = new Date(startOfDayBR().getTime() + at * 60_000);
+      if (await db.gameRound.findFirst({ where: { group: g, createdAt: { gte: since } } })) continue;
+      const enabled = (["POKEMON", "PRECO", "POKEBOLA"] as GameKind[]).filter((k) => c[k === "POKEMON" ? "pokemon" : k === "PRECO" ? "preco" : "pokebola"].enabled);
+      const kind = s.kind === "SURPRESA" ? enabled[Math.floor(Math.random() * enabled.length)] : s.kind;
+      if (!kind) return;
+      await startRound(kind, g).catch((e) => log("erro-jogos", { acao: "abrir", kind, error: String(e) }));
+      return;
+    }
+    return;
+  }
+
+  if (hour < c.startHour || hour >= c.endHour) return;
   const last = await db.gameRound.findFirst({ where: { group: g }, orderBy: { createdAt: "desc" } });
   if (last && Date.now() - last.createdAt.getTime() < c.minGapMinutes * 60_000) return;
 

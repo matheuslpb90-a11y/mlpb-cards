@@ -28,8 +28,16 @@ export async function saveGamesAction(c: GamesConfig) {
       shinyPoints: int(c.pokebola.shinyPoints, 0, 10000, 50),
       shinyChance: int(c.pokebola.shinyChance, 0, 100, 5),
     },
+    days: [...new Set((c.days ?? []).map(Number).filter((d) => d >= 0 && d <= 6))].sort(),
+    mode: c.mode === "fixo" ? "fixo" : "aleatorio",
+    slots: (c.slots ?? [])
+      .filter((s) => /^([01]\d|2[0-3]):[0-5]\d$/.test(s.time) && ["POKEMON", "PRECO", "POKEBOLA", "SURPRESA"].includes(s.kind))
+      .sort((a, b) => a.time.localeCompare(b.time))
+      .slice(0, 24),
   };
-  if (clean.endHour <= clean.startHour) return { error: "O horário final precisa ser depois do inicial." };
+  if (!clean.days.length) return { error: "Escolha pelo menos um dia da semana." };
+  if (clean.mode === "fixo" && !clean.slots.length) return { error: "Adicione pelo menos um horário na agenda." };
+  if (clean.mode === "aleatorio" && clean.endHour <= clean.startHour) return { error: "O horário final precisa ser depois do inicial." };
   await saveGamesConfig(clean);
   await logActivity("games_config", `Jogos ${clean.enabled ? "ligados" : "desligados"}`);
   revalidatePath("/admin/jogos");

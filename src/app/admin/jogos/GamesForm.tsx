@@ -2,7 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import type { GameKind, GamesConfig } from "@/lib/games";
+import type { GameKind, GameSlot, GamesConfig } from "@/lib/games";
+
+const DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const KINDS: [GameSlot["kind"], string][] = [["POKEMON", "❓ Quem é esse Pokémon?"], ["PRECO", "💰 Adivinhe o preço"], ["POKEBOLA", "🔴 Pokébola"], ["SURPRESA", "🎲 Surpresa (sorteia um)"]];
 import { saveGamesAction, startGameNowAction } from "./actions";
 
 export function GamesForm({ initial }: { initial: GamesConfig }) {
@@ -23,7 +26,7 @@ export function GamesForm({ initial }: { initial: GamesConfig }) {
       </div>
       <p className="text-xs text-slate-500">{desc}</p>
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span>Por dia {n(c[k].perDay, (x) => setC({ ...c, [k]: { ...c[k], perDay: x } }))}</span>
+        {c.mode === "aleatorio" && <span>Por dia {n(c[k].perDay, (x) => setC({ ...c, [k]: { ...c[k], perDay: x } }))}</span>}
         <span>Pontos {n(c[k].points, (x) => setC({ ...c, [k]: { ...c[k], points: x } }))}</span>
         {k === "pokebola" && (
           <>
@@ -40,9 +43,40 @@ export function GamesForm({ initial }: { initial: GamesConfig }) {
         <input type="checkbox" className="h-4 w-4 accent-[#ff7a00]" checked={c.enabled} onChange={(e) => setC({ ...c, enabled: e.target.checked })} />
         <strong>Jogos automáticos ligados</strong> <span className="text-xs text-slate-500">(o “Começar agora” funciona mesmo desligado)</span>
       </label>
+      <div className="space-y-2 rounded-lg border p-3 text-sm">
+        <p className="font-semibold">📅 Dias com jogos</p>
+        <div className="flex flex-wrap gap-2">
+          {DAYS.map((d, i) => (
+            <button key={d} type="button" onClick={() => setC({ ...c, days: c.days.includes(i) ? c.days.filter((x) => x !== i) : [...c.days, i].sort() })}
+              className={`rounded-full border px-3 py-1 ${c.days.includes(i) ? "border-brand bg-brand font-bold text-black" : "border-slate-200"}`}>{d}</button>
+          ))}
+        </div>
+        <p className="pt-2 font-semibold">⏰ Horários</p>
+        <div className="flex flex-wrap gap-2">
+          {([["aleatorio", "🎲 Aleatórios (o bot sorteia)"], ["fixo", "📌 Fixos (eu escolho)"]] as const).map(([m, label]) => (
+            <button key={m} type="button" onClick={() => setC({ ...c, mode: m })}
+              className={`rounded-lg border px-3 py-1.5 ${c.mode === m ? "border-brand bg-brand font-bold text-black" : "border-slate-200"}`}>{label}</button>
+          ))}
+        </div>
+        {c.mode === "fixo" && (
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500">Em cada dia marcado, o jogo começa no horário escolhido (horário de Brasília).</p>
+            {c.slots.map((s, i) => (
+              <div key={i} className="flex flex-wrap items-center gap-2">
+                <input type="time" className="input w-32" value={s.time} onChange={(e) => setC({ ...c, slots: c.slots.map((x, j) => (j === i ? { ...x, time: e.target.value } : x)) })} />
+                <select className="input w-auto" value={s.kind} onChange={(e) => setC({ ...c, slots: c.slots.map((x, j) => (j === i ? { ...x, kind: e.target.value as GameSlot["kind"] } : x)) })}>
+                  {KINDS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                </select>
+                <button type="button" className="rounded-lg border px-2 py-1 text-xs text-red-300" onClick={() => setC({ ...c, slots: c.slots.filter((_, j) => j !== i) })}>Remover</button>
+              </div>
+            ))}
+            <button type="button" className="btn-outline text-sm" onClick={() => setC({ ...c, slots: [...c.slots, { time: "20:00", kind: "SURPRESA" }] })}>+ Adicionar horário</button>
+          </div>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span>Das {n(c.startHour, (x) => setC({ ...c, startHour: x }))}h às {n(c.endHour, (x) => setC({ ...c, endHour: x }))}h</span>
-        <span>Intervalo mínimo {n(c.minGapMinutes, (x) => setC({ ...c, minGapMinutes: x }))} min</span>
+        {c.mode === "aleatorio" && <span>Das {n(c.startHour, (x) => setC({ ...c, startHour: x }))}h às {n(c.endHour, (x) => setC({ ...c, endHour: x }))}h</span>}
+        {c.mode === "aleatorio" && <span>Intervalo mínimo {n(c.minGapMinutes, (x) => setC({ ...c, minGapMinutes: x }))} min</span>}
         <span>Tempo para responder {n(c.roundMinutes, (x) => setC({ ...c, roundMinutes: x }))} min</span>
         <span>Pokémon até o nº {n(c.maxDex, (x) => setC({ ...c, maxDex: x }), "w-24")} <span className="text-xs text-slate-500">(151 = só a 1ª geração)</span></span>
       </div>
