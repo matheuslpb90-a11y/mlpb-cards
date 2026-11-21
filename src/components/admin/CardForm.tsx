@@ -5,6 +5,7 @@ import { saveCardAction, uploadImageAction } from "@/app/admin/actions";
 import { CardImage } from "@/components/CardImage";
 import { CONDITIONS, FINISHES, LANGUAGES, PRODUCT_CATEGORIES } from "@/lib/catalog";
 import { CardLookup, type LookupResult } from "./CardLookup";
+import { ligaUrl } from "@/lib/price-links";
 import { shrinkImage } from "./ImageUploadField";
 
 export type CardFormValues = {
@@ -159,10 +160,15 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
                     Mercado BR: <strong className="text-green-300">R$ {fmt(market.cents)}</strong>
                     {market.basis ? ` (${market.basis})` : ""} ·{" "}
                     <button type="button" className="text-brand underline" onClick={() => setV((prev) => ({ ...prev, price: fmt(market.cents) }))}>usar este preço</button> · fonte{" "}
-                    <a href={market.link || "https://mypcards.com"} target="_blank" rel="noreferrer" className="underline">MYP Cards</a> ·{" "}
+                    <a href={market.link || "https://mypcards.com"} target="_blank" rel="noreferrer" className="underline">MYP Cards ↗</a> ·{" "}
                   </>
                 ) : (
                   marketMsg && <>{marketMsg} · </>
+                )}
+                {v.name && (
+                  <>
+                    <a href={ligaUrl(v.name)} target="_blank" rel="noreferrer" className="font-semibold text-amber-300 underline">verificar na Liga ↗</a> ·{" "}
+                  </>
                 )}
                 <button type="button" className="text-brand underline" onClick={() => fetchMarket(v.name, v.number, v.language, v.finish, false)}>🔄 preço MYP</button>
                 <span className="text-slate-600"> (usa nome, número, idioma e variante preenchidos)</span>

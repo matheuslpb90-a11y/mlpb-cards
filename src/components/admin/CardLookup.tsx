@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LookupCard } from "@/app/api/admin/buscar-carta/route";
 import { LANGUAGES } from "@/lib/catalog";
 
@@ -43,9 +43,23 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
     return results.filter((c) => `${c.name} ${c.setName} ${c.tcgdexId ?? ""} ${c.number}`.toLowerCase().includes(f));
   }, [results, filter]);
 
-  async function search(e: React.FormEvent) {
-    e.preventDefault();
+  // busca sozinha quando você para de digitar (como na Janet)
+  const lastAuto = useRef("");
+  useEffect(() => {
+    const key = `${q.trim()}|${num.trim()}|${lang}`;
+    if (q.trim().length < 3 || key === lastAuto.current) return;
+    const t = setTimeout(() => {
+      lastAuto.current = key;
+      search();
+    }, 900);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, num, lang]);
+
+  async function search(e?: React.FormEvent) {
+    e?.preventDefault();
     if (!q.trim()) return;
+    lastAuto.current = `${q.trim()}|${num.trim()}|${lang}`;
     setBusy(true);
     setStatus("Buscando…");
     setResults([]);
@@ -91,7 +105,7 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
     <div className="card space-y-3 p-5">
       <h2 className="font-semibold">1. Buscar carta Pokémon (preenche imagem e dados)</h2>
       <form onSubmit={search} className="flex flex-wrap gap-2">
-        <input className="input min-w-0 flex-1" placeholder="Nome da carta (ex.: Pikachu)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input min-w-0 flex-1" placeholder="Digite o nome da carta (ex.: Charizard ex)" value={q} onChange={(e) => setQ(e.target.value)} />
         <input className="input w-28" placeholder="Nº (opcional)" value={num} onChange={(e) => setNum(e.target.value)} />
         <select className="input w-40" value={lang} onChange={(e) => setLang(e.target.value)}>
           {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.flag} {l.value}</option>)}
