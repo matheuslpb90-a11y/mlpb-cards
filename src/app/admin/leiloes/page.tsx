@@ -28,6 +28,7 @@ export default async function AdminAuctions({ searchParams }: { searchParams: Pr
           <p className="text-sm text-slate-500">Enquetes no grupo do WhatsApp, com invoice automático para os vencedores.</p>
         </div>
         <Link href="/admin/bot" className="btn-outline">⚙ Bot WhatsApp</Link>
+        <Link href="/admin/leiloes/leilomania" className="btn-outline">🟣 Leilomania</Link>
         <Link href="/admin/leiloes/novo" className="btn-primary">+ Novo leilão</Link>
       </div>
       <div className="card flex flex-wrap items-center gap-2 p-3">

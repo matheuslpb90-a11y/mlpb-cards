@@ -425,3 +425,17 @@ model Referral {
   purchasePaid  Boolean  @default(false)
   createdAt     DateTime @default(now())
 }
+
+// Leilões feitos em outra plataforma (ex.: Leilomania), mostrados na aba Leilões do site
+model ExternalAuction {
+  id          String   @id @default(cuid())
+  platform    String   @default("Leilomania")
+  title       String
+  description String   @default("")
+  url         String
+  imageUrl    String   @default("")
+  startsAt    DateTime
+  endsAt      DateTime
+  visible     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
