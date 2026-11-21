@@ -327,6 +327,7 @@ const HELP = [
   "*!regras* — regras do grupo",
   "*!link* — link de convite do grupo",
   "*!dolar* — cotação do dólar",
+  "*!preco* nome da carta — preço no Brasil (ex.: !preco Charizard ex 199/165)",
   "*!avaliar* 61999999999 — avalia uma negociação/entrega (nota de 1 a 5)",
   "*!referencias* 61999999999 — mostra as avaliações de alguém",
   "*!pontos* — seus MLPB Points · *!ranking* — top do mês",
@@ -383,6 +384,29 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
   }
   if (cmd === "!avaliar") return startReview(c, msg, args).then(() => cmd);
   if (cmd === "!referencias" || cmd === "!referências" || cmd === "!ref") return showReviews(msg, args).then(() => cmd);
+  if (cmd === "!preco" || cmd === "!preço") {
+    const m = args.trim().match(/^(.*?)(?:\s+#?([A-Za-z]{0,6}\d{1,4}(?:\/[A-Za-z]{0,4}\d{1,4})?))?$/);
+    const name = (m?.[1] ?? args).trim();
+    const num = m?.[2] ?? "";
+    if (name.length < 2) return say(g, `Use: *${c.prefix || "!"}preco nome da carta* (ex.: ${c.prefix || "!"}preco Charizard ex 199/165). O nome precisa ser exato, em português ou inglês.`, [], msg.id).then(() => cmd);
+    try {
+      const { mypFind, mypPrice } = await import("./myp");
+      const list = (await mypFind(name, num)).filter((x) => mypPrice(x));
+      if (!list.length) return say(g, `🔎 Não achei preço para *${name}*${num ? ` ${num}` : ""}. Confira o nome exato (português ou inglês).\n_Fonte: MYP Cards — mypcards.com_`, [], msg.id).then(() => cmd);
+      const lines = list.slice(0, 6).map((x) => {
+        const p = mypPrice(x)!;
+        return `• *${x.name}* ${x.number} — ${x.setName}\n   💰 R$ ${(p.cents / 100).toFixed(2).replace(".", ",")} _(${p.basis})_`;
+      });
+      return say(
+        g,
+        `💰 *Preço no Brasil — ${name}${num ? ` ${num}` : ""}*\n\n${lines.join("\n")}${list.length > 6 ? `\n…e mais ${list.length - 6}. Informe o número da carta para filtrar.` : ""}\n\n_Fonte: MYP Cards — https://mypcards.com_`,
+        [],
+        msg.id,
+      ).then(() => cmd);
+    } catch (e) {
+      return say(g, `Não consegui consultar o preço agora (${e instanceof Error ? e.message : e}).`, [], msg.id).then(() => `${cmd} (erro)`);
+    }
+  }
   if (cmd === "!dolar") {
     const r = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL", { cache: "no-store", signal: AbortSignal.timeout(8000) })
       .then((x) => x.json() as Promise<{ USDBRL?: { bid?: string } }>)

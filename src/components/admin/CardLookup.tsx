@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import type { LookupCard } from "@/app/api/admin/buscar-carta/route";
 import { LANGUAGES } from "@/lib/catalog";
 
-export type LookupResult = { name: string; setName: string; number: string; rarity: string; imageUrl: string; language?: string };
+export type LookupResult = { name: string; setName: string; number: string; rarity: string; imageUrl: string; language?: string; marketCents?: number | null; marketBasis?: string; marketLink?: string };
 
 export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResult) => void; defaultLanguage: string }) {
   const [q, setQ] = useState("");
@@ -15,6 +15,7 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
   const [filter, setFilter] = useState("");
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  const [attribution, setAttribution] = useState("");
 
   const shown = useMemo(() => {
     const f = filter.trim().toLowerCase();
@@ -33,10 +34,14 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
       const r = await fetch(
         `/api/admin/buscar-carta?q=${encodeURIComponent(q.trim())}&num=${encodeURIComponent(num.trim())}&idioma=${encodeURIComponent(lang)}`,
       );
-      const d = (await r.json()) as { results?: LookupCard[]; source?: string; message?: string; error?: string };
+      const d = (await r.json()) as { results?: LookupCard[]; source?: string; message?: string; error?: string; attribution?: string; warning?: string };
       const list = d.results ?? [];
       setResults(list);
-      setStatus(list.length ? `${list.length} resultado(s) — ${d.source}. Clique na carta certa.` : d.message ?? d.error ?? "Nada encontrado.");
+      setAttribution(d.attribution ?? "");
+      setStatus(
+        (list.length ? `${list.length} resultado(s) — ${d.source}. Clique na carta certa.` : d.message ?? d.error ?? "Nada encontrado.") +
+          (d.warning ? ` (${d.warning})` : ""),
+      );
     } catch {
       setStatus("Erro de conexão ao buscar. Tente de novo.");
     } finally {
@@ -45,7 +50,7 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
   }
 
   async function pick(c: LookupCard) {
-    const base = { name: c.name, setName: c.setName, number: c.number, rarity: c.rarity, imageUrl: c.imageLarge, language: lang };
+    const base = { name: c.name, setName: c.setName, number: c.number, rarity: c.rarity, imageUrl: c.imageLarge, language: lang, marketCents: c.priceCents ?? undefined, marketBasis: c.priceBasis, marketLink: c.link };
     onPick(base);
     setStatus("Imagem preenchida! Confira os dados, escolha o estado, defina preço e estoque e salve.");
     if (c.source === "tcgdex" && c.tcgdexId) {
@@ -74,6 +79,11 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
       </form>
       <p className="text-xs text-slate-500">Dica: informe o número da carta (ex.: 025) para achar a edição exata mais rápido.</p>
       {status && <p className="rounded bg-slate-50 p-2 text-sm text-slate-700">{status}</p>}
+      {attribution && (
+        <p className="text-xs text-slate-500">
+          Preços em R$ do mercado brasileiro: <a href="https://mypcards.com" target="_blank" rel="noreferrer" className="text-brand underline">MYP Cards</a>
+        </p>
+      )}
       {results.length > 12 && (
         <input className="input" placeholder="Filtrar resultados por coleção, código ou número…" value={filter} onChange={(e) => setFilter(e.target.value)} />
       )}
@@ -83,7 +93,10 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
             <button type="button" key={c.key} onClick={() => pick(c)} className="rounded-lg p-1 text-left hover:bg-brand-light">
               <img src={c.imageSmall} alt={c.name} loading="lazy" className="w-full rounded" />
               <span className="block truncate text-[11px] font-medium">{c.name}</span>
-              <span className="block truncate text-[10px] text-slate-500">{c.setName || c.tcgdexId} · {c.number}{c.lang && c.lang !== "en" ? "" : " · img EN"}</span>
+              <span className="block truncate text-[10px] text-slate-500">{c.setName || c.tcgdexId} · {c.number}{c.source === "myp" || (c.lang && c.lang !== "en") ? "" : " · img EN"}</span>
+              {c.source === "myp" && (
+                <span className="block truncate text-[11px] font-bold text-green-300">{c.priceCents ? `R$ ${(c.priceCents / 100).toFixed(2).replace(".", ",")}` : "sem oferta"} · MYP</span>
+              )}
             </button>
           ))}
         </div>

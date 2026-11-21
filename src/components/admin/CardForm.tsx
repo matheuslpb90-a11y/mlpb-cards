@@ -40,7 +40,9 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value }),
   });
 
+  const [market, setMarket] = useState<{ cents: number; basis?: string; link?: string } | null>(null);
   function applyLookup(r: LookupResult) {
+    if (r.marketCents) setMarket({ cents: r.marketCents, basis: r.marketBasis, link: r.marketLink });
     setV((prev) => ({
       ...prev,
       name: r.name || prev.name,
@@ -108,7 +110,19 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
           <div><label className="label">Idioma</label>
             <select className="input" {...bind("language")}>{LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.flag} {l.value}</option>)}</select>
           </div>
-          <div><label className="label">Preço (R$)</label><input className="input" required inputMode="decimal" placeholder="12,50" {...bind("price")} /></div>
+          <div>
+            <label className="label">Preço (R$)</label>
+            <input className="input" required inputMode="decimal" placeholder="12,50" {...bind("price")} />
+            {market && (
+              <p className="mt-1 text-xs text-slate-500">
+                Mercado BR: <strong className="text-green-300">R$ {(market.cents / 100).toFixed(2).replace(".", ",")}</strong>
+                {market.basis ? ` (${market.basis})` : ""} ·{" "}
+                <button type="button" className="text-brand underline" onClick={() => setV((prev) => ({ ...prev, price: (market.cents / 100).toFixed(2).replace(".", ",") }))}>usar este preço</button>{" "}
+                · fonte{" "}
+                <a href={market.link || "https://mypcards.com"} target="_blank" rel="noreferrer" className="underline">MYP Cards</a>
+              </p>
+            )}
+          </div>
           <div><label className="label">Preço original “de” (opcional — mostra desconto)</label><input className="input" inputMode="decimal" placeholder="ex.: 15,00" {...bind("compareAt")} /></div>
           <div><label className="label">Estoque</label><input className="input" type="number" min={0} required {...bind("stock")} /></div>
 

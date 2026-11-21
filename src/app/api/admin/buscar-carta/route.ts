@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { MYP_ATTRIBUTION, mypFind, mypPrice, mypSearch, type MypCard } from "@/lib/myp";
 
 // Busca de cartas Pokémon para o painel (somente admin).
 // Fontes, em ordem: TCGdex (português, depois inglês) e Pokémon TCG API (inglês).
@@ -8,7 +9,10 @@ import { getCurrentUser } from "@/lib/auth";
 
 export type LookupCard = {
   key: string;
-  source: "tcgdex" | "ptcg";
+  source: "tcgdex" | "ptcg" | "myp";
+  priceCents?: number | null; // valor de mercado no Brasil (MYP Cards)
+  priceBasis?: string;
+  link?: string;
   tcgdexId?: string;
   lang?: string;
   name: string;
@@ -97,6 +101,23 @@ export async function GET(req: Request) {
     }
   }
 
+  // Só o preço de mercado (MYP Cards) de uma carta: ?myp=nome&num=025/165&idioma=Português&finish=Foil
+  const mypName = url.searchParams.get("myp");
+  if (mypName) {
+    try {
+      const list = await mypFind(mypName, url.searchParams.get("num") ?? "");
+      const idioma = url.searchParams.get("idioma") ?? undefined;
+      const finish = url.searchParams.get("finish") ?? undefined;
+      return NextResponse.json({
+        attribution: MYP_ATTRIBUTION,
+        results: list.slice(0, 30).map((c) => ({ ...c, price: mypPrice(c, idioma, finish) })),
+        message: list.length ? undefined : "A MYP não encontrou carta com esse nome exato (use o nome em inglês ou português, ex.: Charizard ex).",
+      });
+    } catch (e) {
+      return NextResponse.json({ results: [], message: `Não deu para consultar a MYP: ${e instanceof Error ? e.message : String(e)}` });
+    }
+  }
+
   // Busca pelo código impresso na carta: "094/083", "TG12/TG30", "SVP053"
   const codigo = (url.searchParams.get("codigo") ?? "").trim().toUpperCase();
   if (codigo) {
@@ -120,6 +141,14 @@ export async function GET(req: Request) {
   const langs = [...(LANG_MAP[idioma] ?? []), "en"];
 
   const errors: string[] = [];
+  // MYP Cards (preço do mercado brasileiro) em paralelo com as bases de imagens
+  const mypPromise = mypSearch(q).then(
+    (list) => list.filter((c) => c.imageUrl && (!num || sameNumber(c.number.replace(/^[A-Za-z-]*/, ""), num) || c.number.toUpperCase().includes(num.toUpperCase()))).map((c) => mypToLookup(c, idioma)),
+    (e) => {
+      errors.push(`MYP: ${e instanceof Error ? e.message : String(e)}`);
+      return [] as LookupCard[];
+    },
+  );
   const settled = await Promise.allSettled(langs.map((l) => searchTcgdex(l, q, num)));
   const merged = new Map<string, LookupCard>();
   settled.forEach((r, i) => {
@@ -129,8 +158,9 @@ export async function GET(req: Request) {
     }
     for (const c of r.value) if (c.tcgdexId && !merged.has(c.tcgdexId)) merged.set(c.tcgdexId, c);
   });
-  let results = [...merged.values()].slice(0, 400);
-  let source = `TCGdex (${idioma}${idioma === "Inglês" ? "" : " + inglês"})`;
+  const myp = await mypPromise;
+  let results = [...myp, ...merged.values()].slice(0, 400);
+  let source = `${myp.length ? `MYP Cards (${myp.length}, com preço em R$) + ` : ""}TCGdex (${idioma}${idioma === "Inglês" ? "" : " + inglês"})`;
 
   if (results.length === 0) {
     try {
@@ -140,7 +170,7 @@ export async function GET(req: Request) {
       errors.push(`Pokémon TCG API: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  if (results.length) return NextResponse.json({ results, source });
+  if (results.length) return NextResponse.json({ results, source, attribution: myp.length ? MYP_ATTRIBUTION : undefined, warning: errors.find((e) => e.startsWith("MYP")) });
 
   console.error("Busca de carta sem resultados", { q, num, idioma, errors });
   return NextResponse.json({
@@ -197,4 +227,21 @@ async function searchByCode(codigo: string, idioma: string): Promise<{ results: 
     }
   }
   return { results: [], message: errors.length ? `Não foi possível consultar a base (${errors[0]}).` : "Nenhuma carta com esse código. Confira ou use “Manual”." };
+}
+
+function mypToLookup(c: MypCard, idioma: string): LookupCard {
+  const price = mypPrice(c, idioma);
+  return {
+    key: `myp-${c.id}`,
+    source: "myp",
+    name: c.name,
+    setName: c.setName,
+    number: c.number,
+    rarity: "",
+    imageSmall: c.imageUrl,
+    imageLarge: c.imageUrl,
+    priceCents: price?.cents ?? null,
+    priceBasis: price?.basis,
+    link: c.link,
+  };
 }

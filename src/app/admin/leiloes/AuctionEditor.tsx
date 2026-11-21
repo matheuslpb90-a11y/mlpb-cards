@@ -167,6 +167,24 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
   const f = <K extends keyof ItemDraft>(k: K) => ({ value: it[k] as string, onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => onChange({ ...it, [k]: e.target.value }) });
   const p = priceItem(reaisToCents(it.market) ?? 0, rules, lotOneReal, { start: reaisToCents(it.start), buyout: reaisToCents(it.buyout), step: reaisToCents(it.step) });
 
+  const [myp, setMyp] = useState("");
+  /** Valor de mercado no Brasil (MYP Cards) para esta carta: nome + número + idioma + variante. */
+  async function mypMarket(x: ItemDraft = it) {
+    if (!x.name.trim()) return setMyp("Preencha o nome da carta.");
+    setMyp("Buscando preço na MYP…");
+    try {
+      const q = new URLSearchParams({ myp: x.name, num: x.number, idioma: x.language, finish: x.finish });
+      const r = await fetch(`/api/admin/buscar-carta?${q}`);
+      const j = (await r.json()) as { results?: { name: string; setName: string; number: string; link: string; price: { cents: number; basis: string } | null }[]; message?: string };
+      const best = (j.results ?? []).find((c) => c.price);
+      if (!best?.price) return setMyp(j.message ?? "A MYP não tem oferta dessa carta agora.");
+      onChange({ ...x, market: (best.price.cents / 100).toFixed(2).replace(".", ",") });
+      setMyp(`✔ R$ ${(best.price.cents / 100).toFixed(2).replace(".", ",")} — ${best.price.basis} · ${best.name} ${best.number} (${best.setName}) · fonte: MYP Cards`);
+    } catch {
+      setMyp("Erro ao consultar a MYP.");
+    }
+  }
+
   async function lookup() {
     if (!code.trim()) return;
     setBusy(true); setMsg("Buscando…"); setResults([]);
@@ -203,7 +221,12 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {results.map((c) => (
               <button type="button" key={c.key} className="rounded p-1 text-left hover:bg-brand/20"
-                onClick={() => { onChange({ ...it, name: c.name, number: c.number || code, imageUrl: c.imageLarge }); setFound(true); }}>
+                onClick={() => {
+                  const x = { ...it, name: c.name, number: c.number || code, imageUrl: c.imageLarge };
+                  onChange(x);
+                  setFound(true);
+                  if (!it.market) mypMarket(x); // já traz o valor de mercado brasileiro
+                }}>
                 <img src={c.imageSmall} alt={c.name} className="w-full rounded" />
                 <span className="block truncate text-[11px]">{c.name}</span>
                 <span className="block truncate text-[10px] text-slate-500">{c.setName}</span>
@@ -235,7 +258,12 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
           </div>
           <div className="sm:col-span-6"><Field label="Ref. (opcional)"><input className="input" {...f("note")} placeholder="Ref.: valor slab USA, eBay/ALT, riscos…" /></Field></div>
           <Field label="Custo (opc.)"><input className="input" {...f("cost")} placeholder="0,00" /></Field>
-          <Field label="Valor de mercado"><input className="input" {...f("market")} placeholder="0,00" /></Field>
+          <Field label="Valor de mercado">
+            <div className="flex gap-1">
+              <input className="input min-w-0" {...f("market")} placeholder="0,00" />
+              <button type="button" title="Buscar valor de mercado no Brasil (MYP Cards)" className="rounded-lg border px-2 text-xs hover:border-brand" onClick={() => mypMarket()}>💰 MYP</button>
+            </div>
+          </Field>
           <Field label="Inicial (opc.)"><input className="input" {...f("start")} placeholder="auto" /></Field>
           <Field label="Arremate (opc.)"><input className="input" {...f("buyout")} placeholder="auto" /></Field>
           <Field label="Incremento"><input className="input" {...f("step")} placeholder="auto" /></Field>
@@ -243,6 +271,7 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
             <Toggle small checked={it.hideMarket} onChange={(v) => onChange({ ...it, hideMarket: v })} label="Ocultar mercado" />
             <Toggle small checked={it.hideBuyout} onChange={(v) => onChange({ ...it, hideBuyout: v })} label="Ocultar arremate" />
           </div>
+          {myp && <p className="sm:col-span-6 text-xs text-slate-500">{myp}</p>}
           <p className="sm:col-span-6 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
             Valores: inicial {formatBRL(p.startCents)} · incremento {formatBRL(p.stepCents)} · arremate {formatBRL(p.buyoutCents)}
             <span className="block text-slate-500">Enquete (Z-API clássica): {p.options.map((c) => formatBRL(c)).join(" · ")}</span>
