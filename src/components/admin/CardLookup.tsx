@@ -47,7 +47,8 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
   const lastAuto = useRef("");
   useEffect(() => {
     const key = `${q.trim()}|${num.trim()}|${lang}`;
-    if (q.trim().length < 3 || key === lastAuto.current) return;
+    const ready = q.trim().length >= 3 || (!q.trim() && num.trim().length >= 3);
+    if (!ready || key === lastAuto.current) return;
     const t = setTimeout(() => {
       lastAuto.current = key;
       search();
@@ -58,15 +59,18 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
 
   async function search(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!q.trim()) return;
+    if (!q.trim() && !num.trim()) return setStatus("Digite o nome, o número ou os dois.");
     lastAuto.current = `${q.trim()}|${num.trim()}|${lang}`;
     setBusy(true);
     setStatus("Buscando…");
     setResults([]);
     setFilter("");
     try {
+      // só o número → busca pelo código impresso na carta (ex.: 199/165, TG12/TG30, SVP053)
       const r = await fetch(
-        `/api/admin/buscar-carta?q=${encodeURIComponent(q.trim())}&num=${encodeURIComponent(num.trim())}&idioma=${encodeURIComponent(lang)}`,
+        q.trim()
+          ? `/api/admin/buscar-carta?q=${encodeURIComponent(q.trim())}&num=${encodeURIComponent(num.trim())}&idioma=${encodeURIComponent(lang)}`
+          : `/api/admin/buscar-carta?codigo=${encodeURIComponent(num.trim())}&idioma=${encodeURIComponent(lang)}`,
       );
       const d = (await r.json()) as { results?: LookupCard[]; source?: string; message?: string; error?: string; attribution?: string; warning?: string };
       const list = d.results ?? [];
@@ -105,14 +109,14 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
     <div className="card space-y-3 p-5">
       <h2 className="font-semibold">1. Buscar carta Pokémon (preenche imagem e dados)</h2>
       <form onSubmit={search} className="flex flex-wrap gap-2">
-        <input className="input min-w-0 flex-1" placeholder="Digite o nome da carta (ex.: Charizard ex)" value={q} onChange={(e) => setQ(e.target.value)} />
-        <input className="input w-28" placeholder="Nº (opcional)" value={num} onChange={(e) => setNum(e.target.value)} />
+        <input className="input min-w-0 flex-1" placeholder="Nome (ex.: Charizard ex)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input w-28" placeholder="Nº (ex.: 199/165)" value={num} onChange={(e) => setNum(e.target.value)} />
         <select className="input w-40" value={lang} onChange={(e) => setLang(e.target.value)}>
           {LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.flag} {l.value}</option>)}
         </select>
         <button className="btn-primary" disabled={busy}>{busy ? "Buscando…" : "Buscar"}</button>
       </form>
-      <p className="text-xs text-slate-500">Dica: informe o número da carta (ex.: 025) para achar a edição exata mais rápido.</p>
+      <p className="text-xs text-slate-500">Busque pelo nome, pelo número impresso na carta (ex.: 199/165, TG12/TG30, SVP053) ou pelos dois — com os dois, aparece a impressão exata.</p>
       {status && <p className="rounded bg-slate-50 p-2 text-sm text-slate-700">{status}</p>}
       {attribution && (
         <p className="text-xs text-slate-500">
