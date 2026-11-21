@@ -68,7 +68,7 @@ export async function getPointsConfig(): Promise<PointsConfig> {
       : rewards.map((r) => (MIN_V2[r.key] !== undefined && !r.minSpend ? { ...r, minSpend: MIN_V2[r.key] } : r));
     const out = { ...DEFAULT_POINTS, ...c, rewards: fixed };
     // janela da compra mínima passou de 90 para 60 dias (igual à validade dos pontos): aplica uma vez
-    if (!(c as { minSpendV2?: boolean }).minSpendV2 || out.spendWindowDays === 90) out.spendWindowDays = 60;
+    if (!(c as { windowV3?: boolean }).windowV3 && out.spendWindowDays === 90) out.spendWindowDays = 60;
     return out;
   } catch {
     return DEFAULT_POINTS;
@@ -76,7 +76,7 @@ export async function getPointsConfig(): Promise<PointsConfig> {
 }
 export async function savePointsConfig(c: PointsConfig) {
   // a partir daqui o que vale é o que você salvar no painel (inclusive 0 = sem compra mínima)
-  const value = JSON.stringify({ ...c, minSpendV2: true });
+  const value = JSON.stringify({ ...c, minSpendV2: true, windowV3: true });
   await db.setting.upsert({ where: { key: "pointsConfig" }, create: { key: "pointsConfig", value }, update: { value } });
 }
 
