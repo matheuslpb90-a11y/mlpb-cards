@@ -20,7 +20,9 @@ export function AddToCartButton({ card, className }: { card: Omit<CartItem, "qua
         setTimeout(() => setAdded(false), 1200);
       }}
     >
-      {soldOut ? "Esgotada" : maxed ? "Máximo no carrinho" : added ? "Adicionada ✓" : "Adicionar ao carrinho"}
+      <span key={soldOut ? "esgotada" : maxed ? "max" : added ? "ok" : "add"} className={added ? "pop-in" : undefined}>
+        {soldOut ? "Esgotada" : maxed ? "Máximo no carrinho" : added ? "Adicionada ✓" : "Adicionar ao carrinho"}
+      </span>
     </button>
   );
 }

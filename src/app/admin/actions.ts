@@ -159,6 +159,11 @@ export async function updateOrderAction(id: string, status: string, trackingCode
     }
   }
   await db.order.update({ where: { id }, data: { trackingCode: trackingCode.trim().toUpperCase(), status } });
+  const novoRastreio = trackingCode.trim().toUpperCase();
+  if (status !== order.status || (status === "ENVIADO" && novoRastreio && novoRastreio !== order.trackingCode)) {
+    const { notifyOrderStatus } = await import("@/lib/notify");
+    await notifyOrderStatus(id);
+  }
   await logActivity("order_updated", `Pedido #${order.code}: ${status}${trackingCode ? ` · rastreio ${trackingCode}` : ""}`);
   revalidatePath("/admin/pedidos");
   revalidatePath(`/pedido/${order.code}`);
