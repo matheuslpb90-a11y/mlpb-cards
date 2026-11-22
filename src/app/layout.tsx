@@ -4,7 +4,7 @@ import "./globals.css";
 import { CartProvider } from "@/components/CartProvider";
 import { CartBadge } from "@/components/CartBadge";
 import { Logo } from "@/components/Logo";
-import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
+import { CoinIcon, TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
 import { getCurrentUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { whatsappLink } from "@/lib/whatsapp";
@@ -38,7 +38,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/catalogo?tipo=selados" className={navLink}>Selados</Link>
                 <Link href="/leiloes" className={navLink}>Leilões</Link>
                 <Link href="/grupo" className={navLink}>Grupo</Link>
-                <Link href="/pontos" className={navLink}>🪙 Pontos</Link>
+                <Link href="/pontos" className={`${navLink} flex items-center gap-1`}><CoinIcon className="h-4 w-4 text-brand-amber" /> Pontos</Link>
                 {s.youtubeUrl && (
                   <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className={`${navLink} flex items-center gap-1`}>
                     <YoutubeIcon className="h-4 w-4 text-youtube" /> YouTube
@@ -74,7 +74,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link href="/grupo" className="rounded-lg px-3 py-2 hover:bg-slate-100">Como funciona o grupo</Link>
-                <Link href="/pontos" className="rounded-lg px-3 py-2 hover:bg-slate-100">🪙 MLPB Points</Link>
+                <Link href="/pontos" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100"><CoinIcon className="h-4 w-4 text-brand-amber" /> MLPB Points</Link>
                 <InstallAppLink className="rounded-lg px-3 py-2 hover:bg-slate-100" />
                 <a href={whatsappLink("Olá, MLPB Cards!")} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
                   <WhatsIcon className="h-4 w-4 text-whats" /> Loja

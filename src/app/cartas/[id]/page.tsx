@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { CardImage } from "@/components/CardImage";
 import { HoloCard } from "@/components/HoloCard";
+import { PriceLinks } from "@/components/PriceLinks";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { languageFlag } from "@/lib/catalog";
 import { formatBRL } from "@/lib/money";
@@ -177,6 +178,7 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
           }))}
         />
         {available.length === 0 && <p className="text-sm text-slate-500">Esta carta está esgotada no momento. Fale com a gente no WhatsApp para encomendar.</p>}
+        {c.game === "Pokémon" && <PriceLinks name={c.name} number={c.number} />}
       </div>
     </div>
   );
