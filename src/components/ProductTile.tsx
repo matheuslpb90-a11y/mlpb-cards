@@ -3,6 +3,7 @@ import type { Card } from "@prisma/client";
 import { discountPct, formatBRL } from "@/lib/money";
 import { conditionShort, languageFlag } from "@/lib/catalog";
 import { CardImage } from "./CardImage";
+import { HoloCard } from "./HoloCard";
 import { AddToCartButton } from "./AddToCartButton";
 
 export function ProductTile({ c }: { c: Card }) {
@@ -12,7 +13,9 @@ export function ProductTile({ c }: { c: Card }) {
     <div className="card relative flex flex-col p-3">
       {off > 0 && <span className="absolute left-2 top-2 z-10 rounded-full bg-gradient-to-r from-brand-amber to-brand px-2 py-0.5 text-xs font-black text-gray-950">-{off}%</span>}
       <Link href={`/cartas/${c.id}`} className="group">
-        <CardImage src={c.imageUrl} alt={c.name} className={`transition group-hover:scale-[1.02] ${isCard ? "" : "object-contain bg-panel"}`} />
+        <HoloCard holo={isCard && c.finish !== "Normal"}>
+          <CardImage src={c.imageUrl} alt={c.name} className={isCard ? "" : "object-contain bg-panel"} />
+        </HoloCard>
         <h3 className="mt-2 line-clamp-2 font-semibold leading-tight">{c.name}</h3>
       </Link>
       <p className="line-clamp-1 text-xs text-slate-500">

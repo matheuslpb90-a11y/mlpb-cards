@@ -1,0 +1,65 @@
+{
+  "_como_usar": "python higgsfield.py --receita NOME [--imagem foto.jpg]. Receitas com 'imagem: true' animam uma FOTO SUA (booster, carta, mesa). Nunca peça personagens Pokémon nem gere uma 'carta puxada' falsa.",
+
+  "booster-heroi": {
+    "imagem": true,
+    "modelo": "dop",
+    "prompt": "slow cinematic dolly-in toward the sealed booster pack on the table, warm orange rim light, soft volumetric haze, shallow depth of field, premium product commercial look, subtle floating dust particles"
+  },
+  "booster-orbita": {
+    "imagem": true,
+    "modelo": "dop",
+    "prompt": "smooth 180 degree orbit around the booster pack, dramatic low angle, glossy foil reflections catching light, dark background with orange glow, product reveal"
+  },
+  "carta-holo": {
+    "imagem": true,
+    "modelo": "dop",
+    "prompt": "macro shot slowly tilting across the trading card surface, holographic foil shimmer moving across the card, rainbow light reflections, extremely shallow depth of field, luxury detail shot"
+  },
+  "carta-slab": {
+    "imagem": true,
+    "modelo": "dop",
+    "prompt": "slow push-in on the graded card in its acrylic case, crisp reflections sliding across the case, black background, single orange spotlight, museum display atmosphere"
+  },
+  "colecao-mesa": {
+    "imagem": true,
+    "modelo": "dop",
+    "prompt": "overhead camera slowly descending over a table covered with trading cards and booster packs, warm cozy lighting, gentle parallax, collector's desk vibe"
+  },
+  "abertura-tensao": {
+    "imagem": true,
+    "modelo": "kling",
+    "prompt": "close-up of the booster pack, camera slowly pushes in while light flickers like a heartbeat, sparks and embers rise from below, suspenseful build-up before the opening"
+  },
+
+  "transicao-fogo": {
+    "imagem": false,
+    "modelo": "kling",
+    "formato": "16:9",
+    "prompt": "abstract wall of orange fire and embers rushing toward the camera, filling the entire frame, pure black background, seamless transition element, no text, no characters"
+  },
+  "transicao-raio": {
+    "imagem": false,
+    "modelo": "kling",
+    "formato": "16:9",
+    "prompt": "bright orange electric lightning bolts crackling across a black frame then flashing to full white, energy burst transition, no text, no characters"
+  },
+  "cartas-chovendo": {
+    "imagem": false,
+    "modelo": "kling",
+    "formato": "16:9",
+    "prompt": "dozens of blank trading cards with dark orange patterned backs falling and spinning through the air in slow motion, glowing orange light, black background, no logos, no characters, no readable text"
+  },
+  "loja-ambiente": {
+    "imagem": false,
+    "modelo": "kling",
+    "formato": "16:9",
+    "prompt": "slow tracking shot through a cozy trading card shop at night, glass display cases with sealed boxes and binders, warm orange neon glow, cinematic, no people, no readable brand names"
+  },
+  "fundo-loop-vertical": {
+    "imagem": false,
+    "modelo": "kling",
+    "formato": "9:16",
+    "prompt": "slow drifting orange embers and soft bokeh lights over a dark smoky background, calm seamless loop, vertical background for text, no objects, no text"
+  }
+}

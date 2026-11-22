@@ -5,6 +5,7 @@ import { markInvoicePaid } from "@/lib/auctions";
 import { markBoxShippingPaid } from "@/lib/boxes";
 import { markPayGroupPaid } from "@/lib/paygroups";
 import { db } from "@/lib/db";
+import { SuccessCheck } from "@/components/SuccessCheck";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
     <div className="card mx-auto max-w-lg space-y-4 p-8 text-center">
       {paid ? (
         <>
-          <p className="text-5xl">🎉</p>
+          <SuccessCheck />
           <h1 className="text-2xl font-bold">Pagamento confirmado!</h1>
           <p className="text-slate-600">Obrigado pela compra. Você pode acompanhar o pedido na sua conta.</p>
         </>

@@ -1,0 +1,8 @@
+{
+  "duration": 5.0,
+  "faixa1": 0.05, "faixa2": 0.25, "faixa3": 2.4,
+  "cartas": [0.25, 0.35, 0.45],
+  "logo": 0.95, "flash": 1.18,
+  "slogan": 1.75, "site": 2.1,
+  "fade": 4.5
+}
