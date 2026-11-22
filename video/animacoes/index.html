@@ -1,0 +1,167 @@
+<!doctype html>
+<html
+  lang="pt-BR"
+  data-composition-variables='[
+    {"id":"slogan","type":"string","label":"Slogan","default":"CARTAS • ABERTURAS • LEILÕES"},
+    {"id":"site","type":"string","label":"Site","default":"mlpbcards.com.br"},
+    {"id":"laranja","type":"color","label":"Laranja da marca","default":"#F26B0F"}
+  ]'
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --ground: #0a0604;
+        --ink: #ffffff;
+        --laranja: #f26b0f;
+        --ouro: #ffb347;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--ground);
+      }
+      #root { position: relative; width: 100%; height: 100%; overflow: hidden; }
+
+      /* Fundo: brilho laranja no centro */
+      #fundo {
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse 55% 60% at 50% 48%, #5a2306 0%, #1c0b03 45%, var(--ground) 75%);
+      }
+      #brilho {
+        position: absolute; left: 960px; top: 520px; width: 1400px; height: 1400px;
+        margin: -700px 0 0 -700px; border-radius: 50%;
+        background: radial-gradient(circle, rgba(242,107,15,0.55) 0%, rgba(242,107,15,0.12) 35%, rgba(242,107,15,0) 65%);
+      }
+
+      /* Faixas de luz diagonais (o wrapper gira; o filho anda) */
+      .faixa-wrap { position: absolute; left: -400px; width: 2720px; height: 46px; transform: rotate(-32deg); }
+      .faixa {
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, rgba(242,107,15,0) 0%, rgba(255,150,60,0.9) 50%, rgba(242,107,15,0) 100%);
+        filter: blur(6px);
+      }
+
+      /* Cartas (verso original da MLPB) */
+      .carta {
+        position: absolute; left: 960px; top: 540px; width: 300px; height: 420px;
+        margin: -210px 0 0 -150px; border-radius: 18px;
+        background:
+          repeating-linear-gradient(135deg, rgba(255,255,255,0.05) 0 14px, rgba(0,0,0,0) 14px 28px),
+          linear-gradient(160deg, #2a1206 0%, #120804 60%, #2a1206 100%);
+        border: 6px solid var(--laranja);
+        box-shadow: 0 0 40px rgba(242,107,15,0.65), inset 0 0 30px rgba(242,107,15,0.35);
+        display: flex; align-items: center; justify-content: center;
+      }
+      .carta img { width: 190px; height: 190px; opacity: 0.85; }
+
+      #logo { position: absolute; left: 960px; top: 470px; width: 560px; height: 560px; margin: -280px 0 0 -280px; }
+      #logo img { width: 100%; height: 100%; }
+
+      #flash { position: absolute; inset: 0; background: #fff3e6; opacity: 0; }
+
+      #slogan {
+        position: absolute; left: 0; right: 0; top: 800px; text-align: center;
+        font-family: "Archivo Black", sans-serif; font-size: 54px; letter-spacing: 0.12em;
+        color: var(--ink); text-shadow: 0 0 24px rgba(242,107,15,0.9), 0 4px 0 #000;
+      }
+      #site {
+        position: absolute; left: 0; right: 0; top: 890px; text-align: center;
+        font-family: "Montserrat", sans-serif; font-weight: 700; font-size: 38px; letter-spacing: 0.08em;
+        color: var(--ouro);
+      }
+      #brasas { position: absolute; inset: 0; }
+      .brasa { position: absolute; border-radius: 50%; background: #ffae5c; box-shadow: 0 0 10px #ff7a1a; }
+      #fade { position: absolute; inset: 0; background: #000; opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="5" data-width="1920" data-height="1080">
+      <div id="cena" class="clip" data-start="0" data-duration="5" data-track-index="0" data-layout-allow-overflow data-layout-allow-overlap>
+        <div id="fundo"></div>
+        <div id="brilho"></div>
+        <div id="brasas" data-layout-ignore></div>
+
+        <div class="faixa-wrap" style="top: 260px"><div class="faixa" id="faixa1"></div></div>
+        <div class="faixa-wrap" style="top: 700px"><div class="faixa" id="faixa2"></div></div>
+        <div class="faixa-wrap" style="top: 980px"><div class="faixa" id="faixa3"></div></div>
+
+        <div class="carta" id="carta1"><img src="assets/logo.png" alt="" /></div>
+        <div class="carta" id="carta2"><img src="assets/logo.png" alt="" /></div>
+        <div class="carta" id="carta3"><img src="assets/logo.png" alt="" /></div>
+
+        <div id="logo"><img src="assets/logo.png" alt="MLPB Cards" /></div>
+
+        <div id="slogan" data-var-text="slogan">CARTAS • ABERTURAS • LEILÕES</div>
+        <div id="site" data-var-text="site">mlpbcards.com.br</div>
+
+        <div id="flash"></div>
+        <div id="fade"></div>
+      </div>
+    </div>
+
+    <script>
+      const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+      if (vars.laranja) document.documentElement.style.setProperty("--laranja", vars.laranja);
+
+      // Brasas com aleatório "semeado" (o vídeo sai igual em todo render)
+      let semente = 7;
+      const rnd = () => ((semente = (semente * 16807) % 2147483647) / 2147483647);
+      const brasas = document.getElementById("brasas");
+      const lista = [];
+      for (let i = 0; i < 46; i++) {
+        const b = document.createElement("div");
+        b.className = "brasa";
+        const tam = 3 + rnd() * 7;
+        b.style.width = b.style.height = tam + "px";
+        b.style.left = rnd() * 1920 + "px";
+        b.style.top = 1000 + rnd() * 200 + "px";
+        brasas.appendChild(b);
+        lista.push({ el: b, sobe: 700 + rnd() * 700, deriva: (rnd() - 0.5) * 260, atraso: rnd() * 1.6, dur: 2.6 + rnd() * 1.6 });
+      }
+
+      const tl = gsap.timeline({ paused: true });
+
+      // Fundo pulsando
+      tl.fromTo("#brilho", { scale: 0.6, opacity: 0.35 }, { scale: 1, opacity: 1, duration: 1.0, ease: "power2.out" }, 0);
+      tl.to("#brilho", { scale: 1.12, duration: 1.4, ease: "sine.inOut", yoyo: true, repeat: 2 }, 1.0);
+
+      // Faixas de luz cruzando
+      tl.fromTo("#faixa1", { x: -2800 }, { x: 2800, duration: 1.1, ease: "power2.inOut" }, 0.05);
+      tl.fromTo("#faixa2", { x: 2800 }, { x: -2800, duration: 1.2, ease: "power2.inOut" }, 0.25);
+      tl.fromTo("#faixa3", { x: -2800 }, { x: 2800, duration: 1.0, ease: "power2.inOut" }, 2.4);
+
+      // Cartas voando e abrindo em leque atrás da logo
+      tl.fromTo("#carta1", { x: -1300, y: 200, rotation: -70, opacity: 0 }, { x: -330, y: -40, rotation: -18, opacity: 1, duration: 0.8, ease: "power3.out" }, 0.25);
+      tl.fromTo("#carta3", { x: 1300, y: 200, rotation: 70, opacity: 0 }, { x: 330, y: -40, rotation: 18, opacity: 1, duration: 0.8, ease: "power3.out" }, 0.35);
+      tl.fromTo("#carta2", { y: 900, rotation: 0, opacity: 0 }, { y: -90, rotation: 0, opacity: 1, duration: 0.8, ease: "power3.out" }, 0.45);
+      tl.fromTo(["#carta1", "#carta2", "#carta3"], { scale: 1 }, { scale: 0.92, duration: 3.0, ease: "sine.inOut" }, 1.25);
+
+      // Logo entra com impacto
+      tl.fromTo("#logo", { scale: 0.2, rotation: -25, opacity: 0 }, { scale: 1, rotation: 0, opacity: 1, duration: 0.55, ease: "back.out(1.8)" }, 0.95);
+      tl.to("#logo", { scale: 1.06, duration: 2.6, ease: "sine.out" }, 1.5);
+      tl.fromTo("#flash", { opacity: 0 }, { keyframes: [{ opacity: 0.85, duration: 0.06, ease: "none" }, { opacity: 0, duration: 0.5, ease: "power2.out" }] }, 1.18);
+      tl.fromTo("#logo img", { x: 0 }, { keyframes: [{ x: -12 }, { x: 10 }, { x: -6 }, { x: 0 }], duration: 0.3, ease: "none" }, 1.2);
+
+      // Textos
+      tl.fromTo("#slogan", { y: 40, opacity: 0, scale: 1.25 }, { y: 0, opacity: 1, scale: 1, duration: 0.6, ease: "power3.out" }, 1.75);
+      tl.fromTo("#site", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 2.1);
+
+      // Brasas subindo
+      lista.forEach((b) => {
+        tl.fromTo(b.el, { y: 0, x: 0, opacity: 0 }, { y: -b.sobe, x: b.deriva, opacity: 1, duration: b.dur * 0.25, ease: "none" }, b.atraso);
+        tl.to(b.el, { y: -b.sobe * 1.35, opacity: 0, duration: b.dur * 0.75, ease: "none" }, b.atraso + b.dur * 0.25);
+      });
+
+      // Saída: aproxima e escurece
+      tl.fromTo("#fade", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power2.in" }, 4.5);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
