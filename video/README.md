@@ -83,6 +83,29 @@ python thumbnail.py video.mp4 --texto "HIT INSANO" --tempo 12:34 --carta https:/
 ```
 A imagem da carta pode ser a mesma do TCGdex usada no site (link da imagem em alta).
 
+## B-roll com IA (Higgsfield)
+
+O b-roll é gerado pela API oficial do Higgsfield e cada geração gasta créditos da sua conta.
+1. Crie uma conta na plataforma de **API** do Higgsfield, coloque créditos e gere uma chave (`id:secret`).
+2. Defina a chave no terminal: `set HIGGSFIELD_KEY=id:secret` no Windows, ou `export HIGGSFIELD_KEY=id:secret` no Mac/Linux.
+3. Gere:
+```bash
+python higgsfield.py --listar                                         # receitas prontas
+python higgsfield.py --receita booster-heroi --imagem fotos/booster.jpg  # anima uma foto sua
+python higgsfield.py --receita carta-holo --imagem fotos/carta.jpg
+python higgsfield.py --receita transicao-fogo                         # só texto
+python higgsfield.py "orange smoke on black background" --formato 9:16
+```
+Os vídeos são salvos em `video/assets/broll/`.
+
+Uma foto do computador precisa virar link público antes de ir para a API. O script envia a foto para o Vercel Blob da loja, e para isso precisa do `BLOB_READ_WRITE_TOKEN` (fica no `.env` da loja). Se preferir, passe direto um link público da imagem.
+As receitas ficam em `receitas_broll.json`; dá para editar ou criar novas.
+
+**Regras do canal:**
+- **Nunca gere uma "carta puxada" falsa.** Unboxing tem que ser real. O b-roll de IA serve para ambientar e valorizar, nunca para mudar o que saiu do pacote.
+- **No YouTube, marque "conteúdo alterado ou sintético"** quando o b-roll de IA parecer real.
+- **Não peça personagens Pokémon ou de outras marcas.** Use fotos das suas próprias cartas e produtos, ou cenas genéricas.
+
 ## Recursos do próprio Premiere que completam o kit
 - **Melhorar fala** (*Essential Sound > Diálogo > Melhorar*): limpa o áudio do microfone.
 - **Atenuação automática** (*Essential Sound > Música > Atenuação*): abaixa a música quando você fala.
