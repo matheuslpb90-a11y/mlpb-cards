@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { useCart, type CartItem } from "./CartProvider";
 
 export function AddToCartButton({ card, className }: { card: Omit<CartItem, "quantity">; className?: string }) {
@@ -21,18 +20,9 @@ export function AddToCartButton({ card, className }: { card: Omit<CartItem, "qua
         setTimeout(() => setAdded(false), 1200);
       }}
     >
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.span
-          key={soldOut ? "esgotada" : maxed ? "max" : added ? "ok" : "add"}
-          className="inline-block"
-          initial={{ opacity: 0, y: 6, scale: added ? 0.85 : 1 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={added ? { type: "spring", stiffness: 500, damping: 22 } : { duration: 0.15 }}
-        >
-          {soldOut ? "Esgotada" : maxed ? "Máximo no carrinho" : added ? "Adicionada ✓" : "Adicionar ao carrinho"}
-        </motion.span>
-      </AnimatePresence>
+      <span key={soldOut ? "esgotada" : maxed ? "max" : added ? "ok" : "add"} className={added ? "pop-in" : undefined}>
+        {soldOut ? "Esgotada" : maxed ? "Máximo no carrinho" : added ? "Adicionada ✓" : "Adicionar ao carrinho"}
+      </span>
     </button>
   );
 }

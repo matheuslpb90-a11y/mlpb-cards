@@ -147,6 +147,8 @@ export async function markOrderPaid(code: number, info: { transactionNsu?: strin
   } catch {
     /* pontos nunca atrapalham o pagamento */
   }
+  // aviso no WhatsApp do cliente (nunca bloqueia o pagamento)
+  import("./notify").then(({ notifyOrderStatus }) => notifyOrderStatus(updated.id)).catch(() => {});
   if (updated.shippingMethod === ACCUMULATE) {
     const { addOrderToBox } = await import("./boxes");
     await addOrderToBox(updated.id).catch(() => {});
