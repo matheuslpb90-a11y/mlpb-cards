@@ -1,30 +1,32 @@
 // Links para conferir o preço atualizado da carta em outros sites.
 // Usados no painel e, para o cliente, abaixo do preço na página da carta.
+// A busca é feita pelo NÚMERO da carta (ex.: "199/165"); se a carta não tiver
+// número cadastrado, cai para o nome, só para o link não abrir vazio.
 
 const q = (s: string) => encodeURIComponent(s.trim());
 
+/** O que vai na busca: o número, ou o nome se não houver número. */
+const termo = (name: string, number = "") => (number.trim() || name.trim());
+
 // ---- Brasil ----
 
-/** Busca da carta na Liga Pokémon (mercado brasileiro).
- *  A Liga nomeia as cartas como "Charizard ex (199/165)": com o número, a busca cai na impressão certa. */
-export const ligaUrl = (name: string, number = "") => {
-  const n = number.trim();
-  return `https://www.ligapokemon.com.br/?view=cards/search&card=${q(`${name.trim()}${n ? ` (${n})` : ""}`)}`;
-};
+/** Busca na Liga Pokémon (mercado brasileiro). */
+export const ligaUrl = (name: string, number = "") =>
+  `https://www.ligapokemon.com.br/?view=cards/search&card=${q(termo(name, number))}`;
 
-/** Busca da carta na MYP Cards (mercado brasileiro). Com o número, cai na impressão certa. */
+/** Busca na MYP Cards (mercado brasileiro). */
 export const mypSearchUrl = (name: string, number = "") =>
-  `https://mypcards.com/pokemon?ProdutoSearch%5Bquery%5D=${q(`${name}${number ? ` ${number}` : ""}`)}`;
+  `https://mypcards.com/pokemon?ProdutoSearch%5Bquery%5D=${q(termo(name, number))}`;
 
 // ---- Mundo ----
 
 /** TCGplayer: maior mercado dos EUA (preços em dólar). */
 export const tcgplayerUrl = (name: string, number = "") =>
-  `https://www.tcgplayer.com/search/pokemon/product?q=${q(`${name}${number ? ` ${number}` : ""}`)}&productLineName=pokemon`;
+  `https://www.tcgplayer.com/search/pokemon/product?q=${q(termo(name, number))}&productLineName=pokemon`;
 
 /** Cardmarket: maior mercado da Europa (preços em euro). */
 export const cardmarketUrl = (name: string, number = "") =>
-  `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${q(`${name}${number ? ` ${number}` : ""}`)}`;
+  `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${q(termo(name, number))}`;
 
 export type PriceLink = { nome: string; url: string; regiao: "BR" | "US" | "EU"; moeda: string };
 
