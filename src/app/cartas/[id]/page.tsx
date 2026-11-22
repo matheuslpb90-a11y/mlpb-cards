@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { CardImage } from "@/components/CardImage";
+import { HoloCard } from "@/components/HoloCard";
 import { AddToCartButton } from "@/components/AddToCartButton";
 import { languageFlag } from "@/lib/catalog";
 import { formatBRL } from "@/lib/money";
@@ -146,7 +147,9 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
       <JsonLd data={productJsonLd(c, variants)} />
       <div className="space-y-4 bg-slate-100 p-6">
         {back}
-        <CardImage src={c.imageUrl} alt={c.name} className="shadow-[0_0_50px_-12px_rgba(255,122,0,0.6)]" />
+        <HoloCard holo={c.finish !== "Normal"} max={14}>
+          <CardImage src={c.imageUrl} alt={c.name} className="shadow-[0_0_50px_-12px_rgba(255,122,0,0.6)]" />
+        </HoloCard>
       </div>
       <div className="space-y-6 p-6">
         <div>
