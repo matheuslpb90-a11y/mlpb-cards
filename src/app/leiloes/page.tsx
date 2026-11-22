@@ -51,7 +51,7 @@ export default async function AuctionsPage() {
       <div>
         <h1 className="text-3xl font-black">Leilões</h1>
         <p className="text-slate-600">Leilões ativos e próximos no nosso grupo do WhatsApp e na Leilomania.</p>
-        <p className="text-sm text-slate-500">Primeira vez? Veja <Link href="/grupo" className="text-brand underline">como funcionam os leilões do grupo</Link> e o programa <Link href="/pontos" className="text-brand underline">🪙 MLPB Points</Link> — arremates também dão pontos.</p>
+        <p className="text-sm text-slate-500">Primeira vez? Veja <Link href="/grupo" className="text-brand underline">como funcionam os leilões do grupo</Link> e o programa <Link href="/pontos" className="text-brand underline">MLPB Points</Link> — arremates também dão pontos.</p>
       </div>
 
       {/* Grupo do WhatsApp */}
