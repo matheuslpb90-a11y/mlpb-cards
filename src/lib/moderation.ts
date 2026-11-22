@@ -374,7 +374,7 @@ const HELP = [
   "*!timeout* @pessoa 30 — silencia por 30 minutos",
   "*!del* — responda a mensagem para apagar",
   "*!fechar* / *!abrir* — só admins falam / todos falam",
-  "*!all* texto — marca todos do grupo",
+  "*!all* texto — chama todos do grupo (sem mostrar os @)",
   "*!brother* @pessoa — libera os links do parceiro (nos dias/horários de parceiros)",
   "*!unbrother* @pessoa — tira da lista de parceiros",
   "*!brothers* — lista os parceiros",
@@ -547,7 +547,8 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       const info = await groupInfo(g, true).catch(() => null);
       if (!info) return say(g, "Não consegui listar os participantes.").then(() => "!all (falhou)");
       const people = info.participants.map((p) => p.phone).filter((p) => phoneKey(p) !== phoneKey(WHATSAPP_NUMBER));
-      await say(g, `📢 ${args || "Atenção, pessoal!"}\n\n${people.map(mention).join(" ")}`, people);
+      // menção "escondida": todos são notificados, mas os @ não aparecem na mensagem
+      await say(g, `📢 *Chamando todos os membros!*${args ? `\n\n${args}` : ""}`, people);
       return "!all";
     }
   }
