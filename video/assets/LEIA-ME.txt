@@ -1,0 +1,8 @@
+Coloque aqui os arquivos usados na montagem automática (nomes definidos em premiere/config.jsx):
+
+  intro.mp4    vinheta de abertura (mesmo tamanho/fps das gravações, ex.: 1920x1080 30fps)
+  outro.mp4    tela final (inscreva-se, site www.mlpbcards.com.br, próximos vídeos)
+  musica.mp3   música de fundo SEM direitos autorais (ex.: Biblioteca de áudio do YouTube)
+
+Os arquivos de mídia desta pasta não vão para o Git (veja video/.gitignore).
+A logo vem de marca/logo-mlpb-cards-1235px.png.

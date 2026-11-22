@@ -1,0 +1,8 @@
+assets/*
+!assets/LEIA-ME.txt
+saida/
+__pycache__/
+*.mp4
+*.mov
+*.mp3
+*.wav

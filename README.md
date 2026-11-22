@@ -81,3 +81,7 @@ A URL pública é detectada automaticamente na Vercel. Para trocar a senha do ad
 
 Em **Painel → Importar CSV** há um modelo para baixar. Colunas aceitas:
 `nome; jogo; colecao; numero; raridade; condicao; idioma; preco; estoque; imagem; descricao`. Apenas `nome` e `preco` são obrigatórias.
+
+## Vídeos do canal
+
+Automação de edição (Premiere + Python) para os vídeos do canal: veja [`video/README.md`](video/README.md).
