@@ -1,3 +1,4 @@
+import { CoinIcon } from "@/components/SocialIcons";
 import Link from "next/link";
 import { getModConfig } from "@/lib/moderation";
 import { getPointsConfig } from "@/lib/points";
@@ -82,7 +83,7 @@ export default async function GroupPage() {
 
       {pts.enabled && (
         <section className="card space-y-2 p-5 text-sm">
-          <h2 className="text-xl font-bold">🪙 MLPB Points</h2>
+          <h2 className="flex items-center gap-2 text-xl font-bold"><CoinIcon className="h-6 w-6 text-brand-amber" /> MLPB Points</h2>
           <p>Compras, indicações, avaliações e jogos dão pontos, que você troca por prêmios na loja. <Link href="/pontos" className="text-brand underline">Veja as regras completas →</Link></p>
         </section>
       )}

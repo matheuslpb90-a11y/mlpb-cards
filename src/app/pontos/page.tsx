@@ -1,3 +1,4 @@
+import { CoinIcon } from "@/components/SocialIcons";
 import Link from "next/link";
 import { getPointsConfig } from "@/lib/points";
 import { getGamesConfig } from "@/lib/games";
@@ -32,7 +33,7 @@ export default async function PointsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-3xl font-black">🪙 MLPB Points</h1>
+        <h1 className="flex items-center gap-2 text-3xl font-black"><CoinIcon className="h-8 w-8 text-brand-amber" /> MLPB Points</h1>
         <p className="text-slate-600">Quem participa do nosso grupo do WhatsApp acumula pontos e troca por prêmios na loja.</p>
         {!p.enabled && <p className="mt-2 rounded bg-amber-950/50 p-2 text-sm text-amber-300">O programa ainda vai começar — em breve!</p>}
       </div>

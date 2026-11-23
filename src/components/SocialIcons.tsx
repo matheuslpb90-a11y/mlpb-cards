@@ -12,6 +12,15 @@ export function WhatsIcon({ className = "h-5 w-5" }: { className?: string }) {
     </svg>
   );
 }
+// Moeda MLPB Points (ícone, não emoji — aparece em qualquer aparelho).
+export function CoinIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
+      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2.2a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6z" />
+      <path d="M12 5.6a6.4 6.4 0 1 0 0 12.8A6.4 6.4 0 0 0 12 5.6zm1.5 3.1v1h-3v1.6h2.3c1 0 1.7.6 1.7 1.7s-.7 1.8-1.7 1.8h-.5v1h-1.3v-1h-1.4v-1.4h3c.3 0 .5-.2.5-.4s-.2-.4-.5-.4h-1.4c-1 0-1.6-.7-1.6-1.6s.6-1.6 1.6-1.7v-1h1.3z" />
+    </svg>
+  );
+}
 export function TiktokIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
