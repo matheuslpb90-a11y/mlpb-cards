@@ -155,7 +155,16 @@ async function del(messageId: string) {
 }
 async function removeFromGroup(group: string, phone: string) {
   try {
-    await whapiRemoveParticipants(group, [phone]);
+    // usa o número exatamente como está no grupo (com ou sem o 9 / 55)
+    const find = (i: WGroupInfo | null) => i?.participants.find((p) => phoneKey(p.phone) === phoneKey(phone))?.phone;
+    let info = await groupInfo(group).catch(() => null);
+    let real = find(info);
+    if (!real) {
+      info = await groupInfo(group, true).catch(() => null); // quem acabou de entrar pode não estar na lista guardada
+      real = find(info);
+    }
+    if (info && !real) return true; // não está no grupo: nada a remover
+    await whapiRemoveParticipants(group, [real ?? phone]);
     infoCache.delete(group);
     return true;
   } catch (e) {
@@ -494,19 +503,19 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       if (msg.quotedId) await del(msg.quotedId);
       // remove de todos os grupos moderados
       for (const grp of await moderatedGroups(c)) await removeFromGroup(grp, t).catch(() => false);
-      return say(g, `⛔ ${mention(t)} foi *bloqueado(a)*: removido(a) e não pode mais entrar no grupo.`, [t]).then(() => cmd);
+      return say(g, `⛔ *${fmtPhone(t)}* foi *bloqueado(a)*: removido(a) e não pode mais entrar no grupo.`).then(() => cmd);
     }
     case "!desbloquear":
     case "!unblock": {
       if (!target) return needTarget();
       const before = c.blacklist.length;
       c.blacklist = c.blacklist.filter((b) => phoneKey(b) !== phoneKey(target));
-      if (c.blacklist.length === before) return say(g, `${mention(target)} não está na lista negra.`, [target], msg.id).then(() => cmd);
+      if (c.blacklist.length === before) return say(g, `*${fmtPhone(target)}* não está na lista negra.`, [], msg.id).then(() => cmd);
       await saveModConfig(c);
-      return say(g, `✅ ${mention(target)} saiu da lista negra e pode entrar de novo.`, [target]).then(() => cmd);
+      return say(g, `✅ *${fmtPhone(target)}* saiu da lista negra e pode entrar de novo.`).then(() => cmd);
     }
     case "!bloqueados":
-      return say(g, c.blacklist.length ? `⛔ *Lista negra* (${c.blacklist.length})\n${c.blacklist.map((b) => `• +${b}`).join("\n")}` : "A lista negra está vazia.", [], msg.id).then(() => cmd);
+      return say(g, c.blacklist.length ? `⛔ *Lista negra* (${c.blacklist.length})\n${c.blacklist.map((b) => `• ${fmtPhone(b)}`).join("\n")}` : "A lista negra está vazia.", [], msg.id).then(() => cmd);
     case "!warn":
       if (!target) return needTarget();
       await addWarn({ ...c, notify: true }, g, target, "", reason || "sem motivo informado");
