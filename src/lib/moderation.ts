@@ -31,6 +31,7 @@ export type ModConfig = {
   links: { allow: boolean; whitelist: string[]; blocked: string[]; startHour: number; endHour: number; days: number[] };
   words: string[]; // palavras proibidas
   ddi: { blockForeign: boolean; whitelist: string[] };
+  blacklist: string[]; // números bloqueados: removidos ao entrar ou ao mandar mensagem
   warns: { max: number }; // ao atingir, remove do grupo (0 = nunca remove)
   // parceiros (donos de outros grupos/lojas): podem divulgar links nos dias/horários deles, sem aviso
   partners: { phones: string[]; days: number[]; startHour: number; endHour: number };
@@ -50,6 +51,7 @@ export const DEFAULT_MOD: ModConfig = {
   links: { allow: true, whitelist: ["mlpbcards.com.br", "mlpb-cards.vercel.app", "youtube.com", "youtu.be", "tiktok.com"], blocked: ["chat.whatsapp.com"], startHour: 0, endHour: 24, days: [0, 1, 2, 3, 4, 5, 6] },
   words: [],
   ddi: { blockForeign: true, whitelist: [] },
+  blacklist: [],
   warns: { max: 3 },
   partners: { phones: [], days: [1, 3, 5], startHour: 8, endHour: 20 }, // seg, qua, sex 8h–19:59
   reviews: { proofs: 3, proofMinutes: 5 },
@@ -69,6 +71,7 @@ export async function getModConfig(): Promise<ModConfig> {
       warns: { ...DEFAULT_MOD.warns, ...c.warns },
       partners: { ...DEFAULT_MOD.partners, ...c.partners },
       reviews: { ...DEFAULT_MOD.reviews, ...c.reviews },
+      blacklist: Array.isArray(c.blacklist) ? c.blacklist : [],
     };
   } catch {
     return DEFAULT_MOD;
@@ -129,6 +132,7 @@ function domainsIn(text: string) {
     .filter((d) => /[a-z]/.test(d.split(".").pop() ?? "") && !/^\d+(\.\d+)*$/.test(d));
 }
 const matchesDomain = (d: string, list: string[]) => list.some((x) => { const y = x.trim().toLowerCase().replace(/^www\./, ""); return y && (d === y || d.endsWith(`.${y}`) || (y.includes("/") && d.startsWith(y.split("/")[0]))); });
+const isBlacklisted = (c: ModConfig, phone: string) => c.blacklist.some((b) => phoneKey(b) === phoneKey(phone));
 const KEYCAPS = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
 const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const mention = (phone: string) => `@${phone.replace(/\D/g, "")}`;
@@ -235,6 +239,13 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
   if (msg.fromMe || (await isAdmin(c, msg.group, msg.phone))) return null;
   const k = phoneKey(msg.phone);
 
+  // lista negra: apaga e remove (caso tenha entrado antes de ser bloqueado)
+  if (isBlacklisted(c, msg.phone)) {
+    await del(msg.id);
+    await removeFromGroup(msg.group, msg.phone);
+    return "apagada e removido (lista negra)";
+  }
+
   // silenciado
   const to = await db.modEvent.findFirst({ where: { group: msg.group, phone: k, kind: "TIMEOUT", until: { gt: new Date() } } });
   if (to) {
@@ -336,6 +347,11 @@ export async function onParticipantsAdded(group: string, phones: string[]) {
   if (!c.enabled || !(await moderatedGroups(c)).includes(group)) return;
   const welcome: string[] = [];
   for (const p of phones.map((x) => x.replace(/@.*/, "").replace(/\D/g, "")).filter(Boolean)) {
+    if (isBlacklisted(c, p)) {
+      await removeFromGroup(group, p);
+      await log("moderacao", { acao: "removido (lista negra)", phone: p });
+      continue;
+    }
     const foreign = !p.startsWith("55") && !c.ddi.whitelist.some((w) => w.replace(/\D/g, "") === p);
     if (c.ddi.blockForeign && foreign) {
       await removeFromGroup(group, p);
@@ -368,6 +384,8 @@ const HELP = [
   "",
   "_Admins:_",
   "*!ban* @pessoa — remove do grupo (ou responda a mensagem)",
+  "*!bloquear* @pessoa ou número — remove e coloca na lista negra (não volta mais)",
+  "*!desbloquear* número — tira da lista negra · *!bloqueados* — lista",
   "*!warn* @pessoa motivo — dá um aviso",
   "*!warns* @pessoa — mostra os avisos",
   "*!remove_warn* @pessoa — zera os avisos",
@@ -446,11 +464,13 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, v ? `💵 Dólar agora: *R$ ${v.toFixed(2).replace(".", ",")}*` : "Não consegui consultar o dólar agora.", [], msg.id).then(() => cmd);
   }
 
-  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos", "!jogo"];
+  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!bloquear", "!block", "!blacklist", "!desbloquear", "!unblock", "!bloqueados", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos", "!jogo"];
   if (!ADMIN_CMDS.includes(cmd)) return null;
   if (!msg.fromMe && !(await isAdmin(c, g, msg.phone))) return say(g, "⛔ Esse comando é só para admins.", [], msg.id).then(() => `${cmd} (negado)`);
 
-  const target = msg.mentions[0] || msg.quotedAuthor || (args.match(/\+?\d[\d\s()-]{9,}/)?.[0].replace(/\D/g, "") ?? "");
+  const typed = args.match(/\+?\d[\d\s()-]{9,}/)?.[0].replace(/\D/g, "") ?? "";
+  // número digitado sem o 55 (ex.: 61 99999-8888) → completa com o código do Brasil
+  const target = msg.mentions[0] || msg.quotedAuthor || (typed.length === 10 || typed.length === 11 ? `55${typed}` : typed);
   const needTarget = () => say(g, `Use ${cmd.replace("!", c.prefix || "!")} marcando a pessoa (@) ou respondendo a mensagem dela.`, [], msg.id).then(() => `${cmd} (sem alvo)`);
   const reason = args.replace(/@\d+/g, "").trim();
 
@@ -459,6 +479,32 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       if (!target) return needTarget();
       if (msg.quotedId) await del(msg.quotedId);
       return (await removeFromGroup(g, target)) ? say(g, `🚫 ${mention(target)} foi removido(a).`, [target]).then(() => "!ban") : say(g, "Não consegui remover (o número da loja precisa ser admin).").then(() => "!ban (falhou)");
+    case "!bloquear":
+    case "!block":
+    case "!blacklist": {
+      if (!target) return needTarget();
+      const t = target.replace(/\D/g, "");
+      if (await isAdmin(c, g, t)) return say(g, "Não dá para bloquear um admin.", [], msg.id).then(() => `${cmd} (admin)`);
+      if (!isBlacklisted(c, t)) {
+        c.blacklist.push(t);
+        await saveModConfig(c);
+      }
+      if (msg.quotedId) await del(msg.quotedId);
+      // remove de todos os grupos moderados
+      for (const grp of await moderatedGroups(c)) await removeFromGroup(grp, t).catch(() => false);
+      return say(g, `⛔ ${mention(t)} foi *bloqueado(a)*: removido(a) e não pode mais entrar no grupo.`, [t]).then(() => cmd);
+    }
+    case "!desbloquear":
+    case "!unblock": {
+      if (!target) return needTarget();
+      const before = c.blacklist.length;
+      c.blacklist = c.blacklist.filter((b) => phoneKey(b) !== phoneKey(target));
+      if (c.blacklist.length === before) return say(g, `${mention(target)} não está na lista negra.`, [target], msg.id).then(() => cmd);
+      await saveModConfig(c);
+      return say(g, `✅ ${mention(target)} saiu da lista negra e pode entrar de novo.`, [target]).then(() => cmd);
+    }
+    case "!bloqueados":
+      return say(g, c.blacklist.length ? `⛔ *Lista negra* (${c.blacklist.length})\n${c.blacklist.map((b) => `• +${b}`).join("\n")}` : "A lista negra está vazia.", [], msg.id).then(() => cmd);
     case "!warn":
       if (!target) return needTarget();
       await addWarn({ ...c, notify: true }, g, target, "", reason || "sem motivo informado");

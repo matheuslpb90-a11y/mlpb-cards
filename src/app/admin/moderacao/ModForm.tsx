@@ -38,6 +38,7 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
     blocked: initial.links.blocked.join("\n"),
     words: initial.words.join("\n"),
     ddi: initial.ddi.whitelist.join("\n"),
+    blacklist: initial.blacklist.join("\n"),
     partners: initial.partners.phones.join("\n"),
   });
   const [msg, setMsg] = useState<{ ok?: string; error?: string }>();
@@ -54,6 +55,7 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
         words: txt.words,
         links: { ...c.links, whitelist: txt.whitelist, blocked: txt.blocked },
         ddi: { ...c.ddi, whitelist: txt.ddi },
+        blacklist: txt.blacklist,
         partners: { ...c.partners, phones: txt.partners },
       };
       setMsg(await saveModAction(JSON.stringify(payload)));
@@ -195,6 +197,12 @@ export function ModForm({ initial, groups, botGroup }: { initial: ModConfig; gro
           <label className="label">Exceções (números estrangeiros liberados, um por linha)</label>
           <textarea className="input min-h-16" value={txt.ddi} onChange={(e) => setTxt({ ...txt, ddi: e.target.value })} />
         </div>
+      </section>
+
+      <section className="card space-y-3 p-5">
+        <h2 className="font-semibold">⛔ Lista negra</h2>
+        <p className="text-xs text-slate-500">Números aqui são removidos na hora se entrarem no grupo (ou se mandarem mensagem). Um por linha, com DDD (ex.: 61999998888). No grupo, admins também podem usar <strong>!bloquear</strong> @pessoa, <strong>!desbloquear</strong> número e <strong>!bloqueados</strong>.</p>
+        <textarea className="input min-h-20" placeholder="61999998888" value={txt.blacklist} onChange={(e) => setTxt({ ...txt, blacklist: e.target.value })} />
       </section>
 
       {msg?.error && <p className="rounded bg-red-950/60 p-2 text-sm text-red-300">{msg.error}</p>}
