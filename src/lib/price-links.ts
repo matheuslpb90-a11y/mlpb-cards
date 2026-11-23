@@ -1,12 +1,12 @@
 // Links para conferir o preço atualizado da carta em outros sites.
 // Usados no painel e, para o cliente, abaixo do preço na página da carta.
-// A busca é feita pelo NÚMERO da carta (ex.: "199/165"); se a carta não tiver
-// número cadastrado, cai para o nome, só para o link não abrir vazio.
+// A busca usa NOME + NÚMERO impresso (ex.: "199/165", "TG12/TG30", "SVP053"):
+// com os dois, cai na impressão exata. Se faltar um, usa o que tiver.
 
 const q = (s: string) => encodeURIComponent(s.trim());
 
-/** O que vai na busca: o número, ou o nome se não houver número. */
-const termo = (name: string, number = "") => (number.trim() || name.trim());
+/** O que vai na busca: nome + número (os dois dão a impressão exata). */
+const termo = (name: string, number = "") => `${name.trim()} ${number.trim()}`.trim();
 
 // ---- Brasil ----
 

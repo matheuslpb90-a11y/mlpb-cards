@@ -57,12 +57,20 @@ async function call<T>(path: string): Promise<T> {
   return body;
 }
 
+/** A MYP guarda o código como "pokemon_m6a_036/103"; o número impresso é a parte
+ *  depois do último "_". Sem "_", já é o número (ex.: "199/165", "SVP053"). */
+export function numeroImpresso(cardCode?: string): string {
+  const c = (cardCode || "").trim();
+  if (!c.includes("_")) return c;
+  return c.slice(c.lastIndexOf("_") + 1).trim();
+}
+
 const map = (p: Produto): MypCard => ({
   id: p.internal_code,
   name: p.name_pt || p.name_en || "",
   nameEn: p.name_en || "",
   setName: p.edition_pt || p.edition_en || "",
-  number: p.card_code || "",
+  number: numeroImpresso(p.card_code),
   imageUrl: p.img_pt || p.img_en || "",
   imageAlt: p.img_pt && p.img_en ? p.img_en : "",
   minCents: toCents(p.min_price),
