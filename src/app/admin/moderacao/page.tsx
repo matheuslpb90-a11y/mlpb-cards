@@ -1,8 +1,10 @@
 import { getModConfig } from "@/lib/moderation";
 import { whapiEnabled, whapiGroups } from "@/lib/whapi";
 import { db } from "@/lib/db";
+import { phoneKey } from "@/lib/phone";
 import { ModForm } from "./ModForm";
 import { DeleteReview } from "./DeleteReview";
+import { ReportButtons } from "./ReportButtons";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,7 @@ export default async function ModeracaoPage() {
   const groups = whapiEnabled() ? await whapiGroups().catch(() => []) : [];
   const botGroup = (await db.setting.findUnique({ where: { key: "botGroupId" } }))?.value ?? "";
   const reviews = await db.review.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+  const reports = await db.report.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
   const recent = await db.botLog.findMany({ where: { kind: { in: ["moderacao", "erro-moderacao"] } }, orderBy: { createdAt: "desc" }, take: 30 });
   return (
     <div className="space-y-5">
@@ -22,6 +25,36 @@ export default async function ModeracaoPage() {
         <p>Admins do grupo não são moderados. Comandos: digite <strong>!help</strong> no grupo.</p>
       </div>
       <ModForm initial={config} groups={groups} botGroup={botGroup} />
+      <section className="card space-y-2 p-5 text-sm">
+        <h2 className="text-lg font-bold">🚨 Denúncias (!denunciar)</h2>
+        <p className="text-xs text-slate-500">Membros denunciam com <strong>!denunciar 61999999999</strong>, mandando as fotos de prova e o relato. As denúncias ativas aparecem no <strong>!referencias</strong>. Descarte as falsas ou bloqueie o número.</p>
+        {reports.length === 0 && <p className="text-slate-500">Nenhuma denúncia.</p>}
+        {reports.map((r) => (
+          <div key={r.id} className={`flex flex-wrap items-start gap-2 rounded border p-2 text-xs ${r.status === "ATIVA" ? "border-red-900" : "opacity-50"}`}>
+            <div className="min-w-0 flex-1">
+              <p>
+                🚨 contra <strong>+{r.targetPhone}</strong> · por {r.reporterName || "?"} (+{r.reporterPhone}) · {r.createdAt.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                {r.status !== "ATIVA" && <span className="ml-1 text-slate-500">(descartada)</span>}
+                {config.blacklist.some((b) => phoneKey(b) === r.targetPhone) && <span className="ml-1 text-red-300">⛔ bloqueado</span>}
+              </p>
+              <p className="whitespace-pre-line text-slate-400">“{r.reason}”</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {(JSON.parse(r.proofJson || "[]") as { mediaId: string }[]).map((p, i) =>
+                  p.mediaId ? (
+                    <a key={i} href={`/api/admin/midia/${encodeURIComponent(p.mediaId)}`} target="_blank" rel="noreferrer">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={`/api/admin/midia/${encodeURIComponent(p.mediaId)}`} alt={`prova ${i + 1}`} className="h-16 w-16 rounded border object-cover" />
+                    </a>
+                  ) : (
+                    <span key={i} className="text-slate-500">📎 prova {i + 1}</span>
+                  ),
+                )}
+              </div>
+            </div>
+            <ReportButtons id={r.id} status={r.status} blocked={config.blacklist.some((b) => phoneKey(b) === r.targetPhone)} />
+          </div>
+        ))}
+      </section>
       <section className="card space-y-2 p-5 text-sm">
         <h2 className="text-lg font-bold">⭐ Avaliações (!avaliar / !referencias)</h2>
         <p className="text-xs text-slate-500">Qualquer pessoa do grupo avalia com <strong>!avaliar 61999999999</strong> e consulta com <strong>!referencias 61999999999</strong>. Remova aqui avaliações falsas ou ofensivas.</p>

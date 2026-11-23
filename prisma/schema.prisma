@@ -316,6 +316,21 @@ model Review {
   @@index([targetPhone, createdAt])
 }
 
+// Denúncias de membros contra outros números (!denunciar), sempre com provas (imagens)
+model Report {
+  id            String   @id @default(cuid())
+  targetPhone   String // phoneKey de quem foi denunciado
+  reporterPhone String // phoneKey de quem denunciou
+  reporterName  String   @default("")
+  group         String   @default("")
+  reason        String   @default("")
+  proofJson     String   @default("[]") // [{mediaId, messageId}]
+  status        String   @default("ATIVA") // ATIVA | DESCARTADA
+  createdAt     DateTime @default(now())
+
+  @@index([targetPhone, createdAt])
+}
+
 // MLPB Points: extrato de pontos por membro do grupo (positivo = ganhou, negativo = trocou/ajuste)
 model PointEntry {
   id        String    @id @default(cuid())

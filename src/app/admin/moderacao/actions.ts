@@ -65,3 +65,28 @@ export async function deleteReviewAction(id: string) {
   revalidatePath("/admin/moderacao");
   return { ok: true };
 }
+
+/** Denúncia falsa ou já resolvida: descarta (some do !referencias) ou bloqueia o denunciado. */
+export async function reportAction(id: string, action: "descartar" | "reativar" | "bloquear") {
+  await requireAdmin();
+  const { db } = await import("@/lib/db");
+  const r = await db.report.findUnique({ where: { id } });
+  if (!r) return { ok: false };
+  if (action === "bloquear") {
+    const { getModConfig, saveModConfig, moderatedGroups } = await import("@/lib/moderation");
+    const { whapiRemoveParticipants } = await import("@/lib/whapi");
+    const c = await getModConfig();
+    const { phoneKey } = await import("@/lib/phone");
+    if (!c.blacklist.some((b) => phoneKey(b) === r.targetPhone)) {
+      c.blacklist.push(r.targetPhone);
+      await saveModConfig(c);
+    }
+    for (const g of await moderatedGroups(c)) await whapiRemoveParticipants(g, [r.targetPhone]).catch(() => null);
+    await logActivity("report_block", `Bloqueou ${r.targetPhone} por denúncia`);
+  } else {
+    await db.report.update({ where: { id }, data: { status: action === "descartar" ? "DESCARTADA" : "ATIVA" } });
+    await logActivity("report_status", `Denúncia contra ${r.targetPhone}: ${action}`);
+  }
+  revalidatePath("/admin/moderacao");
+  return { ok: true };
+}

@@ -376,6 +376,7 @@ const HELP = [
   "*!dolar* — cotação do dólar",
   "*!preco* nome da carta — preço no Brasil (ex.: !preco Charizard ex 199/165)",
   "*!avaliar* 61999999999 — avalia uma negociação/entrega (nota de 1 a 5)",
+  "*!denunciar* 61999999999 — denuncia um número (com 3 fotos de prova)",
   "*!referencias* 61999999999 — mostra as avaliações de alguém",
   "*!pontos* — seus MLPB Points · *!ranking* — top do mês",
   "*!pokedex* — seus Pokémon capturados · *!captura* — quando um Pokémon aparecer",
@@ -432,6 +433,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, s.total ? `🤝 ${mention(msg.phone)}, você indicou *${s.total}* pessoa(s): ${s.stayed} completaram 7 dias e ${s.bought} já compraram.` : `🤝 ${mention(msg.phone)}, você ainda não indicou ninguém. Convide amigos para o grupo e peça para eles mandarem *${c.prefix || "!"}indicado* marcando você!`, [msg.phone], msg.id).then(() => cmd);
   }
   if (cmd === "!avaliar") return startReview(c, msg, args).then(() => cmd);
+  if (cmd === "!denunciar" || cmd === "!denuncia" || cmd === "!denúncia") return startReport(c, msg, args).then(() => cmd);
   if (cmd === "!referencias" || cmd === "!referências" || cmd === "!ref") return showReviews(msg, args).then(() => cmd);
   if (cmd === "!preco" || cmd === "!preço") {
     const m = args.trim().match(/^(.*?)(?:\s+#?([A-Za-z]{0,6}\d{1,4}(?:\/[A-Za-z]{0,4}\d{1,4})?))?$/);
@@ -604,7 +606,8 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
 // ---------------- Avaliações (!avaliar / !referencias) ----------------
 
 const REVIEW_SECONDS = 45;
-const RATE_KINDS = ["RATE_PROOF", "RATE_PENDING", "RATE_COMMENT"];
+const RATE_KINDS = ["RATE_PROOF", "RATE_PENDING", "RATE_COMMENT", "REPORT_PROOF", "REPORT_REASON"];
+const REPORT_REASON_MINUTES = 3;
 /** Estado da avaliação guardado no ModEvent: alvo + provas recebidas. */
 function readRate(note: string): { t: string; p: { mediaId: string; messageId: string }[] } {
   try {
@@ -658,6 +661,26 @@ async function startReview(c: ModConfig, msg: InMsg, args: string) {
   );
 }
 
+async function startReport(c: ModConfig, msg: InMsg, args: string) {
+  const P = c.prefix || "!";
+  const target = targetFrom(args, msg);
+  if (!target) return say(msg.group, `Use: *${P}denunciar 61999999999* (o número de quem você quer denunciar).`, [], msg.id);
+  const reporter = phoneKey(msg.phone);
+  if (phoneKey(target) === reporter) return say(msg.group, "Você não pode denunciar a si mesmo. 😅", [], msg.id);
+  if (phoneKey(target) === phoneKey(WHATSAPP_NUMBER)) return say(msg.group, "Problema com a loja? Fale direto com a MLPB no privado que a gente resolve. 🧡", [], msg.id);
+  await db.modEvent.deleteMany({ where: { group: msg.group, phone: reporter, kind: { in: RATE_KINDS } } });
+  const need = Math.max(1, c.reviews.proofs);
+  await db.modEvent.create({
+    data: { group: msg.group, phone: reporter, name: msg.name, kind: "REPORT_PROOF", note: JSON.stringify({ t: phoneKey(target), p: [] }), until: new Date(Date.now() + c.reviews.proofMinutes * 60_000) },
+  });
+  return say(
+    msg.group,
+    `🚨 ${mention(msg.phone)}, para denunciar *${fmtPhone(target)}* mande aqui *${need} imagens* de prova (ex.: print da conversa, comprovante de pagamento, anúncio, rastreio).\nVocê tem ${c.reviews.proofMinutes} minutos. Depois eu peço para você contar o que aconteceu.\n_Denúncia falsa dá advertência._`,
+    [msg.phone],
+    msg.id,
+  );
+}
+
 /** Trata a resposta de quem está no meio de uma avaliação. Devolve o que fez, ou null se não era resposta. */
 async function reviewStep(c: ModConfig, msg: InMsg, text: string): Promise<string | null> {
   const rater = phoneKey(msg.phone);
@@ -666,6 +689,30 @@ async function reviewStep(c: ModConfig, msg: InMsg, text: string): Promise<strin
     orderBy: { createdAt: "desc" },
   });
   if (!pending || /^[!/#.]\w/.test(text)) return null;
+
+  // denúncia: provas e depois o relato
+  if (pending.kind === "REPORT_PROOF") {
+    if (!["image", "album"].includes(msg.type)) return null;
+    const st = readRate(pending.note);
+    st.p.push({ mediaId: msg.mediaId, messageId: msg.id });
+    const need = Math.max(1, c.reviews.proofs);
+    if (st.p.length < need) {
+      await db.modEvent.update({ where: { id: pending.id }, data: { note: JSON.stringify(st) } });
+      return `denúncia: prova ${st.p.length}/${need}`;
+    }
+    await db.modEvent.update({ where: { id: pending.id }, data: { kind: "REPORT_REASON", note: JSON.stringify(st), until: new Date(Date.now() + REPORT_REASON_MINUTES * 60_000) } });
+    await say(msg.group, `✅ ${mention(msg.phone)}, provas recebidas! Agora conte em *uma mensagem* o que aconteceu com *${fmtPhone(st.t)}* (você tem ${REPORT_REASON_MINUTES} minutos).`, [msg.phone], msg.id);
+    return "denúncia: provas completas";
+  }
+  if (pending.kind === "REPORT_REASON") {
+    if (!text || text.length < 5) return null;
+    const st = readRate(pending.note);
+    await db.report.create({ data: { targetPhone: st.t, reporterPhone: rater, reporterName: msg.name, group: msg.group, reason: text.slice(0, 500), proofJson: JSON.stringify(st.p) } });
+    await db.modEvent.delete({ where: { id: pending.id } });
+    const total = await db.report.count({ where: { targetPhone: st.t, status: "ATIVA" } });
+    await say(msg.group, `🚨 Denúncia registrada contra *${fmtPhone(st.t)}* (${total} no total). Obrigado por avisar! Os admins vão analisar.\nConsulte com *${c.prefix || "!"}referencias ${fmtPhone(st.t).replace(/\D/g, "")}*.`, [], msg.id);
+    return `denúncia registrada contra ${st.t}`;
+  }
 
   // etapa das provas: conta as imagens da pessoa
   if (pending.kind === "RATE_PROOF") {
@@ -717,8 +764,27 @@ async function showReviews(msg: InMsg, args: string) {
   const target = targetFrom(args, msg);
   if (!target) return say(msg.group, "Use: *!referencias 61999999999* (o número da pessoa).", [], msg.id);
   const key = phoneKey(target);
-  const all = await db.review.findMany({ where: { targetPhone: key }, orderBy: { createdAt: "desc" } });
-  if (all.length === 0) return say(msg.group, `📋 *${fmtPhone(target)}* ainda não tem avaliações.`, [], msg.id);
+  const [all, reports, member] = await Promise.all([
+    db.review.findMany({ where: { targetPhone: key }, orderBy: { createdAt: "desc" } }),
+    db.report.findMany({ where: { targetPhone: key, status: "ATIVA" }, orderBy: { createdAt: "desc" } }),
+    import("./points").then((p) => p.groupMembers()).then((s) => (s ? s.has(key) : null)).catch(() => null),
+  ]);
+  const isStore = key === phoneKey(WHATSAPP_NUMBER);
+  const memberLine = isStore ? "🏪 *Loja MLPB Cards*" : member === true ? "✅ *Membro do grupo*" : member === false ? "⚠️ *Não é membro do grupo* — cuidado ao negociar" : "";
+  const blocked = (await getModConfig()).blacklist.some((b) => phoneKey(b) === key);
+  const reportLines = reports.slice(0, 5).map((r) => {
+    const d = r.createdAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+    const who = r.reporterName ? r.reporterName.split(" ")[0] : `…${r.reporterPhone.slice(-4)}`;
+    const proofs = (JSON.parse(r.proofJson || "[]") as unknown[]).length;
+    return `🚨 ${who} · ${d} · 📎 ${proofs} provas\n   “${r.reason.slice(0, 140)}${r.reason.length > 140 ? "…" : ""}”`;
+  });
+  const reportBlock = [
+    blocked ? "⛔ *Este número está na lista negra do grupo.*" : "",
+    reports.length ? `\n🚨 *${reports.length} ${reports.length > 1 ? "denúncias" : "denúncia"}*` : "",
+    ...reportLines,
+  ].filter(Boolean);
+  if (all.length === 0)
+    return say(msg.group, [`📋 *Referências de ${fmtPhone(target)}*`, memberLine, "Ainda não tem avaliações.", ...reportBlock].filter(Boolean).join("\n"), [], msg.id);
   const avg = all.reduce((s, r) => s + r.rating, 0) / all.length;
   const shown = all.slice(0, 20);
   const lines = shown.map((r) => {
@@ -731,11 +797,13 @@ async function showReviews(msg: InMsg, args: string) {
     msg.group,
     [
       `📋 *Referências de ${fmtPhone(target)}*`,
+      memberLine,
       `Média: *${avg.toFixed(1).replace(".", ",")}* ${stars(Math.round(avg))} (${all.length} ${all.length > 1 ? "avaliações" : "avaliação"})`,
       "",
       ...lines,
       all.length > shown.length ? `\n…e mais ${all.length - shown.length} avaliações antigas.` : "",
-    ].join("\n").trim(),
+      ...reportBlock,
+    ].filter((l) => l !== "").join("\n").trim(),
     [],
     msg.id,
   );
