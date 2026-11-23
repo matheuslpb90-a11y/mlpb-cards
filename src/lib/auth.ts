@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
@@ -16,6 +16,12 @@ export async function verifyPassword(pw: string, hash: string) {
   return bcrypt.compare(pw, hash);
 }
 
+/** O login vale em mlpbcards.com.br e www.mlpbcards.com.br (mesmo cookie para os dois). */
+export async function cookieDomain() {
+  const host = ((await headers()).get("host") ?? "").split(":")[0].toLowerCase();
+  return host === "mlpbcards.com.br" || host.endsWith(".mlpbcards.com.br") ? ".mlpbcards.com.br" : undefined;
+}
+
 export async function createSession(userId: string, opts: { pending2fa?: boolean } = {}) {
   const id = randomBytes(32).toString("hex");
   // sessão "pendente" (falta o código do aplicativo) vale só 10 minutos
@@ -27,6 +33,7 @@ export async function createSession(userId: string, opts: { pending2fa?: boolean
     secure: process.env.NODE_ENV === "production",
     path: "/",
     expires: expiresAt,
+    domain: await cookieDomain(),
   });
 }
 
@@ -35,6 +42,8 @@ export async function destroySession() {
   const id = jar.get(COOKIE)?.value;
   if (id) await db.session.deleteMany({ where: { id } });
   jar.delete(COOKIE);
+  const domain = await cookieDomain();
+  if (domain) jar.set(COOKIE, "", { path: "/", domain, maxAge: 0 });
 }
 
 export async function getCurrentUser() {
@@ -42,6 +51,9 @@ export async function getCurrentUser() {
   if (!id) return null;
   const session = await db.session.findUnique({ where: { id }, include: { user: true } });
   if (!session || session.expiresAt < new Date() || session.pending2fa) return null;
+  // sessão "deslizante": quem usa o site continua logado (renova no banco 1x por dia)
+  if (session.expiresAt.getTime() - Date.now() < (SESSION_DAYS - 1) * 86400_000)
+    await db.session.update({ where: { id }, data: { expiresAt: new Date(Date.now() + SESSION_DAYS * 86400_000) } }).catch(() => {});
   return session.user;
 }
 
