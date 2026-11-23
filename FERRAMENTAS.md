@@ -14,7 +14,6 @@ Animação e vídeo (feitos em código, sem After Effects):
 - **motion-graphics-skills** (15 skills: milestone-reveal, animated-chart, vox-explainer, reel-export…).
 - **klik** (klik-anim, klik-cam, klik-remotion-method) e **remotion** (skills oficiais) — motion em Remotion.
 - **motion-dev-animations**, **motion-design-lottie**, **awesome-motion** (5 skills), **barty motion-graphics** (b-roll, efeitos sonoros, recorte).
-- **motion-canvas** — vídeo animado em código com editor visual (alternativa ao Remotion; já coberto). (github.com/motion-canvas/motion-canvas)
 - Motor de som procedural em `video/motion/` (põe som sem direitos autorais).
 - **herk-edit-kit** em `video/herk-edit-kit/` — edição de vídeo com IA (cortar silêncio, Shorts, legendas).
 
@@ -40,6 +39,7 @@ Negócio e pesquisa:
 ## Bibliotecas que dá para somar ao site
 - **pdfme** — gerar PDF (recibo/nota do pedido, etiqueta, comprovante) direto no site. Grátis, MIT. (github.com/pdfme/pdfme)
 - **presidio** (Microsoft) — detectar e esconder dados pessoais (CPF, telefone) em textos/logs, para LGPD. Serviço Python, mais pesado. (github.com/microsoft/presidio)
+- **motion-canvas** — vídeo animado em código (alternativa ao Remotion/HyperFrames, que você já tem). Não precisa. (github.com/motion-canvas/motion-canvas)
 
 ## Serviços de IA pagos por uso (só com conta e crédito)
 - **Higgsfield API** — b-roll cinematográfico (o `higgsfield.py` do kit já usa).
