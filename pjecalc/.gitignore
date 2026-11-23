@@ -1,0 +1,14 @@
+# dados de clientes NUNCA entram no repositório (público)
+casos/
+*.pdf
+*.zip
+*.exe
+*.idc
+*.IDC
+*.pjc
+*.PJC
+!modelo/modelo_confea_anonimo.PJC
+caso.json
+config.json
+meses.json
+*.png

@@ -1,0 +1,27 @@
+{
+ "partes": {"nome": "FULANO DE TAL", "cpf": "00000000000", "cpf_formatado": "000.000.000-00", "pis": "00000000000"},
+ "admissao": "02/05/2012",
+ "bases_historico": {
+  "PADRÃO SALARIAL PAGO": "padrao",
+  "SALÁRIO DEVIDO - DIEESE": "devido",
+  "SALÁRIO PAGO": "pago"
+ },
+ "verbas_clonadas_da_he50": [
+  {"nome": "HORAS EXTRAS 100% SOBRE DIFERENÇA SALARIAL", "descricao": "HORAS EXTRAS 100%", "multiplicador": "2.00000000000000000000000", "campo": "he100"},
+  {"nome": "ADICIONAL NOTURNO 25% SOBRE DIFERENÇA SALARIAL", "descricao": "ADICIONAL NOTURNO", "multiplicador": "0.25000000000000000000000", "campo": "an"}
+ ],
+ "ferias": [
+  {"relativa": "2017/2018",
+   "dataInicialDoPeriodoAquisitivo": "02/05/2017", "dataFinalDoPeriodoAquisitivo": "01/05/2018",
+   "dataInicialDoPeriodoConcessivo": "02/05/2018", "dataFinalDoPeriodoConcessivo": "01/05/2019",
+   "situacao": "GOZADAS", "gozos": [["17/03/2019", "05/04/2019"]], "abono": true},
+  {"relativa": "2025/2026",
+   "dataInicialDoPeriodoAquisitivo": "02/05/2025", "dataFinalDoPeriodoAquisitivo": "01/05/2026",
+   "dataInicialDoPeriodoConcessivo": "02/05/2026", "dataFinalDoPeriodoConcessivo": "01/05/2027",
+   "situacao": "NAO_GOZADAS", "gozos": []}
+ ],
+ "meses": [
+  {"ref": "02/2019", "padrao": 43, "devido": "12000.00", "pago": "10000.00", "he50": "2.40", "he100": "0", "an": "0"},
+  {"ref": "03/2019", "padrao": 44, "devido": "12300.00", "pago": "10300.00", "he50": "0", "he100": "0", "an": "0"}
+ ]
+}

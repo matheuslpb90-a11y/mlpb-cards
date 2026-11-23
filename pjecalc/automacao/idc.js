@@ -1,0 +1,26 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
+  await p.goto('http://localhost:9257/pjecalc/', { waitUntil: 'networkidle' });
+  await p.getByText('Tabelas', { exact: true }).first().click();
+  await p.waitForTimeout(800);
+  await p.getByRole('link', { name: 'Atualização de Tabelas e Índices' }).first().click();
+  await p.waitForLoadState('networkidle');
+  await p.waitForTimeout(1500);
+  await p.getByText('Via Arquivo', { exact: true }).first().click();
+  await p.waitForTimeout(1500);
+  const inputs = await p.$$('input[type=file]');
+  console.log('file inputs', inputs.length);
+  await inputs[0].setInputFiles(process.argv[2]);
+  await p.waitForTimeout(2000);
+  await p.screenshot({ path: 'idc1.png' });
+  const btn = p.getByText('Importar', { exact: true });
+  console.log('importar btns', await btn.count());
+  await btn.last().click();
+  await p.waitForLoadState('networkidle', { timeout: 600000 });
+  await p.waitForTimeout(5000);
+  await p.screenshot({ path: 'idc2.png' });
+  console.log('BODY:', (await p.innerText('body')).replace(/\s+/g, ' ').slice(0, 1200));
+  await b.close();
+})();
