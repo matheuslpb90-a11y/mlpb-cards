@@ -72,6 +72,11 @@ export function CardLookup({ onPick, defaultLanguage }: { onPick: (r: LookupResu
           ? `/api/admin/buscar-carta?q=${encodeURIComponent(q.trim())}&num=${encodeURIComponent(num.trim())}&idioma=${encodeURIComponent(lang)}`
           : `/api/admin/buscar-carta?codigo=${encodeURIComponent(num.trim())}&idioma=${encodeURIComponent(lang)}`,
       );
+      if (r.status === 401 || r.status === 403) {
+        setStatus("Sua sessão expirou. Saia e entre de novo em /entrar e tente outra vez.");
+        setBusy(false);
+        return;
+      }
       const d = (await r.json()) as { results?: LookupCard[]; source?: string; message?: string; error?: string; attribution?: string; warning?: string };
       const list = d.results ?? [];
       setResults(list);
