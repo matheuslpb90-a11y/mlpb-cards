@@ -18,6 +18,7 @@ a partir dos documentos do processo.
 | `ferramentas/anonimizar_modelo.py` | Gera um modelo sem dados pessoais a partir de um .PJC real |
 | `confea/` | Extração de dados e regras específicas das execuções contra o CONFEA (piso DIEESE) |
 | `modelo/modelo_confea_anonimo.PJC` | Modelo do cálculo CONFEA (PJe-Calc 2.16.0), sem dados pessoais |
+| `CLAUDE_AMBIENTE.md` | Instruções carregadas automaticamente nas sessões do ambiente "Advocacia" |
 | `exemplo_caso.json` | Formato do arquivo de dados de um caso (valores fictícios) |
 
 ## 1. Subir o PJe-Calc
