@@ -1,0 +1,29 @@
+{
+  "_doc": "Exemplo de 'job' de renderização. Copie, renomeie (ex.: abertura-151.json) e ajuste. Caminhos relativos à pasta do job.",
+
+  "nome": "abertura-151",
+
+  "cameras": [
+    { "arquivo": "brutos/cam-principal.mp4", "principal": true },
+    { "arquivo": "brutos/cam-maos.mp4", "offset": 0.0 }
+  ],
+  "_cameras_doc": "A câmera 'principal' manda no tempo e no áudio. 'offset' em segundos alinha as outras (deixe 0 e use --sincronizar para alinhar pelo áudio).",
+
+  "audio": { "de": "principal", "limparVoz": true, "normalizar": true },
+
+  "cortes": [
+    { "ini": "0:00", "fim": "0:45", "camera": 0 },
+    { "ini": "0:45", "fim": "1:10", "camera": 1 },
+    { "ini": "1:10", "fim": "3:20", "camera": 0 }
+  ],
+  "_cortes_doc": "Lista de trechos na linha do tempo da câmera principal, cada um escolhendo qual câmera aparece. Vazio = usa a câmera principal inteira.",
+
+  "graficos": {
+    "projeto": "../animacoes",
+    "tipo": "hyperframes",
+    "_doc": "Camada de animação/identidade visual por cima (Remotion ou HyperFrames). Renderizada com fundo transparente e sobreposta. Deixe null para não usar."
+  },
+
+  "formatos": ["youtube", "tiktok"],
+  "qualidade4k": false
+}

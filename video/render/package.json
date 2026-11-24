@@ -1,0 +1,14 @@
+{
+  "name": "mlpb-render",
+  "private": true,
+  "type": "module",
+  "description": "Renderização de vídeo da MLPB Cards: local, GitHub Actions ou AWS Lambda. Multicâmera 4K, FFmpeg + Remotion, YouTube + TikTok ao mesmo tempo.",
+  "bin": { "mlpb-render": "orchestrator/render.mjs" },
+  "scripts": {
+    "estimar": "node orchestrator/render.mjs",
+    "render": "node orchestrator/render.mjs"
+  },
+  "optionalDependencies": {
+    "@vercel/blob": "^2.9.0"
+  }
+}

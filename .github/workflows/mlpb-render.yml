@@ -1,0 +1,66 @@
+# Renderização remota de vídeo da MLPB Cards no GitHub Actions.
+# Roda SÓ quando você manda (workflow_dispatch) — nunca sozinho, nunca em push.
+# O orquestrador (video/render) dispara este workflow com a URL de um pacote
+# (job + brutos) no armazenamento externo; aqui ele é baixado, renderizado e o
+# resultado volta como "artifact" para download.
+name: MLPB Render
+
+on:
+  workflow_dispatch:
+    inputs:
+      pacote_url:
+        description: "URL do pacote .zip (job + brutos) no armazenamento externo"
+        required: true
+      nome:
+        description: "Nome do vídeo (só para rotular)"
+        required: false
+        default: "video"
+      destino:
+        description: "Armazenamento de origem dos brutos (vercel-blob ou s3)"
+        required: false
+        default: "github-artifact"
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Conferir FFmpeg
+        run: ffmpeg -version | head -1   # já vem instalado no runner ubuntu
+
+      - name: Baixar e descompactar o pacote (job + brutos)
+        run: |
+          mkdir -p trabalho
+          curl -fsSL "${{ inputs.pacote_url }}" -o pacote.zip
+          unzip -q pacote.zip -d trabalho
+          echo "Conteúdo:"; find trabalho -maxdepth 2 -type f | head -50
+
+      - name: Achar o arquivo do job
+        id: job
+        run: |
+          JOB=$(grep -rl '"cameras"' --include='*.json' trabalho | head -1)
+          if [ -z "$JOB" ]; then echo "Não achei o job (.json com 'cameras')"; exit 1; fi
+          echo "arquivo=$JOB" >> "$GITHUB_OUTPUT"
+          echo "Job: $JOB"
+
+      - name: Renderizar (local dentro da Action)
+        run: node video/render/orchestrator/render.mjs "${{ steps.job.outputs.arquivo }}" --backend local --sim
+
+      - name: Enviar os vídeos finalizados como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlpb-${{ inputs.nome }}
+          path: trabalho/**/out/*.mp4
+          if-no-files-found: error
+          retention-days: 7

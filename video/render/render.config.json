@@ -1,0 +1,49 @@
+{
+  "_doc": "Padrões do sistema de renderização. Cada job pode sobrescrever qualquer campo. Veja README.md.",
+
+  "backend": "local",
+  "_backend_opcoes": ["local", "github", "lambda"],
+
+  "formatos": ["youtube", "tiktok"],
+  "_formatos_doc": "youtube = 16:9 1920x1080 (ou 3840x2160 em 4K); tiktok/shorts = 9:16 1080x1920.",
+
+  "fps": 30,
+  "qualidade4k": false,
+
+  "codec": {
+    "video": "libx264",
+    "crf": 18,
+    "preset": "medium",
+    "pixfmt": "yuv420p",
+    "audio": "aac",
+    "audioKbps": 256
+  },
+
+  "pastas": {
+    "brutos": "brutos",
+    "saida": "out",
+    "graficos": "graficos"
+  },
+
+  "armazenamento": {
+    "destino": "github-artifact",
+    "_destino_opcoes": ["nenhum", "github-artifact", "vercel-blob", "s3"],
+    "s3": { "bucket": "", "prefixo": "mlpb-render/", "endpoint": "", "regiao": "auto" }
+  },
+
+  "custo": {
+    "_doc": "Valores estimados em US$. Ajuste conforme seu plano. 'fatorRender' = quantos minutos de máquina por minuto de vídeo (chute por formato/4K).",
+    "local": { "usdPorMin": 0.0 },
+    "github": {
+      "usdPorMinPrivado": 0.008,
+      "_doc_github": "Runner ubuntu 2-core: US$0,008/min em repo privado; repo público e 2000 min/mês são grátis.",
+      "gratisPorMes": 2000
+    },
+    "lambda": {
+      "usdPorGbSegundo": 0.0000166667,
+      "memoriaMb": 2048,
+      "_doc_lambda": "Remotion Lambda cobra por GB-segundo; 4K usa mais. Só com conta AWS."
+    },
+    "fatorRender": { "1080p": 1.5, "4k": 6.0 }
+  }
+}

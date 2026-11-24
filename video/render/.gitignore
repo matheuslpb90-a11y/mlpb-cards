@@ -1,0 +1,14 @@
+# Os vídeos pesados NUNCA vão para o Git (brutos e finalizados ficam fora).
+out/
+brutos/
+graficos/
+jobs/**/out/
+jobs/**/brutos/
+jobs/**/graficos/
+*.mp4
+*.mov
+*.webm
+*.wav
+*.pcm
+*.zip
+node_modules/

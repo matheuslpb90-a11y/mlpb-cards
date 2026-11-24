@@ -117,3 +117,10 @@ As receitas ficam em `receitas_broll.json`; dá para editar ou criar novas.
 - **O script pede um preset `.epr`**: no Media Encoder, salve um preset H.264 e coloque o caminho em `PRESET_EPR` no `config.jsx`.
 - **Logo fora do lugar**: ajuste `LOGO_POSICAO`, `LOGO_ESCALA` e `LOGO_OPACIDADE` no `config.jsx`.
 - **Intro com tamanho diferente das gravações**: a sequência usa o formato do primeiro clipe (a intro). Exporte a intro no mesmo formato da câmera.
+
+## Renderização final (local ou nuvem)
+
+Para finalizar o vídeo — juntar multicâmera, tratar áudio, pôr a camada Remotion e exportar
+**YouTube + TikTok ao mesmo tempo**, no seu PC ou na nuvem (GitHub Actions / AWS Lambda) —
+veja [`render/README.md`](render/README.md). Estima o custo antes, mostra o progresso, baixa o
+resultado, guarda os pesados fora do Git e preserva os brutos.
