@@ -8,6 +8,9 @@ import { registerTextBid, registerVote, runSchedule } from "@/lib/auctions";
 // Recebe eventos da Z-API (configure em Webhooks → "Ao receber").
 // Votos de enquete chegam com um campo de "pollVote"; os nomes variam entre versões,
 // por isso a leitura é tolerante e tudo fica registrado em Painel → Bot WhatsApp.
+// apagar fotos pode precisar de algumas tentativas (até ~20s)
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   const key = new URL(req.url).searchParams.get("key");
   const saved = (await db.setting.findUnique({ where: { key: "botWebhookKey" } }))?.value;

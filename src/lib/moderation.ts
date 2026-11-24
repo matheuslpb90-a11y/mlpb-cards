@@ -145,13 +145,20 @@ async function say(group: string, text: string, mentions: string[] = [], quoted?
   }
 }
 async function del(messageId: string) {
-  try {
-    await whapiDeleteMessage(messageId);
-    return true;
-  } catch (e) {
-    await log("erro-moderacao", { acao: "apagar", messageId, error: String(e) });
-    return false;
+  // Fotos e vídeos chegam no aviso antes de a Whapi terminar de processar: se der erro, tenta de novo.
+  const waits = [0, 2000, 5000, 10000];
+  let last = "";
+  for (const ms of waits) {
+    if (ms) await new Promise((r) => setTimeout(r, ms));
+    try {
+      await whapiDeleteMessage(messageId);
+      return true;
+    } catch (e) {
+      last = String(e);
+    }
   }
+  await log("erro-moderacao", { acao: "apagar", messageId, error: last });
+  return false;
 }
 async function removeFromGroup(group: string, phone: string) {
   try {
