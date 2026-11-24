@@ -411,6 +411,7 @@ const HELP = [
   "*!ban* @pessoa — remove do grupo (ou responda a mensagem)",
   "*!bloquear* @pessoa ou número — remove e coloca na lista negra (não volta mais)",
   "*!desbloquear* número — tira da lista negra · *!bloqueados* — lista",
+  "*!escanear* — procura no grupo quem está na lista negra (remove) ou tem denúncias",
   "*!warn* @pessoa motivo — dá um aviso",
   "*!warns* @pessoa — mostra os avisos",
   "*!remove_warn* @pessoa — zera os avisos",
@@ -490,7 +491,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, v ? `💵 Dólar agora: *R$ ${v.toFixed(2).replace(".", ",")}*` : "Não consegui consultar o dólar agora.", [], msg.id).then(() => cmd);
   }
 
-  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!bloquear", "!block", "!blacklist", "!desbloquear", "!unblock", "!bloqueados", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos", "!jogo"];
+  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!bloquear", "!block", "!blacklist", "!desbloquear", "!unblock", "!bloqueados", "!escanear", "!varrer", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos", "!jogo"];
   if (!ADMIN_CMDS.includes(cmd)) return null;
   if (!msg.fromMe && !(await isAdmin(c, g, msg.phone))) return say(g, "⛔ Esse comando é só para admins.", [], msg.id).then(() => `${cmd} (negado)`);
 
@@ -528,6 +529,25 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       if (c.blacklist.length === before) return say(g, `*${fmtPhone(target)}* não está na lista negra.`, [], msg.id).then(() => cmd);
       await saveModConfig(c);
       return say(g, `✅ *${fmtPhone(target)}* saiu da lista negra e pode entrar de novo.`).then(() => cmd);
+    }
+    case "!escanear":
+    case "!varrer": {
+      // procura no grupo quem está na lista negra (remove) e quem tem denúncias (só avisa)
+      const info = await groupInfo(g, true).catch(() => null);
+      if (!info) return say(g, "Não consegui listar os participantes agora.", [], msg.id).then(() => `${cmd} (falhou)`);
+      const members = info.participants.filter((p) => !p.admin && phoneKey(p.phone) !== phoneKey(WHATSAPP_NUMBER));
+      const blocked = members.filter((p) => isBlacklisted(c, p.phone));
+      for (const p of blocked) await removeFromGroup(g, p.phone);
+      const keys = members.map((p) => phoneKey(p.phone));
+      const reported = await db.report.groupBy({ by: ["targetPhone"], where: { status: "ATIVA", targetPhone: { in: keys } }, _count: true });
+      const lines = [
+        `🔎 *Varredura do grupo* (${members.length} membros)`,
+        blocked.length ? `\n⛔ *Na lista negra — removidos (${blocked.length}):*\n${blocked.map((p) => `• ${fmtPhone(p.phone)}`).join("\n")}` : "\n✅ Ninguém da lista negra está no grupo.",
+        reported.length
+          ? `\n🚨 *Com denúncias (${reported.length}):*\n${reported.map((r) => `• ${fmtPhone(r.targetPhone)} — ${r._count} denúncia(s)`).join("\n")}\nUse *${c.prefix || "!"}referencias número* para ver ou *${c.prefix || "!"}bloquear número* para remover.`
+          : "✅ Nenhum membro com denúncia.",
+      ];
+      return say(g, lines.join("\n"), [], msg.id).then(() => `${cmd}: ${blocked.length} removido(s), ${reported.length} com denúncia`);
     }
     case "!bloqueados":
       return say(g, c.blacklist.length ? `⛔ *Lista negra* (${c.blacklist.length})\n${c.blacklist.map((b) => `• ${fmtPhone(b)}`).join("\n")}` : "A lista negra está vazia.", [], msg.id).then(() => cmd);
