@@ -39,7 +39,7 @@ export async function saveModAction(json: string): Promise<{ ok?: string; error?
     },
     words: lines(c.words),
     ddi: { blockForeign: Boolean(c.ddi?.blockForeign), whitelist: lines(c.ddi?.whitelist).map((p) => p.replace(/\D/g, "")) },
-    whitelistV2: true,
+    whitelistV3: true,
     blacklist: lines(c.blacklist).map((p) => p.replace(/\D/g, "")).filter((p) => p.length >= 10),
     warns: { max: int(c.warns?.max, 0, 20, 3) },
     reviews: { proofs: int(c.reviews?.proofs, 0, 10, 3), proofMinutes: int(c.reviews?.proofMinutes, 1, 60, 5) },
