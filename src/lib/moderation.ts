@@ -31,6 +31,7 @@ export type ModConfig = {
   links: { allow: boolean; whitelist: string[]; blocked: string[]; startHour: number; endHour: number; days: number[] };
   words: string[]; // palavras proibidas
   ddi: { blockForeign: boolean; whitelist: string[] };
+  whitelistV2?: boolean; // marca de ajuste já aplicado (YouTube/TikTok fora dos liberados)
   blacklist: string[]; // números bloqueados: removidos ao entrar ou ao mandar mensagem
   warns: { max: number }; // ao atingir, remove do grupo (0 = nunca remove)
   // parceiros (donos de outros grupos/lojas): podem divulgar links nos dias/horários deles, sem aviso
@@ -48,7 +49,7 @@ export const DEFAULT_MOD: ModConfig = {
   welcome: { enabled: true, text: "Bem-vindo(a) ao grupo, {nome}! 🧡\nLeia as regras com *{prefixo}regras*." },
   rules: "1. Respeito sempre.\n2. Anúncios só nos dias e limites permitidos.\n3. Proibido links de outros grupos.",
   ads: { enabled: false, maxPerDay: 3, maxPhotos: 3, days: [0, 1, 2, 3, 4, 5, 6] },
-  links: { allow: true, whitelist: ["mlpbcards.com.br", "mlpb-cards.vercel.app", "youtube.com", "youtu.be", "tiktok.com"], blocked: ["chat.whatsapp.com"], startHour: 0, endHour: 24, days: [0, 1, 2, 3, 4, 5, 6] },
+  links: { allow: true, whitelist: ["mlpbcards.com.br", "mlpb-cards.vercel.app", "leilomania.com.br"], blocked: ["chat.whatsapp.com"], startHour: 0, endHour: 24, days: [0, 1, 2, 3, 4, 5, 6] },
   words: [],
   ddi: { blockForeign: true, whitelist: [] },
   blacklist: [],
@@ -60,7 +61,14 @@ export const DEFAULT_MOD: ModConfig = {
 export async function getModConfig(): Promise<ModConfig> {
   const s = await db.setting.findUnique({ where: { key: "modConfig" } });
   try {
-    const c = JSON.parse(s?.value ?? "{}") as Partial<ModConfig>;
+    const c = JSON.parse(s?.value ?? "{}") as Partial<ModConfig> & { whitelistV2?: boolean };
+    // YouTube/TikTok saíram da lista de sempre liberados: links de membros seguem os dias/horários (1x, ajuste da loja)
+    if (s && !c.whitelistV2) {
+      const drop = ["youtube.com", "youtu.be", "tiktok.com"];
+      if (c.links?.whitelist) c.links.whitelist = c.links.whitelist.filter((d) => !drop.includes(d.trim().toLowerCase().replace(/^www\./, "")));
+      c.whitelistV2 = true;
+      await db.setting.update({ where: { key: "modConfig" }, data: { value: JSON.stringify(c) } });
+    }
     return {
       ...DEFAULT_MOD,
       ...c,
