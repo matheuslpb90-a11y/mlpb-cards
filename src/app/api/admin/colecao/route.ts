@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     const id = u.searchParams.get("id");
     if (!id) return NextResponse.json({ sets: await listSets() });
     const set = await getSet(id);
-    const variants = await variantsForSet([set.nameEn, set.namePt, u.searchParams.get("nome") ?? ""]);
+    const variants = await variantsForSet([set.nameEn, set.namePt, u.searchParams.get("nome") ?? ""], set.cards);
     return NextResponse.json({ set, variants });
   } catch (e) {
     return NextResponse.json({ error: `Não consegui consultar a base de cartas agora (${String(e)}). Tente de novo em instantes.` }, { status: 502 });

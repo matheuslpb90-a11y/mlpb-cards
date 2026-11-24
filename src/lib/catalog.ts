@@ -47,7 +47,13 @@ export function languageFlag(lang: string) {
 }
 
 /** Número da carta para comparar ("001/217", "1/217" e "1" são a mesma carta). */
-export const numKey = (n: string) => (n.split("/")[0] ?? "").trim().replace(/^0+(?=\w)/, "").toLowerCase();
+export const numKey = (n: string) => {
+  const head = (n.split("/")[0] ?? "").trim().toLowerCase().replace(/[\s#.-]/g, "");
+  // "ASC 001", "#001" e "001" são o mesmo número; promos como "SVP053" ficam como estão
+  const m = head.match(/^[a-z]{2,4}(\d+)$/);
+  const core = m && !/^(svp|swsh|sm|xy|bw|hgss|dp|np|pop)/.test(head) ? m[1] : head;
+  return core.replace(/^0+(?=\w)/, "");
+};
 
 /**
  * Cada versão de uma carta é um item de estoque separado: mesma carta (coleção + número)

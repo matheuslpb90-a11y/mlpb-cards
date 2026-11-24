@@ -17,7 +17,7 @@ export type BulkItem = {
  * Salva várias cartas de uma coleção. Para cada carta, a versão (idioma + tipo + estado) que já existir
  * é ATUALIZADA (estoque e preço); se não existir, é criada. Assim nunca duplica o estoque.
  */
-export async function bulkSaveCardsAction(setName: string, otherSetNames: string[], items: BulkItem[]) {
+export async function bulkSaveCardsAction(setName: string, otherSetNames: string[], items: BulkItem[], setCards: { number: string; name: string; namePt?: string }[] = []) {
   await requireAdmin();
   const name = setName.trim();
   if (!name) return { error: "Informe o nome da coleção." };
@@ -28,7 +28,8 @@ export async function bulkSaveCardsAction(setName: string, otherSetNames: string
   if (bad) return { error: `Confira o preço e a quantidade de "${bad.name}" (${bad.number}).` };
   if (!ok.length) return { error: "Nenhuma carta selecionada." };
 
-  const existing = await variantsForSet([name, ...otherSetNames]);
+  const cardsIdx = setCards.length ? setCards : items.map((i) => ({ number: i.number, name: i.name }));
+  const existing = await variantsForSet([name, ...otherSetNames], cardsIdx);
   let created = 0, updated = 0;
   for (const i of ok) {
     const same = existing.find((e) => numKey(e.number) === numKey(i.number) && e.language === i.language && e.finish === i.finish && e.condition === i.condition);
@@ -47,5 +48,5 @@ export async function bulkSaveCardsAction(setName: string, otherSetNames: string
   revalidatePath("/");
   revalidatePath("/catalogo");
   revalidatePath("/admin/cartas");
-  return { ok: `Salvo ✔ ${created} nova(s), ${updated} atualizada(s).`, variants: await variantsForSet([name, ...otherSetNames]) };
+  return { ok: `Salvo ✔ ${created} nova(s), ${updated} atualizada(s).`, variants: await variantsForSet([name, ...otherSetNames], cardsIdx) };
 }

@@ -4,7 +4,7 @@ import "server-only";
 const API = "https://api.tcgdex.net/v2";
 
 export type TcgSet = { id: string; nameEn: string; namePt: string; logo: string; total: number; official: number; releaseDate: string };
-export type TcgSetCard = { tcgdexId: string; localId: string; number: string; name: string; image: string; imageLarge: string };
+export type TcgSetCard = { tcgdexId: string; localId: string; number: string; name: string; namePt: string; image: string; imageLarge: string };
 
 async function get<T>(path: string, revalidate = 86400): Promise<T> {
   const r = await fetch(`${API}${path}`, { headers: { Accept: "application/json" }, next: { revalidate }, signal: AbortSignal.timeout(15000) });
@@ -37,7 +37,8 @@ export async function getSet(id: string) {
   const s = await get<RawSet & { releaseDate?: string; cards?: { id: string; localId: string; name: string; image?: string }[]; serie?: { name: string } }>(
     `/en/sets/${encodeURIComponent(id)}`,
   );
-  const pt = await get<{ name?: string }>(`/pt/sets/${encodeURIComponent(id)}`).catch(() => ({ name: "" }));
+  const pt = await get<{ name?: string; cards?: { id: string; name: string }[] }>(`/pt/sets/${encodeURIComponent(id)}`).catch(() => ({ name: "", cards: [] }));
+  const ptCard = new Map((pt.cards ?? []).map((c) => [c.id, c.name]));
   const official = s.cardCount?.official ?? 0;
   const pad = String(official || 0).length;
   const cards: TcgSetCard[] = (s.cards ?? []).map((c) => {
@@ -47,6 +48,7 @@ export async function getSet(id: string) {
       localId: c.localId,
       number: official && /^\d+$/.test(c.localId) ? `${n}/${String(official).padStart(Math.max(3, pad), "0")}` : c.localId,
       name: c.name,
+      namePt: ptCard.get(c.id) ?? "",
       image: c.image ? `${c.image}/low.webp` : "",
       imageLarge: c.image ? `${c.image}/high.webp` : "",
     };

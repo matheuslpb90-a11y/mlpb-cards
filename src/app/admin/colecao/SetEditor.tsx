@@ -7,7 +7,7 @@ import { formatBRL, parseBRLToCents } from "@/lib/money";
 import { bulkSaveCardsAction } from "./actions";
 
 type SetInfo = { id: string; nameEn: string; namePt: string; logo: string; total: number; official: number };
-type SetCard = { tcgdexId: string; localId: string; number: string; name: string; image: string; imageLarge: string };
+type SetCard = { tcgdexId: string; localId: string; number: string; name: string; namePt: string; image: string; imageLarge: string };
 type Variant = { id: string; number: string; language: string; finish: string; condition: string; stock: number; priceCents: number; active: boolean };
 type Row = { sel: boolean; language: string; finish: string; condition: string; price: string; qty: string; touchedQty: boolean; touchedPrice: boolean };
 type Defaults = { language: string; finish: string; condition: string };
@@ -49,7 +49,10 @@ export function SetEditor() {
       if (j.error) throw new Error(j.error);
       setSet(j.set);
       // nome da coleção no site: o que você já usa no estoque; senão português; senão inglês
-      const used = (j.variants as (Variant & { setName?: string })[])[0]?.setName;
+      // o nome de coleção mais usado nas cartas que você já tem
+      const counts = new Map<string, number>();
+      for (const v of j.variants as (Variant & { setName?: string })[]) if (v.setName) counts.set(v.setName, (counts.get(v.setName) ?? 0) + 1);
+      const used = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
       setSetName(used || j.set.namePt || j.set.nameEn);
       setVariants(j.variants);
       setRows({});
@@ -128,7 +131,7 @@ export function SetEditor() {
       return { tcgdexId: c.tcgdexId, name: c.name, number: c.number, imageUrl: c.imageLarge, language: r.language, finish: r.finish, condition: r.condition, priceCents: cents(priceOf(c, r)), stock: Math.max(0, Math.round(Number(qtyOf(c, r)) || 0)) };
     });
     start(async () => {
-      const res = await bulkSaveCardsAction(setName, [set.nameEn, set.namePt], items);
+      const res = await bulkSaveCardsAction(setName, [set.nameEn, set.namePt], items, set.cards.map((c) => ({ number: c.number, name: c.name, namePt: c.namePt })));
       setMsg(res);
       if ("variants" in res && res.variants) {
         setVariants(res.variants);
@@ -203,6 +206,7 @@ export function SetEditor() {
                     {c.image ? <img src={c.image} alt={c.name} loading="lazy" className="aspect-[63/88] w-full rounded-lg object-contain" /> : <div className="flex aspect-[63/88] items-center justify-center rounded-lg bg-black/40 text-3xl">🃏</div>}
                   </button>
                   <p className="truncate text-sm font-bold" title={c.name}>{c.name}</p>
+                  {c.namePt && c.namePt !== c.name && <p className="truncate text-[11px] text-slate-400" title={c.namePt}>{c.namePt}</p>}
                   <p className="text-[11px] text-slate-500">{c.number}</p>
                   {others.length > 0 && (
                     <div className="flex flex-wrap gap-1">
