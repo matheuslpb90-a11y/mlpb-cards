@@ -49,7 +49,14 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
   const id = String(form.get("id") ?? "");
   const payload = { ...data, priceCents, compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null, active: active === "on", featured: featured === "on" };
   if (id) await db.card.update({ where: { id }, data: payload });
-  else await db.card.create({ data: payload });
+  else {
+    // mesma carta e mesma versão (idioma + tipo + estado) já no estoque: soma a quantidade em vez de duplicar
+    const { variantsForCard } = await import("@/lib/stock-variants");
+    const { variantKey } = await import("@/lib/catalog");
+    const same = data.kind === "CARTA" ? (await variantsForCard(data.name, data.setName, data.number)).find((e) => variantKey(e) === variantKey(data)) : undefined;
+    if (same) await db.card.update({ where: { id: same.id }, data: { ...payload, stock: same.stock + payload.stock } });
+    else await db.card.create({ data: payload });
+  }
   await logActivity("card_saved", `${id ? "Editou" : "Cadastrou"} ${data.kind === "PRODUTO" ? "selado" : "carta"} "${data.name}" (${price})`);
   revalidatePath("/");
   redirect(`/admin/cartas?tipo=${data.kind === "PRODUTO" ? "selados" : "cartas"}`);

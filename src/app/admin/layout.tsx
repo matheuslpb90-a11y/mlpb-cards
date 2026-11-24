@@ -16,6 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/admin/cartas?tipo=cartas" className="rounded-lg px-3 py-2 hover:bg-slate-100">Cartas</Link>
         <Link href="/admin/cartas?tipo=selados" className="rounded-lg px-3 py-2 hover:bg-slate-100">Selados</Link>
         <Link href="/admin/cartas/nova" className="rounded-lg px-3 py-2 hover:bg-slate-100">+ Nova carta</Link>
+        <Link href="/admin/colecao" className="rounded-lg px-3 py-2 hover:bg-slate-100">📚 Cadastrar coleção</Link>
         <Link href="/admin/cartas/nova?tipo=selado" className="rounded-lg px-3 py-2 hover:bg-slate-100">+ Novo selado</Link>
         <Link href="/admin/importar" className="rounded-lg px-3 py-2 hover:bg-slate-100">Importar CSV</Link>
         <Link href="/admin/pedidos" className="rounded-lg px-3 py-2 hover:bg-slate-100">Pedidos</Link>

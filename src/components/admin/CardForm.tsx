@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { saveCardAction, uploadImageAction } from "@/app/admin/actions";
 import { CardImage } from "@/components/CardImage";
-import { CONDITIONS, FINISHES, LANGUAGES, PRODUCT_CATEGORIES } from "@/lib/catalog";
+import { CONDITIONS, FINISHES, LANGUAGES, PRODUCT_CATEGORIES, variantKey } from "@/lib/catalog";
 import { CardLookup, type LookupResult } from "./CardLookup";
 import { ligaUrl } from "@/lib/price-links";
 import { shrinkImage } from "./ImageUploadField";
@@ -40,6 +40,19 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
     value: String(v[k] ?? ""),
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setV({ ...v, [k]: e.target.value }),
   });
+
+  // versões dessa mesma carta que já estão no estoque (para não cadastrar em dobro)
+  type Existing = { id: string; language: string; finish: string; condition: string; number: string; stock: number; priceCents: number };
+  const [existing, setExisting] = useState<Existing[]>([]);
+  useEffect(() => {
+    if (!isCard || (!v.number.trim() && !v.name.trim())) return setExisting([]);
+    const t = setTimeout(() => {
+      const q = new URLSearchParams({ estoque: "1", name: v.name, set: v.setName, num: v.number });
+      fetch(`/api/admin/colecao?${q}`).then((r) => r.json()).then((j) => setExisting(j.variants ?? [])).catch(() => setExisting([]));
+    }, 600);
+    return () => clearTimeout(t);
+  }, [isCard, v.name, v.setName, v.number]);
+  const sameVariant = existing.find((e) => e.id !== v.id && variantKey(e) === variantKey(v));
 
   const [market, setMarket] = useState<{ cents: number; basis?: string; link?: string } | null>(null);
   const [marketMsg, setMarketMsg] = useState("");
@@ -176,7 +189,23 @@ export function CardForm({ initial }: { initial: CardFormValues }) {
             )}
           </div>
           <div><label className="label">Preço original “de” (opcional — mostra desconto)</label><input className="input" inputMode="decimal" placeholder="ex.: 15,00" {...bind("compareAt")} /></div>
-          <div><label className="label">Estoque</label><input className="input" type="number" min={0} required {...bind("stock")} /></div>
+          <div>
+            <label className="label">{sameVariant && !v.id ? "Quantidade a ACRESCENTAR" : "Estoque"}</label>
+            <input className="input" type="number" min={0} required {...bind("stock")} />
+            {isCard && sameVariant && !v.id && (
+              <p className="mt-1 rounded bg-amber-950/60 p-2 text-xs text-amber-200">
+                📦 Esta versão ({v.language} · {v.finish} · {v.condition}) <strong>já tem {sameVariant.stock} no estoque</strong>. Ao salvar, a quantidade digitada será <strong>somada</strong> (total {sameVariant.stock + (Number(v.stock) || 0)}) e o preço atualizado — não cria item duplicado.{" "}
+                <a href={`/admin/cartas/${sameVariant.id}`} className="underline">Editar a existente</a>
+              </p>
+            )}
+            {isCard && existing.filter((e) => e.id !== v.id && e.stock > 0 && e !== sameVariant).length > 0 && (
+              <p className="mt-1 text-xs text-slate-500">
+                Outras versões em estoque:{" "}
+                {existing.filter((e) => e.id !== v.id && e.stock > 0 && e !== sameVariant).map((e) => `${e.language} ${e.finish} ${e.condition} ×${e.stock}`).join(" · ")}
+              </p>
+            )}
+            {isCard && !sameVariant && !v.id && (v.number || v.name) && <p className="mt-1 text-xs text-slate-500">📦 Esta versão ainda não está no estoque (0).</p>}
+          </div>
 
           <div className="space-y-2 sm:col-span-2">
             <label className="label">Imagem</label>

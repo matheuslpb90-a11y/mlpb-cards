@@ -45,3 +45,13 @@ export function conditionShort(value: string) {
 export function languageFlag(lang: string) {
   return LANGUAGES.find((l) => l.value === lang)?.flag ?? "";
 }
+
+/** Número da carta para comparar ("001/217", "1/217" e "1" são a mesma carta). */
+export const numKey = (n: string) => (n.split("/")[0] ?? "").trim().replace(/^0+(?=\w)/, "").toLowerCase();
+
+/**
+ * Cada versão de uma carta é um item de estoque separado: mesma carta (coleção + número)
+ * em idioma, tipo (Normal, Foil, Reverse…) e estado diferentes = estoques diferentes.
+ */
+export const variantKey = (v: { number: string; language: string; finish: string; condition: string }) =>
+  [numKey(v.number), v.language, v.finish, v.condition].join("|");
