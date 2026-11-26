@@ -45,6 +45,7 @@ export default async function AccountPage() {
       )}
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
         <p>🔐 Verificação em duas etapas: {user.totpEnabled ? <strong className="text-green-300">ativada</strong> : <strong className="text-amber-300">desativada</strong>}</p>
+        <Link href="/colecao" className="btn-outline">📚 Minha coleção</Link>
         <Link href="/minha-conta/seguranca" className="btn-outline">Segurança da conta</Link>
       </div>
 

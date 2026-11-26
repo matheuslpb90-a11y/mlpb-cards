@@ -326,6 +326,23 @@ model LoginAttempt {
   @@index([key, createdAt])
 }
 
+// Coleção pessoal de cada cliente (grátis, com cadastro): cartas que tem e que deseja, por coleção
+model CollectionEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  setId     String // id da coleção na TCGdex (ex.: me02.5)
+  cardId    String // id da carta na TCGdex (ex.: me02.5-001)
+  number    String   @default("")
+  name      String   @default("")
+  image     String   @default("")
+  qty       Int      @default(0) // quantas tem (0 = só na lista de desejos)
+  wish      Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, cardId])
+  @@index([userId, setId])
+}
+
 // Lembretes de leilão: quem quer ser chamado no grupo quando uma carta (ex.: 1.3) entrar
 model AuctionWatch {
   id        String   @id @default(cuid())
