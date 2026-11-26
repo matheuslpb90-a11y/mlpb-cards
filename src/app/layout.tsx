@@ -43,16 +43,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/avaliador" className={navLink}>Pré-avaliação</Link>
                 <Link href="/grupo" className={navLink}>Grupo</Link>
                 <Link href="/pontos" className={`${navLink} flex items-center gap-1`}><CoinIcon className="h-4 w-4 text-brand-amber" /> Pontos</Link>
-                {s.youtubeUrl && (
-                  <a href={s.youtubeUrl} target="_blank" rel="noreferrer" className={`${navLink} flex items-center gap-1`}>
-                    <YoutubeIcon className="h-4 w-4 text-youtube" /> YouTube
-                  </a>
-                )}
-                {s.tiktokUrl && (
-                  <a href={s.tiktokUrl} target="_blank" rel="noreferrer" className={`${navLink} flex items-center gap-1`}>
-                    <TiktokIcon className="h-4 w-4 text-white" /> TikTok
-                  </a>
-                )}
               </nav>
               <div className="ml-auto flex items-center gap-1 text-sm font-semibold">
                 <CartBadge />
