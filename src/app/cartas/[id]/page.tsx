@@ -178,7 +178,7 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
           }))}
         />
         {available.length === 0 && <p className="text-sm text-slate-500">Esta carta está esgotada no momento. Fale com a gente no WhatsApp para encomendar.</p>}
-        {c.game === "Pokémon" && <PriceLinks name={c.name} number={c.number} />}
+        {c.game === "Pokémon" && <PriceLinks name={c.name} number={c.number} promo={c.finish === "Promo" || /promo/i.test(c.rarity)} />}
       </div>
     </div>
   );

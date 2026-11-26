@@ -4,9 +4,9 @@ const BANDEIRA: Record<string, string> = { BR: "🇧🇷", US: "🇺🇸", EU: "
 
 // Links para o cliente conferir o preço da carta em outros mercados (Brasil e mundo).
 // Só âncoras e CSS — nenhum JavaScript, nenhuma chamada externa: não pesa no site.
-export function PriceLinks({ name, number }: { name: string; number?: string }) {
+export function PriceLinks({ name, number, promo = false }: { name: string; number?: string; promo?: boolean }) {
   if (!name) return null;
-  const links = priceLinks(name, number);
+  const links = priceLinks(name, number, promo);
   return (
     <div className="rounded-xl border border-slate-800 bg-panel/60 p-3">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Conferir preço de mercado</p>

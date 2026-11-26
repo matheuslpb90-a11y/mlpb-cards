@@ -223,7 +223,7 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
           <button type="button" className="btn bg-sky-700 text-white" onClick={lookup} disabled={busy}>🔍 Buscar</button>
           <button type="button" className="btn bg-teal-700 text-white" onClick={() => { onChange({ ...it, name: nameQ || it.name, number: code }); setFound(true); }}>✏️ Manual</button>
           {(nameQ.trim() || code.trim()) && (
-            <a href={ligaUrl(nameQ, code)} target="_blank" rel="noreferrer" className="btn border border-amber-500 text-amber-300">🔎 Ver na Liga ↗</a>
+            <a href={ligaUrl(nameQ, code, it.finish === "Promo")} target="_blank" rel="noreferrer" className="btn border border-amber-500 text-amber-300">🔎 Ver na Liga ↗</a>
           )}
         </div>
         <p className="text-xs text-slate-500">Pode buscar só pelo nome, só pelo código ou pelos dois (o mais certeiro). Resultados com 💰 já trazem o preço da MYP.</p>
@@ -287,7 +287,7 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
           </div>
           <p className="sm:col-span-6 text-xs text-slate-500">
             {myp && <>{myp} · </>}
-            {it.name && <a href={ligaUrl(it.name, it.number)} target="_blank" rel="noreferrer" className="inline-block rounded border border-amber-500 px-2 py-0.5 font-semibold text-amber-300">🔎 Ver preço na Liga ↗</a>}
+            {it.name && <a href={ligaUrl(it.name, it.number, it.finish === "Promo")} target="_blank" rel="noreferrer" className="inline-block rounded border border-amber-500 px-2 py-0.5 font-semibold text-amber-300">🔎 Ver preço na Liga ↗</a>}
           </p>
           <p className="sm:col-span-6 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
             Valores: inicial {formatBRL(p.startCents)} · incremento {formatBRL(p.stepCents)} · arremate {formatBRL(p.buyoutCents)}
