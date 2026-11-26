@@ -161,6 +161,7 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
   label: string; it: ItemDraft; rules: Parameters<typeof priceItem>[1]; lotOneReal: boolean; blobEnabled: boolean; onChange: (i: ItemDraft) => void; onRemove: () => void;
 }) {
   const [code, setCode] = useState(it.number);
+  const [nameQ, setNameQ] = useState(it.name);
   const [results, setResults] = useState<LookupCard[]>([]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
@@ -187,10 +188,14 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
   }
 
   async function lookup() {
-    if (!code.trim()) return;
+    if (!code.trim() && nameQ.trim().length < 2) return setMsg("Digite o nome do Pokémon, o código ou os dois.");
     setBusy(true); setMsg("Buscando…"); setResults([]);
     try {
-      const r = await fetch(`/api/admin/buscar-carta?codigo=${encodeURIComponent(code)}&idioma=${encodeURIComponent(it.language)}`);
+      // nome (com ou sem código) busca na MYP (com preço) + TCGdex; só o código busca pelo número
+      const url = nameQ.trim()
+        ? `/api/admin/buscar-carta?q=${encodeURIComponent(nameQ.trim())}&num=${encodeURIComponent(code.trim())}&idioma=${encodeURIComponent(it.language)}`
+        : `/api/admin/buscar-carta?codigo=${encodeURIComponent(code.trim())}&idioma=${encodeURIComponent(it.language)}`;
+      const r = await fetch(url);
       const j = (await r.json()) as { results?: LookupCard[]; message?: string };
       setResults(j.results ?? []);
       setMsg(j.results?.length ? "Clique na carta certa:" : j.message ?? "Nada encontrado.");
@@ -205,32 +210,40 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
     return (
       <div className="space-y-3 rounded-xl border p-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-bold text-blue-300">🔍 Buscar carta pelo código — {label}</p>
+          <p className="text-sm font-bold text-blue-300">🔍 Buscar carta por nome e/ou código — {label}</p>
           <button type="button" onClick={onRemove} className="text-red-300">🗑</button>
         </div>
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Field label="Código *"><input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="074/063 ou SVP053" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), lookup())} /></Field>
+        <div className="grid gap-2 sm:grid-cols-4">
+          <Field label="Nome do Pokémon"><input className="input" value={nameQ} onChange={(e) => setNameQ(e.target.value)} placeholder="Charizard ex" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), lookup())} /></Field>
+          <Field label="Código"><input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="074/063 ou SVP053" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), lookup())} /></Field>
           <Field label="Condição"><select className="input" {...f("condition")}>{CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.value}</option>)}</select></Field>
           <Field label="Idioma"><select className="input" {...f("language")}>{LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.short}</option>)}</select></Field>
         </div>
         <div className="flex gap-2">
           <button type="button" className="btn bg-sky-700 text-white" onClick={lookup} disabled={busy}>🔍 Buscar</button>
-          <button type="button" className="btn bg-teal-700 text-white" onClick={() => { onChange({ ...it, number: code }); setFound(true); }}>✏️ Manual</button>
+          <button type="button" className="btn bg-teal-700 text-white" onClick={() => { onChange({ ...it, name: nameQ || it.name, number: code }); setFound(true); }}>✏️ Manual</button>
+          {(nameQ.trim() || code.trim()) && (
+            <a href={ligaUrl(nameQ, code)} target="_blank" rel="noreferrer" className="btn border border-amber-500 text-amber-300">🔎 Ver na Liga ↗</a>
+          )}
         </div>
+        <p className="text-xs text-slate-500">Pode buscar só pelo nome, só pelo código ou pelos dois (o mais certeiro). Resultados com 💰 já trazem o preço da MYP.</p>
         {msg && <p className="text-sm text-slate-500">{msg}</p>}
         {results.length > 0 && (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {results.map((c) => (
               <button type="button" key={c.key} className="rounded p-1 text-left hover:bg-brand/20"
                 onClick={() => {
-                  const x = { ...it, name: c.name, number: c.number || code, imageUrl: c.imageLarge };
+                  const fromMyp = c.priceCents ? (c.priceCents / 100).toFixed(2).replace(".", ",") : "";
+                  const x = { ...it, name: c.name, number: c.number || code, imageUrl: c.imageLarge, market: it.market || fromMyp };
                   onChange(x);
                   setFound(true);
-                  if (!it.market) mypMarket(x); // já traz o valor de mercado brasileiro
+                  if (fromMyp) setMyp(`✔ R$ ${fromMyp} — ${c.priceBasis ?? "MYP"} · fonte: MYP Cards`);
+                  else if (!it.market) mypMarket(x); // já traz o valor de mercado brasileiro
                 }}>
                 <img src={c.imageSmall} alt={c.name} className="w-full rounded" />
                 <span className="block truncate text-[11px]">{c.name}</span>
-                <span className="block truncate text-[10px] text-slate-500">{c.setName}</span>
+                <span className="block truncate text-[10px] text-slate-500">{c.number} · {c.setName}</span>
+                {c.priceCents ? <span className="block text-[10px] font-bold text-green-300">💰 {formatBRL(c.priceCents)}</span> : null}
               </button>
             ))}
           </div>
@@ -274,7 +287,7 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
           </div>
           <p className="sm:col-span-6 text-xs text-slate-500">
             {myp && <>{myp} · </>}
-            {it.name && <a href={ligaUrl(it.name, it.number)} target="_blank" rel="noreferrer" className="font-semibold text-amber-300 underline">verificar na Liga ↗</a>}
+            {it.name && <a href={ligaUrl(it.name, it.number)} target="_blank" rel="noreferrer" className="inline-block rounded border border-amber-500 px-2 py-0.5 font-semibold text-amber-300">🔎 Ver preço na Liga ↗</a>}
           </p>
           <p className="sm:col-span-6 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
             Valores: inicial {formatBRL(p.startCents)} · incremento {formatBRL(p.stepCents)} · arremate {formatBRL(p.buyoutCents)}
