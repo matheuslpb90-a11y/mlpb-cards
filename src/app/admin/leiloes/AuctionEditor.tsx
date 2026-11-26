@@ -79,6 +79,7 @@ export function AuctionEditor({ initial, blobEnabled, locked }: { initial: Aucti
         {d.lots.map((lot, li) => (
           <LotEditor
             key={li}
+            auctionName={d.name}
             n={li + 1}
             lot={lot}
             rules={rules}
@@ -100,12 +101,39 @@ export function AuctionEditor({ initial, blobEnabled, locked }: { initial: Aucti
   );
 }
 
-function LotEditor({ n, lot, rules, blobEnabled, onChange, onRemove }: {
-  n: number; lot: LotDraft; rules: Parameters<typeof priceItem>[1]; blobEnabled: boolean; onChange: (l: LotDraft) => void; onRemove: () => void;
+function LotEditor({ n, auctionName, lot, rules, blobEnabled, onChange, onRemove }: {
+  n: number; auctionName: string; lot: LotDraft; rules: Parameters<typeof priceItem>[1]; blobEnabled: boolean; onChange: (l: LotDraft) => void; onRemove: () => void;
 }) {
   const [open, setOpen] = useState(true);
   const [picking, setPicking] = useState(false);
   const setItem = (i: number, it: ItemDraft) => onChange({ ...lot, items: lot.items.map((x, j) => (j === i ? it : x)) });
+  const [art, setArt] = useState("");
+  const [withPrice, setWithPrice] = useState(true);
+  /** Gera a arte do lote com as fotos das cartas e coloca como imagem spoiler. */
+  async function generateArt() {
+    const items = lot.items
+      .map((it, i) => {
+        const p = priceItem(reaisToCents(it.market) ?? 0, rules, lot.oneReal, { start: reaisToCents(it.start), buyout: reaisToCents(it.buyout), step: reaisToCents(it.step) });
+        return {
+          code: `${n}.${i + 1}`,
+          name: it.name || "Carta",
+          image: it.imageUrl || it.media.find((m) => m.type === "image")?.url || "",
+          price: withPrice && reaisToCents(it.market) ? `Inicial ${formatBRL(p.startCents)}` : "",
+        };
+      })
+      .filter((x) => x.image);
+    if (!items.length) return setArt("Busque as cartas do lote (com imagem) antes de gerar.");
+    setArt("Gerando a imagem do lote…");
+    try {
+      const r = await fetch("/api/admin/lote-imagem", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auctionName, lotNumber: n, lotTitle: lot.title, items }) });
+      const j = (await r.json()) as { url?: string; error?: string };
+      if (!j.url) return setArt(j.error ?? "Não consegui gerar a imagem.");
+      onChange({ ...lot, imageUrl: j.url });
+      setArt("✔ Imagem gerada e colocada como spoiler do lote. Clique nela para ver grande.");
+    } catch {
+      setArt("Não consegui gerar a imagem agora. Tente de novo.");
+    }
+  }
   return (
     <div className="rounded-2xl border border-brand/30 bg-black/30">
       <div className="flex flex-wrap items-center gap-2 border-b p-3">
@@ -120,6 +148,12 @@ function LotEditor({ n, lot, rules, blobEnabled, onChange, onRemove }: {
       {open && (
         <div className="space-y-3 p-3">
           <ImageField label="Imagem spoiler do lote" value={lot.imageUrl} onChange={(v) => onChange({ ...lot, imageUrl: v })} blobEnabled={blobEnabled} />
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <button type="button" className="btn bg-brand text-sm font-bold text-black" onClick={generateArt} disabled={art.startsWith("Gerando")}>🎨 Gerar imagem do lote</button>
+            <label className="flex items-center gap-1 text-xs text-slate-400"><input type="checkbox" className="accent-[#ff7a00]" checked={withPrice} onChange={(e) => setWithPrice(e.target.checked)} /> mostrar lance inicial</label>
+            {lot.imageUrl && <a href={lot.imageUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-300 underline">ver grande ↗</a>}
+            {art && <span className="text-xs text-slate-400">{art}</span>}
+          </div>
           {lot.items.map((it, i) => (
             <ItemEditor
               key={i}
