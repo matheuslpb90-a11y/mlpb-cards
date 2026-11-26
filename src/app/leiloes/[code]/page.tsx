@@ -8,6 +8,8 @@ import { AUCTION_STATUS, fmtDate, itemMedia, itemTitle } from "@/lib/auctions";
 import { getSettings } from "@/lib/settings";
 import { languageFlag } from "@/lib/catalog";
 import { WhatsIcon } from "@/components/SocialIcons";
+import { getCurrentUser } from "@/lib/auth";
+import { WatchButton } from "./WatchButton";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,12 @@ export default async function AuctionPage({ params }: { params: Promise<{ code: 
     }),
   ]);
   if (!a || !a.visible || a.status === "CANCELADO") notFound();
+  // lembretes: quantos pediram para ser chamados em cada carta (só antes de o leilão começar)
+  const scheduled = a.status === "AGENDADO";
+  const [watchCounts, me] = scheduled
+    ? await Promise.all([db.auctionWatch.groupBy({ by: ["code"], where: { auctionId: a.id }, _count: true }), getCurrentUser()])
+    : [[], null];
+  const countOf = (code: string) => watchCounts.find((w) => w.code === code)?._count ?? 0;
   const live = a.status === "ATIVO";
 
   return (
@@ -56,6 +64,7 @@ export default async function AuctionPage({ params }: { params: Promise<{ code: 
                 <div key={it.id} className="card flex flex-col p-3">
                   <SafeImg srcs={[img ?? "", ...media.filter((m) => m.type === "image").map((m) => m.url), it.imageUrl]} alt={it.name} fallback="🃏" className="aspect-[63/88] w-full rounded-lg object-cover" />
                   <p className="mt-2 text-xs text-slate-500">{lot.position}.{it.position}</p>
+                  {scheduled && <div className="mt-1"><WatchButton auctionCode={a.code} code={`${lot.position}.${it.position}`} count={countOf(`${lot.position}.${it.position}`)} defaultPhone={me?.phone ?? ""} defaultName={me?.name ?? ""} /></div>}
                   <h3 className="font-semibold leading-tight">{itemTitle(it)}</h3>
                   <p className="text-xs text-slate-500">{it.condition} · {languageFlag(it.language)} {it.language}</p>
                   {media.some((m) => m.type === "video") && <p className="text-xs text-brand">▶ tem vídeo no grupo</p>}

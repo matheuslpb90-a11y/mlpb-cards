@@ -326,6 +326,19 @@ model LoginAttempt {
   @@index([key, createdAt])
 }
 
+// Lembretes de leilão: quem quer ser chamado no grupo quando uma carta (ex.: 1.3) entrar
+model AuctionWatch {
+  id        String   @id @default(cuid())
+  auctionId String
+  code      String // "lote.carta", ex.: "1.3"
+  phone     String // phoneKey
+  name      String   @default("")
+  createdAt DateTime @default(now())
+
+  @@unique([auctionId, code, phone])
+  @@index([auctionId, code])
+}
+
 // Denúncias de membros contra outros números (!denunciar), sempre com provas (imagens)
 model Report {
   id            String   @id @default(cuid())

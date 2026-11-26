@@ -3,7 +3,7 @@ import type { AuctionItem } from "@prisma/client";
 import { db } from "./db";
 import { formatBRL } from "./money";
 import { lastPollMap, log, sendImage, sendPoll, sendText, sendVideo, supportsPolls, zapiMode } from "./zapi";
-import { whapiPollResults } from "./whapi";
+import { whapiEnabled, whapiPollResults, whapiTextEx } from "./whapi";
 import { phoneKey } from "./phone";
 import { WHATSAPP_NUMBER } from "./whatsapp";
 import { createHash } from "crypto";
@@ -83,6 +83,25 @@ export async function startAuction(auctionId: string) {
   if (a.imageUrl) await sendImage(group, absolute(a.imageUrl), opening);
   else await sendText(group, opening);
 
+  // lembretes: quem marcou "me avise" em cada carta
+  const watchers = await import("./auction-watch").then((w) => w.watchersByCode(a.id)).catch(() => new Map<string, string[]>());
+  const convoke = async (code: string, title: string) => {
+    const keys = watchers.get(code) ?? [];
+    if (!keys.length) return;
+    // usa o número exatamente como está no grupo (com ou sem o 9), senão a marcação não notifica
+    const info = await import("./moderation").then((m) => m.groupInfo(group)).catch(() => null);
+    const people = info ? info.participants.filter((p) => keys.includes(phoneKey(p.phone))).map((p) => p.phone) : keys;
+    if (!people.length) return;
+    const text = `📣 *Convocando ${people.length} ${people.length > 1 ? "treinadores" : "treinador"}* para a *${code} — ${title}*! Corre pra dar seu lance! 🔥`;
+    try {
+      // menção "escondida": todos são notificados sem a lista de @ na mensagem
+      if (whapiEnabled()) await whapiTextEx(group, text, { mentions: people });
+      else await sendText(group, text);
+    } catch (e) {
+      await log("erro-leilao", { acao: "convocar", code, error: String(e) });
+    }
+  };
+
   for (const lot of a.lots) {
     if (lot.imageUrl) await sendImage(group, absolute(lot.imageUrl), `📦 *Lote ${lot.position}* — ${lot.title}`);
     else await sendText(group, `📦 *Lote ${lot.position}* — ${lot.title}`);
@@ -109,7 +128,10 @@ export async function startAuction(auctionId: string) {
         if (m.type === "video") await sendVideo(group, absolute(m.url), cap);
         else await sendImage(group, absolute(m.url), cap);
       }
-      if (mode === "TEXT") continue;
+      if (mode === "TEXT") {
+        await convoke(`${lot.position}.${it.position}`, it.name);
+        continue;
+      }
       const opts = itemOptions(it);
       const pollId = await sendPoll(
         group,
@@ -117,6 +139,7 @@ export async function startAuction(auctionId: string) {
         opts.map((c, i) => optionLabel(c, !hideBuyout && i === opts.length - 1)),
       );
       await db.auctionItem.update({ where: { id: it.id }, data: { pollMessageId: pollId, pollMapJson: JSON.stringify(lastPollMap) } });
+      await convoke(`${lot.position}.${it.position}`, it.name);
     }
   }
 }

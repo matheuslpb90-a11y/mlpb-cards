@@ -401,6 +401,7 @@ const HELP = [
   "*!preco* nome da carta — preço no Brasil (ex.: !preco Charizard ex 199/165)",
   "*!avaliar* 61999999999 — avalia uma negociação/entrega (nota de 1 a 5)",
   "*!denunciar* 61999999999 — denuncia um número (com 3 fotos de prova)",
+  "*!avisar* 1.3 2.1 — te chamo quando essas cartas entrarem no leilão · *!desavisar* 1.3",
   "*!referencias* 61999999999 — mostra as avaliações de alguém",
   "*!pontos* — seus MLPB Points · *!ranking* — top do mês",
   "*!pokedex* — seus Pokémon capturados · *!captura* — quando um Pokémon aparecer",
@@ -458,6 +459,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, s.total ? `🤝 ${mention(msg.phone)}, você indicou *${s.total}* pessoa(s): ${s.stayed} completaram 7 dias e ${s.bought} já compraram.` : `🤝 ${mention(msg.phone)}, você ainda não indicou ninguém. Convide amigos para o grupo e peça para eles mandarem *${c.prefix || "!"}indicado* marcando você!`, [msg.phone], msg.id).then(() => cmd);
   }
   if (cmd === "!avaliar") return startReview(c, msg, args).then(() => cmd);
+  if (cmd === "!avisar" || cmd === "!lembrete" || cmd === "!desavisar") return watchCommand(c, msg, cmd, args).then(() => cmd);
   if (cmd === "!denunciar" || cmd === "!denuncia" || cmd === "!denúncia") return startReport(c, msg, args).then(() => cmd);
   if (cmd === "!referencias" || cmd === "!referências" || cmd === "!ref") return showReviews(msg, args).then(() => cmd);
   if (cmd === "!preco" || cmd === "!preço") {
@@ -646,6 +648,35 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
   }
   return null;
 }
+
+// ---------------- Lembretes de leilão (!avisar 1.3) ----------------
+
+async function watchCommand(c: ModConfig, msg: InMsg, cmd: string, args: string) {
+  const W = await import("./auction-watch");
+  const P = c.prefix || "!";
+  const a = await W.currentAuction();
+  if (!a) return say(msg.group, "Não tem leilão agendado no momento. Fique de olho no grupo! 👀", [], msg.id);
+  const codes = [...new Set(args.match(/\d+\.\d+/g) ?? [])].slice(0, 15);
+  if (!codes.length) return say(msg.group, `Use *${P}avisar 1.3* (o código da carta, que aparece no spoiler e em ${siteLink(a.code)}). Pode mandar várias: *${P}avisar 1.3 2.1*`, [], msg.id);
+  if (cmd === "!desavisar") {
+    for (const code of codes) await W.removeWatch(a.id, code, msg.phone);
+    return say(msg.group, `🔕 Ok, não vou mais te chamar para ${codes.join(", ")}.`, [], msg.id);
+  }
+  const done: string[] = [];
+  const errors: string[] = [];
+  for (const code of codes) {
+    const r = await W.addWatch(a.id, code, msg.phone, msg.name);
+    if ("error" in r) errors.push(r.error ?? code);
+    else done.push(`${code} — ${r.item.name} (${r.total} ${r.total > 1 ? "interessados" : "interessado"})`);
+  }
+  return say(
+    msg.group,
+    [done.length ? `🔔 ${mention(msg.phone)}, vou te chamar quando entrarem no *${a.name}*:\n${done.map((d) => `• ${d}`).join("\n")}` : "", ...errors].filter(Boolean).join("\n"),
+    [msg.phone],
+    msg.id,
+  );
+}
+const siteLink = (code: number) => `www.mlpbcards.com.br/leiloes/${code}`;
 
 // ---------------- Avaliações (!avaliar / !referencias) ----------------
 
