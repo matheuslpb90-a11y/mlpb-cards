@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "MLPB Cards", statusBarStyle: "black" },
   formatDetection: { telephone: false },
   openGraph: { type: "website", siteName: "MLPB Cards", locale: "pt_BR" },
-  // código do Google Search Console (prova que o site é seu); vem da variável GOOGLE_SITE_VERIFICATION na Vercel
-  verification: { google: (process.env.GOOGLE_SITE_VERIFICATION || "RLkJ7c3lQrPzXYLPKZgKz8ItU8MzCxmTGS").trim() },
+  // código do Google Search Console (prova que o site é seu); não é secreto
+  verification: { google: "RLkJ7c3lQrPzXYLPKZgKz8ItU8MzCxmTGSDSDws0i-I" },
 };
 
 export const viewport: Viewport = { themeColor: "#0a0a0a", width: "device-width", initialScale: 1 };
