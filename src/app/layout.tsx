@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   formatDetection: { telephone: false },
   openGraph: { type: "website", siteName: "MLPB Cards", locale: "pt_BR" },
   // código do Google Search Console (prova que o site é seu); vem da variável GOOGLE_SITE_VERIFICATION na Vercel
-  ...(process.env.GOOGLE_SITE_VERIFICATION ? { verification: { google: process.env.GOOGLE_SITE_VERIFICATION.trim() } } : {}),
+  verification: { google: (process.env.GOOGLE_SITE_VERIFICATION || "RLkJ7c3lQrPzXYLPKZgKz8ItU8MzCxmTGS").trim() },
 };
 
 export const viewport: Viewport = { themeColor: "#0a0a0a", width: "device-width", initialScale: 1 };
