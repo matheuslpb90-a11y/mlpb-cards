@@ -10,7 +10,7 @@ import { db } from "@/lib/db";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-type Item = { code: string; name: string; image: string; price?: string };
+type Item = { code: string; name: string; image: string; images?: string[]; price?: string };
 type Body = { auctionName: string; lotNumber: number; lotTitle: string; items: Item[] };
 
 const W = 1080;
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (user?.role !== "ADMIN") return NextResponse.json({ error: "Sem permissão" }, { status: 401 });
   const body = (await req.json().catch(() => null)) as Body | null;
-  const items = (body?.items ?? []).filter((i) => i.image).slice(0, 20);
+  const items = (body?.items ?? []).map((i) => ({ ...i, images: [...new Set([...(i.images ?? []), i.image].filter(Boolean))] })).filter((i) => i.images.length).slice(0, 20);
   if (!body || !items.length) return NextResponse.json({ error: "Adicione cartas com imagem ao lote antes de gerar." }, { status: 400 });
 
   const origin = new URL(req.url).origin;
@@ -61,7 +61,16 @@ export async function POST(req: Request) {
     rowsOfItems[rowsOfItems.length - 1].push({ it, i });
   });
 
-  const [logo, ...imgs] = await Promise.all([toDataUrl("/logo.png", origin, 220), ...items.map((i) => toDataUrl(i.image, origin, Math.min(700, cardW * 2)))]);
+  // cada carta: tenta as fotos em ordem (imagem da busca, depois as fotos enviadas em "Mídias")
+  const firstOk = async (urls: string[]) => {
+    for (const u of urls) {
+      const d = await toDataUrl(u, origin, Math.min(700, cardW * 2));
+      if (d) return d;
+    }
+    return "";
+  };
+  const [logo, ...imgs] = await Promise.all([toDataUrl("/logo.png", origin, 220), ...items.map((i) => firstOk(i.images))]);
+  const missing = items.filter((_, i) => !imgs[i]).map((i) => i.code);
   const small = items.length > 9;
 
   const res = new ImageResponse(
@@ -89,7 +98,7 @@ export async function POST(req: Request) {
           {row.map(({ it, i }) => (
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: cardW }}>
               <div style={{ display: "flex", position: "relative", width: cardW, height: cardH, borderRadius: Math.round(cardW * 0.05), overflow: "hidden", boxShadow: "0 0 40px rgba(255,122,0,0.35)", background: "#1a1a1a" }}>
-                {imgs[i] ? <img src={imgs[i]} width={cardW} height={cardH} style={{ objectFit: "cover" }} /> : null}
+                {imgs[i] ? <img src={imgs[i]} width={cardW} height={cardH} style={{ objectFit: "cover" }} /> : <div style={{ display: "flex", width: cardW, height: cardH, alignItems: "center", justifyContent: "center", color: "#666", fontSize: 28 }}>sem foto</div>}
                 <div style={{ position: "absolute", top: 10, left: 10, display: "flex", fontSize: small ? 18 : 24, color: "#0a0a0a", background: "#ffb020", padding: "2px 12px", borderRadius: 20 }}>{it.code}</div>
               </div>
               <div style={{ display: "flex", fontSize: small ? 18 : 24, color: "#ffffff", marginTop: 8, maxWidth: cardW, overflow: "hidden", whiteSpace: "nowrap" }}>{it.name.slice(0, 26)}</div>
@@ -112,5 +121,5 @@ export async function POST(req: Request) {
 
   const jpg = await sharp(Buffer.from(await res.arrayBuffer())).jpeg({ quality: 88, mozjpeg: true }).toBuffer();
   const img = await db.image.create({ data: { mime: "image/jpeg", data: jpg } });
-  return NextResponse.json({ url: `/api/imagens/${img.id}` });
+  return NextResponse.json({ url: `/api/imagens/${img.id}`, missing });
 }

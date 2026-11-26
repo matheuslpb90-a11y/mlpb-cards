@@ -5,6 +5,7 @@ import { AUCTION_STATUS, fmtDate, runSchedule } from "@/lib/auctions";
 import { getSettings } from "@/lib/settings";
 import { leilomaniaAuctions, leilomaniaLinks } from "@/lib/leilomania";
 import { PhotoGallery } from "@/components/PhotoGallery";
+import { SafeImg } from "@/components/SafeImg";
 import { LmItemsCarousel } from "@/components/LmItemsCarousel";
 import { WhatsIcon } from "@/components/SocialIcons";
 
@@ -16,7 +17,7 @@ const badge = (live: boolean) => (live ? "bg-green-950/60 text-green-300" : "bg-
 export default async function AuctionsPage() {
   await runSchedule().catch(() => {});
   const now = new Date();
-  const include = { lots: { include: { items: { select: { imageUrl: true } } } } } as const;
+  const include = { lots: { orderBy: { position: "asc" }, include: { items: { select: { imageUrl: true } } } } } as const;
   const [s, upcoming, ended, external, lm] = await Promise.all([
     getSettings(),
     db.auction.findMany({ where: { visible: true, status: { in: ["ATIVO", "AGENDADO"] } }, orderBy: { startsAt: "asc" }, include, take: 40 }),
@@ -28,11 +29,21 @@ export default async function AuctionsPage() {
 
   const AuctionCard = ({ a }: { a: (typeof upcoming)[number] }) => {
     const imgs = a.lots.flatMap((l) => l.items.map((i) => i.imageUrl)).filter(Boolean).slice(0, 4);
+    // capa do leilão ou a imagem gerada do lote
+    const cover = [a.imageUrl, ...a.lots.map((l) => l.imageUrl)].filter(Boolean);
     const count = a.lots.reduce((n, l) => n + l.items.length, 0);
     return (
       <Link href={`/leiloes/${a.code}`} className="card flex gap-4 p-4 hover:border-brand">
         <div className="flex w-28 shrink-0 -space-x-10">
-          {a.imageUrl ? <img src={a.imageUrl} alt="" className="w-28 rounded-lg object-cover" /> : imgs.map((u, i) => <img key={i} src={u} alt="" className="w-16 rounded shadow-lg" style={{ transform: `rotate(${(i - 1) * 6}deg)` }} />)}
+          {cover.length ? (
+            <SafeImg srcs={[...cover, ...imgs]} className="w-28 rounded-lg object-cover" />
+          ) : (
+            imgs.map((u, i) => (
+              <div key={i} className="w-16 rounded shadow-lg" style={{ transform: `rotate(${(i - 1) * 6}deg)` }}>
+                <SafeImg srcs={[u]} className="w-16 rounded" fallback="🃏" />
+              </div>
+            ))
+          )}
         </div>
         <div className="min-w-0 space-y-1">
           <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${a.status === "ENCERRADO" ? "bg-slate-100 text-slate-500" : badge(a.status === "ATIVO")}`}>

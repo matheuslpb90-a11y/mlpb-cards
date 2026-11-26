@@ -7,6 +7,15 @@ import { getSettings, youtubeId } from "@/lib/settings";
 import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
 import { leilomaniaAuctions } from "@/lib/leilomania";
 import { fmtDate } from "@/lib/auctions";
+import { SafeImg } from "@/components/SafeImg";
+
+const mediaImages = (json: string) => {
+  try {
+    return (JSON.parse(json || "[]") as { url: string; type: string }[]).filter((m) => m.type === "image").map((m) => m.url);
+  } catch {
+    return [];
+  }
+};
 
 export const dynamic = "force-dynamic";
 
@@ -27,18 +36,19 @@ export default async function HomePage() {
       where: { visible: true, status: { in: ["ATIVO", "AGENDADO"] } },
       orderBy: { startsAt: "asc" },
       take: 4,
-      include: { lots: { take: 1, orderBy: { position: "asc" }, include: { items: { take: 1, orderBy: { position: "asc" }, select: { imageUrl: true } } } } },
+      include: { lots: { take: 1, orderBy: { position: "asc" }, include: { items: { take: 3, orderBy: { position: "asc" }, select: { imageUrl: true, mediaJson: true } } } } },
     }),
     leilomaniaAuctions().catch(() => []),
   ]);
   const auctionsHome = [
     ...groupAuctions.map((a) => ({
       key: a.id, href: `/leiloes/${a.code}`, external: false, title: a.name, where: "Grupo do WhatsApp",
-      img: a.imageUrl || a.lots[0]?.items[0]?.imageUrl || "", live: a.status === "ATIVO", startsAt: a.startsAt, endsAt: a.endsAt,
+      // capa do leilão → imagem do 1º lote (a gerada) → fotos das cartas
+      imgs: [a.imageUrl, a.lots[0]?.imageUrl ?? "", ...(a.lots[0]?.items ?? []).flatMap((it) => [it.imageUrl, ...mediaImages(it.mediaJson)])].filter(Boolean), live: a.status === "ATIVO", startsAt: a.startsAt, endsAt: a.endsAt,
     })),
     ...lmAuctions.map((a) => ({
       key: a.key, href: a.url, external: true, title: a.title, where: "Leilomania",
-      img: a.images[0] ?? "", live: now >= a.startsAt, startsAt: a.startsAt, endsAt: a.endsAt,
+      imgs: a.images, live: now >= a.startsAt, startsAt: a.startsAt, endsAt: a.endsAt,
     })),
   ].sort((a, b) => Number(b.live) - Number(a.live) || a.startsAt.getTime() - b.startsAt.getTime()).slice(0, 4);
 
@@ -104,10 +114,7 @@ export default async function HomePage() {
             {auctionsHome.map((a) => {
               const inner = (
                 <>
-                  {a.img
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={a.img} alt="" className="h-24 w-20 shrink-0 rounded-lg object-cover" />
-                    : <div className="flex h-24 w-20 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-3xl">🔨</div>}
+                  <SafeImg srcs={a.imgs} className="h-24 w-20 shrink-0 rounded-lg object-cover" />
                   <div className="min-w-0 space-y-1">
                     <span className={`inline-block rounded px-2 py-0.5 text-xs font-bold ${a.live ? "bg-green-950/60 text-green-300" : a.external ? "bg-purple-950/60 text-purple-300" : "bg-brand/20 text-brand"}`}>
                       {a.live ? "🔴 AO VIVO" : "Em breve"} · {a.where}
