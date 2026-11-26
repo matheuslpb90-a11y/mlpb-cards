@@ -133,7 +133,7 @@ function LotEditor({ n, auctionName, lot, rules, blobEnabled, onChange, onRemove
       onChange({ ...lot, imageUrl: j.url });
       setArt(
         j.missing?.length
-          ? `⚠️ Imagem gerada, mas a foto de ${j.missing.join(", ")} não abriu. Detalhe: ${(j.problems ?? []).join(" | ") || "—"}`
+          ? `⚠️ Imagem gerada, mas ${j.missing.join(", ")} ficou sem foto (o site de onde a foto veio não libera para o servidor). Para essas cartas, envie a foto em "Mídias da carta" ou use "↺ Buscar outra" e escolha o resultado da TCGdex. Depois gere de novo.`
           : "✔ Imagem gerada e colocada como spoiler do lote. Salve o leilão.",
       );
     } catch {

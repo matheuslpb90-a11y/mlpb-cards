@@ -35,13 +35,24 @@ async function loadBytes(src: string, origin: string): Promise<Buffer> {
 /** Reserva: acha a imagem oficial da carta na TCGdex pelo nome + número (quando a foto original é bloqueada). */
 async function tcgdexImage(name: string, number = "") {
   const n = (number.split("/")[0] ?? "").replace(/^0+(?=\d)/, "").trim().toLowerCase();
+  const total = Number((number.split("/")[1] ?? "").replace(/\D/g, "")) || 0;
   const clean = name.replace(/\s*\(.*?\)\s*/g, " ").trim();
-  if (!clean) return "";
+  // só usa a imagem oficial quando NÚMERO e TOTAL da coleção batem (ex.: 34/119) — senão não arrisca a carta errada
+  if (!clean || !n || !total) return "";
   for (const lang of ["en", "pt"]) {
     try {
       const r = await fetch(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(clean)}`, { signal: AbortSignal.timeout(10000) });
       const list = (await r.json()) as { localId: string; image?: string }[];
-      const hit = Array.isArray(list) ? list.find((c) => c.image && (!n || c.localId.replace(/^0+(?=\d)/, "").toLowerCase() === n)) : undefined;
+      const same = Array.isArray(list) ? (list as { id: string; localId: string; image?: string }[]).filter((c) => c.image && c.localId.replace(/^0+(?=\d)/, "").toLowerCase() === n) : [];
+      // confere o total de cartas da coleção de cada candidata (cartas japonesas, por exemplo, não batem)
+      const checked = await Promise.all(
+        same.slice(0, 8).map(async (c) => {
+          const d = (await (await fetch(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(c.id)}`, { signal: AbortSignal.timeout(10000) })).json().catch(() => null)) as { set?: { cardCount?: { official?: number } } } | null;
+          return d?.set?.cardCount?.official === total ? c : null;
+        }),
+      );
+      const hits = checked.filter(Boolean);
+      const hit = hits.length === 1 ? hits[0] : undefined;
       if (hit?.image) return `${hit.image}/high.webp`;
     } catch {
       /* tenta o próximo idioma */
