@@ -20,36 +20,27 @@ export const POLL_OPTIONS = 5;
 
 export type Overrides = { start?: number | null; buyout?: number | null; step?: number | null };
 
-/** Calcula lance inicial, incremento, arremate e as 5 opções da enquete de uma carta.
- *  Valores manuais da carta (overrides) prevalecem sobre as fórmulas. */
+/** Calcula os 5 lances da enquete de uma carta, a partir do valor de mercado:
+ *  −20%, −10%, valor de mercado, +15% e +30% (arremate) — usando os % do leilão (inicial e arremate)
+ *  e a metade deles nos lances do meio. Valores manuais da carta (overrides) prevalecem. */
 export function priceItem(marketCents: number, rules: PricingRules, lotOneReal = false, o: Overrides = {}) {
   const N = POLL_OPTIONS;
   const manualStep = o.step && o.step > 0 ? o.step : rules.defaultStepCents && rules.defaultStepCents > 0 ? rules.defaultStepCents : 0;
-  const start =
-    o.start && o.start > 0 ? o.start
-    : rules.oneReal || lotOneReal ? 100
-    : marketCents > 0 ? toReais((marketCents * (100 - rules.initialPct)) / 100) : 100;
-
   let options: number[];
-  if (manualStep && !(o.buyout && o.buyout > 0)) {
-    // incremento fixo: inicial, +1x, +2x, +3x, +4x
-    options = Array.from({ length: N }, (_, i) => start + i * manualStep);
+  if (manualStep || marketCents <= 0) {
+    // sem valor de mercado (ou com incremento fixo): inicial e mais 4 passos iguais
+    const step = manualStep || autoStep(marketCents);
+    const start = o.start && o.start > 0 ? o.start : rules.oneReal || lotOneReal ? 100 : marketCents > 0 ? toReais((marketCents * (100 - rules.initialPct)) / 100) : 100;
+    options = Array.from({ length: N }, (_, i) => start + i * step);
   } else {
-    let buyout =
-      o.buyout && o.buyout > 0 ? o.buyout
-      : marketCents > 0 ? toReais((marketCents * (100 + rules.buyoutPct)) / 100) : start + (N - 1) * autoStep(marketCents);
-    if (buyout <= start) buyout = start + (N - 1) * 100;
-    // passos iguais do inicial até o arremate, em valores redondos (R$ 1, 5, 10 ou 50, conforme o tamanho)
-    const raw = (buyout - start) / (N - 1);
-    const unit = manualStep ? 100 : raw < 1000 ? 100 : raw < 5000 ? 500 : raw < 20000 ? 1000 : 5000;
-    const round = (c: number) => Math.max(100, Math.round(c / unit) * unit);
-    const step = manualStep || Math.max(unit, round(raw));
-    const first = o.start && o.start > 0 ? start : round(start);
-    options = Array.from({ length: N - 1 }, (_, i) => (i === 0 ? first : round(first + i * step)));
-    const last = o.buyout && o.buyout > 0 ? buyout : round(buyout);
-    options.push(Math.max(last, options[N - 2] + unit));
+    const pct = [-rules.initialPct, -rules.initialPct / 2, 0, rules.buyoutPct / 2, rules.buyoutPct];
+    options = pct.map((p) => toReais((marketCents * (100 + p)) / 100));
+    if (rules.oneReal || lotOneReal) options[0] = 100;
   }
-  options = [...new Set(options)].sort((a, b) => a - b);
-  const stepCents = options.length > 1 ? options[1] - options[0] : 100;
+  if (o.start && o.start > 0) options[0] = o.start;
+  if (o.buyout && o.buyout > 0) options[N - 1] = o.buyout;
+  // cada lance precisa ser maior que o anterior (cartas baratas podem empatar no arredondamento)
+  for (let i = 1; i < options.length; i++) if (options[i] <= options[i - 1]) options[i] = options[i - 1] + 100;
+  const stepCents = options[1] - options[0];
   return { startCents: options[0], stepCents, buyoutCents: options[options.length - 1], options };
 }
