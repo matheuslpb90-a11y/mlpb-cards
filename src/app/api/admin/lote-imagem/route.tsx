@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { officialImage } from "@/lib/card-image";
 
 // Gera a arte de spoiler de um lote do leilão: logo + nome do leilão + lote + as cartas em grade.
 // Monta no servidor (busca as fotos de qualquer site), salva como imagem e devolve o endereço.
@@ -30,35 +31,6 @@ async function loadBytes(src: string, origin: string): Promise<Buffer> {
   const r = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "Mozilla/5.0 (MLPBCards)" } });
   if (!r.ok) throw new Error(`o site respondeu ${r.status}`);
   return Buffer.from(await r.arrayBuffer());
-}
-
-/** Reserva: acha a imagem oficial da carta na TCGdex pelo nome + número (quando a foto original é bloqueada). */
-async function tcgdexImage(name: string, number = "") {
-  const n = (number.split("/")[0] ?? "").replace(/^0+(?=\d)/, "").trim().toLowerCase();
-  const total = Number((number.split("/")[1] ?? "").replace(/\D/g, "")) || 0;
-  const clean = name.replace(/\s*\(.*?\)\s*/g, " ").trim();
-  // só usa a imagem oficial quando NÚMERO e TOTAL da coleção batem (ex.: 34/119) — senão não arrisca a carta errada
-  if (!clean || !n || !total) return "";
-  for (const lang of ["en", "pt"]) {
-    try {
-      const r = await fetch(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(clean)}`, { signal: AbortSignal.timeout(10000) });
-      const list = (await r.json()) as { localId: string; image?: string }[];
-      const same = Array.isArray(list) ? (list as { id: string; localId: string; image?: string }[]).filter((c) => c.image && c.localId.replace(/^0+(?=\d)/, "").toLowerCase() === n) : [];
-      // confere o total de cartas da coleção de cada candidata (cartas japonesas, por exemplo, não batem)
-      const checked = await Promise.all(
-        same.slice(0, 8).map(async (c) => {
-          const d = (await (await fetch(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(c.id)}`, { signal: AbortSignal.timeout(10000) })).json().catch(() => null)) as { set?: { cardCount?: { official?: number } } } | null;
-          return d?.set?.cardCount?.official === total ? c : null;
-        }),
-      );
-      const hits = checked.filter(Boolean);
-      const hit = hits.length === 1 ? hits[0] : undefined;
-      if (hit?.image) return `${hit.image}/high.webp`;
-    } catch {
-      /* tenta o próximo idioma */
-    }
-  }
-  return "";
 }
 
 /** Devolve a imagem em PNG (data URL), já reduzida. */
@@ -112,7 +84,7 @@ export async function POST(req: Request) {
       if (d) return d;
     }
     // nenhuma foto abriu (ex.: site de origem bloqueia o servidor): busca a imagem oficial pelo nome + número
-    const alt = await tcgdexImage(it.name, it.number);
+    const alt = await officialImage(it.name, it.number ?? "");
     return alt ? toDataUrl(alt, origin, Math.min(700, cardW * 2), it.code) : "";
   };
   const [logo, ...imgs] = await Promise.all([toDataUrl("/logo.png", origin, 220), ...items.map((i) => firstOk(i))]);

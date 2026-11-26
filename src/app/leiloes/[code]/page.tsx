@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import { SafeImg } from "@/components/SafeImg";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatBRL } from "@/lib/money";
@@ -52,7 +53,7 @@ export default async function AuctionPage({ params }: { params: Promise<{ code: 
               const hideMarket = lot.hideMarket || it.hideMarket;
               return (
                 <div key={it.id} className="card flex flex-col p-3">
-                  {img ? <img src={img} alt={it.name} className="aspect-[63/88] w-full rounded-lg object-cover" /> : <div className="flex aspect-[63/88] items-center justify-center rounded-lg bg-slate-100 text-4xl">🃏</div>}
+                  <SafeImg srcs={[img ?? "", ...media.filter((m) => m.type === "image").map((m) => m.url)]} alt={it.name} fallback="🃏" className="aspect-[63/88] w-full rounded-lg object-cover" />
                   <p className="mt-2 text-xs text-slate-500">{lot.position}.{it.position}</p>
                   <h3 className="font-semibold leading-tight">{itemTitle(it)}</h3>
                   <p className="text-xs text-slate-500">{it.condition} · {languageFlag(it.language)} {it.language}</p>

@@ -20,6 +20,12 @@ export async function saveAuctionAction(d: AuctionDraft): Promise<{ id?: string;
   for (const [li, l] of d.lots.entries())
     for (const [ii, it] of l.items.entries()) if (!it.name.trim()) return { error: `Lote ${li + 1}, carta ${ii + 1}: informe o nome.` };
 
+  // fotos da MYP não aparecem no site nem no WhatsApp: troca pela foto enviada ou pela imagem oficial
+  const { usableImage } = await import("@/lib/card-image");
+  for (const l of d.lots)
+    for (const it of l.items)
+      it.imageUrl = await usableImage(it.imageUrl, it.media.filter((m) => m.type === "image").map((m) => m.url), it.name, it.number);
+
   const rules = {
     initialPct: Math.max(0, Math.min(95, Number(d.initialPct) || 0)),
     buyoutPct: Math.max(0, Math.min(500, Number(d.buyoutPct) || 0)),

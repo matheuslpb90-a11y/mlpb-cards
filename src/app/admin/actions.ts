@@ -46,6 +46,8 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
   if (compareAt.trim() && compareAtCents === null) return { error: "Preço original inválido. Use o formato 15,00" };
   if (data.imageUrl && !/^(https?:\/\/|\/api\/imagens\/)/.test(data.imageUrl)) return { error: "A imagem deve ser um link http(s) ou uma foto enviada." };
 
+  // foto da MYP não aparece no site: troca pela imagem oficial quando possível
+  if (data.imageUrl) data.imageUrl = await (await import("@/lib/card-image")).usableImage(data.imageUrl, [], data.name, data.number);
   const id = String(form.get("id") ?? "");
   const payload = { ...data, priceCents, compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null, active: active === "on", featured: featured === "on" };
   if (id) await db.card.update({ where: { id }, data: payload });
