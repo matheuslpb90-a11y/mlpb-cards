@@ -19,20 +19,30 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
   const isGroup = (sp.order_nsu ?? "").startsWith("G");
   const code = Number(isInvoice || isBox || isGroup ? sp.order_nsu!.slice(1) : sp.order_nsu);
   let paid = false;
+  // Os links secretos (caixa, invoice, "pagar tudo") só aparecem para quem acabou de pagar de verdade:
+  // o pagamento é conferido na InfinitePay. Sem isso, qualquer um digitaria um número e veria dados de outro cliente.
+  let verified = false;
 
-  const boxToken = isBox && code ? (await db.box.findUnique({ where: { code }, select: { token: true } }))?.token : undefined;
+  let boxToken: string | undefined;
   if (isBox && code && sp.transaction_nsu && sp.slug) {
     const check = await checkPayment({ orderNsu: sp.order_nsu!, transactionNsu: sp.transaction_nsu, slug: sp.slug });
-    if (check.paid) paid = Boolean((await markBoxShippingPaid(code, { transactionNsu: sp.transaction_nsu, paidAmountCents: check.paidAmountCents }))?.shippingPaid);
+    if (check.paid) {
+      verified = true;
+      paid = Boolean((await markBoxShippingPaid(code, { transactionNsu: sp.transaction_nsu, paidAmountCents: check.paidAmountCents }))?.shippingPaid);
+      boxToken = (await db.box.findUnique({ where: { code }, select: { token: true } }))?.token;
+    }
   }
+  let invoiceToken = "";
 
   if (isInvoice && code && sp.transaction_nsu && sp.slug) {
     const inv = await db.invoice.findUnique({ where: { code }, include: { auction: true } });
     const handle = inv?.auction?.infinitepayHandle || undefined;
     const check = await checkPayment({ handle, orderNsu: sp.order_nsu!, transactionNsu: sp.transaction_nsu, slug: sp.slug });
     if (check.paid) {
+      verified = true;
       const r = await markInvoicePaid(code, { transactionNsu: sp.transaction_nsu, receiptUrl: sp.receipt_url, paidAmountCents: check.paidAmountCents });
       paid = r?.status === "PAGO";
+      invoiceToken = inv?.token ?? "";
     }
   }
 
@@ -40,11 +50,12 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
   if (isGroup && code && sp.transaction_nsu && sp.slug) {
     const check = await checkPayment({ orderNsu: sp.order_nsu!, transactionNsu: sp.transaction_nsu, slug: sp.slug });
     if (check.paid) {
+      verified = true;
       const g = await markPayGroupPaid(code, { transactionNsu: sp.transaction_nsu, paidAmountCents: check.paidAmountCents });
       paid = g?.status === "PAGO";
+      groupToken = (await db.paymentGroup.findUnique({ where: { code }, select: { token: true } }))?.token ?? "";
     }
   }
-  if (isGroup && code) groupToken = (await db.paymentGroup.findUnique({ where: { code }, select: { token: true } }))?.token ?? "";
 
   if (!isInvoice && !isBox && !isGroup && infinitePayEnabled() && code && sp.transaction_nsu && sp.slug) {
     const check = await checkPayment({ orderNsu: String(code), transactionNsu: sp.transaction_nsu, slug: sp.slug });
@@ -70,9 +81,9 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
         </>
       )}
       <div className="flex justify-center gap-2">
-        {code > 0 && isBox && <Link href={`/caixa/${code}?t=${boxToken ?? ""}`} className="btn-primary">Ver minha caixa</Link>}
+        {code > 0 && isBox && verified && boxToken && <Link href={`/caixa/${code}?t=${boxToken}`} className="btn-primary">Ver minha caixa</Link>}
         {isGroup && groupToken && <Link href={`/pagar/${groupToken}`} className="btn-primary">Ver pagamento</Link>}
-        {code > 0 && !isBox && !isGroup && (isInvoice ? <Link href={`/fatura/${code}`} className="btn-primary">Ver invoice #{code}</Link> : <Link href={`/pedido/${code}`} className="btn-primary">Ver pedido #{code}</Link>)}
+        {code > 0 && !isBox && !isGroup && (isInvoice ? (verified ? <Link href={`/fatura/${code}${invoiceToken ? `?t=${invoiceToken}` : ""}`} className="btn-primary">Ver invoice #{code}</Link> : null) : <Link href={`/pedido/${code}`} className="btn-primary">Ver pedido #{code}</Link>)}
         <Link href="/" className="btn-outline">Voltar ao catálogo</Link>
       </div>
     </div>

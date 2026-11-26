@@ -69,7 +69,7 @@ export default async function PayAllPage({ params, searchParams }: { params: Pro
             {pend.map((i) => (
               <li key={i.id} className="flex justify-between gap-3 py-2">
                 <span>
-                  <Link href={`/fatura/${i.code}`} className="underline">Invoice #{i.code}</Link>
+                  <Link href={`/fatura/${i.code}${i.token ? `?t=${i.token}` : ""}`} className="underline">Invoice #{i.code}</Link>
                   {i.auction ? ` · ${i.auction.name}` : ""}
                   <span className={`block text-xs ${i.dueAt < new Date() ? "text-red-300" : "text-slate-500"}`}>vence {fmtDate(i.dueAt)}</span>
                 </span>

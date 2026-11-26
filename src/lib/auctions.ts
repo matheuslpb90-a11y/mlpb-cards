@@ -299,6 +299,7 @@ export async function closeAuction(auctionId: string) {
     const inv = await db.invoice.create({
       data: {
         code: (last?.code ?? 5000) + 1,
+        token: (await import("crypto")).randomBytes(12).toString("hex"),
         auctionId: a.id,
         phone,
         name: w.name,
@@ -330,7 +331,7 @@ export async function sendInvoice(invoiceId: string) {
     `*Total: ${formatBRL(inv.totalCents)}*`,
     `Vencimento: ${inv.dueAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`,
     "",
-    `💳 Pague por Pix ou cartão: ${siteUrl()}/fatura/${inv.code}`,
+    `💳 Pague por Pix ou cartão: ${siteUrl()}/fatura/${inv.code}${inv.token ? `?t=${inv.token}` : ""}`,
     "",
     "Suas cartas podem ficar acumuladas na loja para um envio só. Dúvidas? É só responder aqui.",
   ].join("\n");

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
 import { formatBRL } from "@/lib/money";
 import { fmtDate, parseJson } from "@/lib/auctions";
 import { createCheckoutLink, infinitePayEnabled } from "@/lib/infinitepay";
@@ -10,17 +11,20 @@ import { openPayGroup, pendingInvoicesFor } from "@/lib/paygroups";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Invoice — MLPB Cards", robots: { index: false } };
 
-export default async function InvoicePage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ erro?: string }> }) {
+export default async function InvoicePage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ erro?: string; t?: string }> }) {
   const { code } = await params;
-  const { erro } = await searchParams;
+  const { erro, t } = await searchParams;
   const inv = await db.invoice.findUnique({ where: { code: Number(code) || -1 }, include: { auction: true } });
   if (!inv) notFound();
+  // só abre com o link secreto enviado ao cliente (ou para o admin). Invoices antigas, sem segredo, continuam abrindo.
+  if (inv.token && t !== inv.token && (await getCurrentUser())?.role !== "ADMIN") notFound();
+  const qs = inv.token ? `?t=${inv.token}` : "";
   const items = parseJson<{ title: string; cents: number }[]>(inv.itemsJson, []);
 
   async function pay() {
     "use server";
     const i = await db.invoice.findUnique({ where: { id: inv!.id }, include: { auction: true } });
-    if (!i || i.status !== "PENDENTE") redirect(`/fatura/${code}`);
+    if (!i || i.status !== "PENDENTE") redirect(`/fatura/${code}${qs}`);
     let url = "";
     try {
       if (!infinitePayEnabled() && !i.auction?.infinitepayHandle) throw new Error("demo");
@@ -34,7 +38,7 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       });
       await db.invoice.update({ where: { id: i.id }, data: { paymentUrl: url } });
     } catch (e) {
-      redirect(`/fatura/${code}?erro=${e instanceof Error && e.message === "demo" ? "demo" : "1"}`);
+      redirect(`/fatura/${code}${qs ? `${qs}&` : "?"}erro=${e instanceof Error && e.message === "demo" ? "demo" : "1"}`);
     }
     redirect(url);
   }

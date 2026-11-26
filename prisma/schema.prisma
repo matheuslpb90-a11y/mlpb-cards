@@ -205,6 +205,7 @@ model AuctionVote {
 model Invoice {
   id             String    @id @default(cuid())
   code           Int       @unique
+  token          String    @default("") // segredo do link /fatura/[code]?t=... (vazio = invoice antiga)
   auctionId      String?
   auction        Auction?  @relation(fields: [auctionId], references: [id], onDelete: SetNull)
   phone          String
@@ -314,6 +315,15 @@ model Review {
   createdAt   DateTime @default(now())
 
   @@index([targetPhone, createdAt])
+}
+
+// Tentativas de login/cadastro (contra quem tenta adivinhar senhas ou criar contas em massa)
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  key       String // "email:fulano@x.com" | "ip:1.2.3.4" | "signup:1.2.3.4"
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }
 
 // Denúncias de membros contra outros números (!denunciar), sempre com provas (imagens)

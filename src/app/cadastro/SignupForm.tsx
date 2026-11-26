@@ -21,7 +21,7 @@ export function SignupForm({ next }: { next: string }) {
         </div>
         <div>
           <label className="label">Senha</label>
-          <input name="password" type="password" required minLength={6} className="input" autoComplete="new-password" />
+          <input name="password" type="password" required minLength={8} className="input" autoComplete="new-password" />
         </div>
         <div>
           <label className="label">WhatsApp / Telefone</label>
