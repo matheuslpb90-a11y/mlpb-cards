@@ -48,12 +48,13 @@ export default async function AuctionPage({ params }: { params: Promise<{ code: 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {lot.items.map((it) => {
               const media = itemMedia(it);
-              const img = it.imageUrl || media.find((m) => m.type === "image")?.url;
+              // sua foto (Mídias) primeiro; depois a imagem da busca
+              const img = media.find((m) => m.type === "image")?.url || it.imageUrl;
               const top = it.votes[0];
               const hideMarket = lot.hideMarket || it.hideMarket;
               return (
                 <div key={it.id} className="card flex flex-col p-3">
-                  <SafeImg srcs={[img ?? "", ...media.filter((m) => m.type === "image").map((m) => m.url)]} alt={it.name} fallback="🃏" className="aspect-[63/88] w-full rounded-lg object-cover" />
+                  <SafeImg srcs={[img ?? "", ...media.filter((m) => m.type === "image").map((m) => m.url), it.imageUrl]} alt={it.name} fallback="🃏" className="aspect-[63/88] w-full rounded-lg object-cover" />
                   <p className="mt-2 text-xs text-slate-500">{lot.position}.{it.position}</p>
                   <h3 className="font-semibold leading-tight">{itemTitle(it)}</h3>
                   <p className="text-xs text-slate-500">{it.condition} · {languageFlag(it.language)} {it.language}</p>

@@ -118,8 +118,9 @@ function LotEditor({ n, auctionName, lot, rules, blobEnabled, onChange, onRemove
           code: `${n}.${i + 1}`,
           name: it.name || "Carta",
           number: it.number,
-          image: it.imageUrl || it.media.find((m) => m.type === "image")?.url || "",
-          images: [it.imageUrl, ...it.media.filter((m) => m.type === "image").map((m) => m.url)].filter(Boolean),
+          // sua foto (Mídias) primeiro; depois a imagem da busca
+          image: it.media.find((m) => m.type === "image")?.url || it.imageUrl || "",
+          images: [...it.media.filter((m) => m.type === "image").map((m) => m.url), it.imageUrl].filter(Boolean),
           price: withPrice && reaisToCents(it.market) ? `Inicial ${formatBRL(p.startCents)}` : "",
         };
       })

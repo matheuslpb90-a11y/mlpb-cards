@@ -44,7 +44,7 @@ export default async function HomePage() {
     ...groupAuctions.map((a) => ({
       key: a.id, href: `/leiloes/${a.code}`, external: false, title: a.name, where: "Grupo do WhatsApp",
       // capa do leilão → imagem do 1º lote (a gerada) → fotos das cartas
-      imgs: [a.imageUrl, a.lots[0]?.imageUrl ?? "", ...(a.lots[0]?.items ?? []).flatMap((it) => [it.imageUrl, ...mediaImages(it.mediaJson)])].filter(Boolean), live: a.status === "ATIVO", startsAt: a.startsAt, endsAt: a.endsAt,
+      imgs: [a.imageUrl, a.lots[0]?.imageUrl ?? "", ...(a.lots[0]?.items ?? []).flatMap((it) => [...mediaImages(it.mediaJson), it.imageUrl])].filter(Boolean), live: a.status === "ATIVO", startsAt: a.startsAt, endsAt: a.endsAt,
     })),
     ...lmAuctions.map((a) => ({
       key: a.key, href: a.url, external: true, title: a.title, where: "Leilomania",

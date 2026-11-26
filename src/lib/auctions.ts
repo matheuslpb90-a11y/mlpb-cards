@@ -98,7 +98,11 @@ export async function startAuction(auctionId: string) {
         mode === "TEXT" ? `➕ Incremento mínimo: ${formatBRL(it.stepCents)}\n💬 Lance: *${lot.position}.${it.position} $${(it.startCents / 100).toLocaleString("pt-BR")}*` : "",
       ].filter(Boolean).join("\n");
       const media = itemMedia(it);
-      const first = it.imageUrl ? [{ url: it.imageUrl, type: "image" as const }, ...media] : media;
+      // fotos enviadas por você (Mídias) têm prioridade; a imagem da busca só vai quando não há foto sua
+      // (e nunca a da MYP, que é bloqueada fora do site deles)
+      const ownPhotos = media.some((m) => m.type === "image");
+      const searchImg = it.imageUrl && !ownPhotos && !/img\.mypcards\.com/i.test(it.imageUrl) ? [{ url: it.imageUrl, type: "image" as const }] : [];
+      const first = [...searchImg, ...media];
       if (first.length === 0) await sendText(group, caption);
       for (const [i, m] of first.entries()) {
         const cap = i === 0 ? caption : "";
