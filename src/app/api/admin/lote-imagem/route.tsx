@@ -10,22 +10,54 @@ import { db } from "@/lib/db";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-type Item = { code: string; name: string; image: string; images?: string[]; price?: string };
+type Item = { code: string; name: string; number?: string; image: string; images?: string[]; price?: string };
 type Body = { auctionName: string; lotNumber: number; lotTitle: string; items: Item[] };
 
 const W = 1080;
 const H = 1350;
 
-/** Baixa uma imagem (de qualquer site) e devolve em PNG (data URL), já reduzida. */
-async function toDataUrl(src: string, origin: string, width: number) {
+const problems: string[] = [];
+
+/** Pega os bytes da imagem: fotos enviadas ao site vêm direto do banco; as outras, da internet. */
+async function loadBytes(src: string, origin: string): Promise<Buffer> {
+  const own = src.match(/\/api\/imagens\/([A-Za-z0-9_-]+)/);
+  if (own) {
+    const img = await db.image.findUnique({ where: { id: own[1] } });
+    if (!img) throw new Error("foto não encontrada no banco");
+    return Buffer.from(img.data);
+  }
+  const url = src.startsWith("http") ? src : `${origin}${src.startsWith("/") ? "" : "/"}${src}`;
+  const r = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "Mozilla/5.0 (MLPBCards)" } });
+  if (!r.ok) throw new Error(`o site respondeu ${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
+}
+
+/** Reserva: acha a imagem oficial da carta na TCGdex pelo nome + número (quando a foto original é bloqueada). */
+async function tcgdexImage(name: string, number = "") {
+  const n = (number.split("/")[0] ?? "").replace(/^0+(?=\d)/, "").trim().toLowerCase();
+  const clean = name.replace(/\s*\(.*?\)\s*/g, " ").trim();
+  if (!clean) return "";
+  for (const lang of ["en", "pt"]) {
+    try {
+      const r = await fetch(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(clean)}`, { signal: AbortSignal.timeout(10000) });
+      const list = (await r.json()) as { localId: string; image?: string }[];
+      const hit = Array.isArray(list) ? list.find((c) => c.image && (!n || c.localId.replace(/^0+(?=\d)/, "").toLowerCase() === n)) : undefined;
+      if (hit?.image) return `${hit.image}/high.webp`;
+    } catch {
+      /* tenta o próximo idioma */
+    }
+  }
+  return "";
+}
+
+/** Devolve a imagem em PNG (data URL), já reduzida. */
+async function toDataUrl(src: string, origin: string, width: number, label = "") {
   if (!src) return "";
   try {
-    const url = src.startsWith("http") ? src : `${origin}${src.startsWith("/") ? "" : "/"}${src}`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(12000), headers: { "User-Agent": "MLPBCards/1.0" } });
-    if (!r.ok) return "";
-    const png = await sharp(Buffer.from(await r.arrayBuffer())).rotate().resize({ width, withoutEnlargement: false }).png().toBuffer();
+    const png = await sharp(await loadBytes(src, origin), { failOn: "none" }).rotate().resize({ width, withoutEnlargement: false }).png().toBuffer();
     return `data:image/png;base64,${png.toString("base64")}`;
-  } catch {
+  } catch (e) {
+    if (label) problems.push(`${label}: ${e instanceof Error ? e.message : String(e)} (${src.slice(0, 80)})`);
     return "";
   }
 }
@@ -47,7 +79,7 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (user?.role !== "ADMIN") return NextResponse.json({ error: "Sem permissão" }, { status: 401 });
   const body = (await req.json().catch(() => null)) as Body | null;
-  const items = (body?.items ?? []).map((i) => ({ ...i, images: [...new Set([...(i.images ?? []), i.image].filter(Boolean))] })).filter((i) => i.images.length).slice(0, 20);
+  const items = (body?.items ?? []).map((i) => ({ ...i, images: [...new Set([...(i.images ?? []), i.image].filter(Boolean))] })).filter((i) => i.images.length || i.name).slice(0, 20);
   if (!body || !items.length) return NextResponse.json({ error: "Adicione cartas com imagem ao lote antes de gerar." }, { status: 400 });
 
   const origin = new URL(req.url).origin;
@@ -62,14 +94,17 @@ export async function POST(req: Request) {
   });
 
   // cada carta: tenta as fotos em ordem (imagem da busca, depois as fotos enviadas em "Mídias")
-  const firstOk = async (urls: string[]) => {
-    for (const u of urls) {
-      const d = await toDataUrl(u, origin, Math.min(700, cardW * 2));
+  problems.length = 0;
+  const firstOk = async (it: (typeof items)[number]) => {
+    for (const u of it.images) {
+      const d = await toDataUrl(u, origin, Math.min(700, cardW * 2), it.code);
       if (d) return d;
     }
-    return "";
+    // nenhuma foto abriu (ex.: site de origem bloqueia o servidor): busca a imagem oficial pelo nome + número
+    const alt = await tcgdexImage(it.name, it.number);
+    return alt ? toDataUrl(alt, origin, Math.min(700, cardW * 2), it.code) : "";
   };
-  const [logo, ...imgs] = await Promise.all([toDataUrl("/logo.png", origin, 220), ...items.map((i) => firstOk(i.images))]);
+  const [logo, ...imgs] = await Promise.all([toDataUrl("/logo.png", origin, 220), ...items.map((i) => firstOk(i))]);
   const missing = items.filter((_, i) => !imgs[i]).map((i) => i.code);
   const small = items.length > 9;
 
@@ -121,5 +156,6 @@ export async function POST(req: Request) {
 
   const jpg = await sharp(Buffer.from(await res.arrayBuffer())).jpeg({ quality: 88, mozjpeg: true }).toBuffer();
   const img = await db.image.create({ data: { mime: "image/jpeg", data: jpg } });
-  return NextResponse.json({ url: `/api/imagens/${img.id}`, missing });
+  if (problems.length) console.error("lote-imagem:", problems);
+  return NextResponse.json({ url: `/api/imagens/${img.id}`, missing, problems: missing.length ? problems : [] });
 }

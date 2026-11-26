@@ -117,22 +117,23 @@ function LotEditor({ n, auctionName, lot, rules, blobEnabled, onChange, onRemove
         return {
           code: `${n}.${i + 1}`,
           name: it.name || "Carta",
+          number: it.number,
           image: it.imageUrl || it.media.find((m) => m.type === "image")?.url || "",
           images: [it.imageUrl, ...it.media.filter((m) => m.type === "image").map((m) => m.url)].filter(Boolean),
           price: withPrice && reaisToCents(it.market) ? `Inicial ${formatBRL(p.startCents)}` : "",
         };
       })
-      .filter((x) => x.image);
+      .filter((x) => x.image || x.name !== "Carta");
     if (!items.length) return setArt("Busque as cartas do lote (com imagem) antes de gerar.");
     setArt("Gerando a imagem do lote…");
     try {
       const r = await fetch("/api/admin/lote-imagem", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ auctionName, lotNumber: n, lotTitle: lot.title, items }) });
-      const j = (await r.json()) as { url?: string; error?: string; missing?: string[] };
+      const j = (await r.json()) as { url?: string; error?: string; missing?: string[]; problems?: string[] };
       if (!j.url) return setArt(j.error ?? "Não consegui gerar a imagem.");
       onChange({ ...lot, imageUrl: j.url });
       setArt(
         j.missing?.length
-          ? `⚠️ Imagem gerada, mas a foto de ${j.missing.join(", ")} não abriu. Envie a foto em "Mídias da carta" (JPG ou PNG) e gere de novo.`
+          ? `⚠️ Imagem gerada, mas a foto de ${j.missing.join(", ")} não abriu. Detalhe: ${(j.problems ?? []).join(" | ") || "—"}`
           : "✔ Imagem gerada e colocada como spoiler do lote. Salve o leilão.",
       );
     } catch {
