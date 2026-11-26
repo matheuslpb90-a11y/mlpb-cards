@@ -38,6 +38,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/catalogo?tipo=selados" className={navLink}>Selados</Link>
                 <Link href="/leiloes" className={navLink}>Leilões</Link>
                 <Link href="/colecao" className={navLink}>Minha coleção</Link>
+                <Link href="/avaliador" className={navLink}>Pré-avaliação</Link>
                 <Link href="/grupo" className={navLink}>Grupo</Link>
                 <Link href="/pontos" className={`${navLink} flex items-center gap-1`}><CoinIcon className="h-4 w-4 text-brand-amber" /> Pontos</Link>
                 {s.youtubeUrl && (
@@ -75,6 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link href="/colecao" className="rounded-lg px-3 py-2 hover:bg-slate-100">📚 Minha coleção</Link>
+                <Link href="/avaliador" className="rounded-lg px-3 py-2 hover:bg-slate-100">🔍 Pré-avaliação</Link>
                 <Link href="/grupo" className="rounded-lg px-3 py-2 hover:bg-slate-100">Como funciona o grupo</Link>
                 <Link href="/pontos" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100"><CoinIcon className="h-4 w-4 text-brand-amber" /> MLPB Points</Link>
                 <InstallAppLink className="rounded-lg px-3 py-2 hover:bg-slate-100" />
