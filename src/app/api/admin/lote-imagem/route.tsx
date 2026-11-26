@@ -134,7 +134,6 @@ export async function POST(req: Request) {
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: cardW }}>
               <div style={{ display: "flex", position: "relative", width: cardW, height: cardH, borderRadius: Math.round(cardW * 0.05), overflow: "hidden", boxShadow: "0 0 40px rgba(255,122,0,0.35)", background: "#1a1a1a" }}>
                 {imgs[i] ? <img src={imgs[i]} width={cardW} height={cardH} style={{ objectFit: "cover" }} /> : <div style={{ display: "flex", width: cardW, height: cardH, alignItems: "center", justifyContent: "center", color: "#666", fontSize: 28 }}>sem foto</div>}
-                <div style={{ position: "absolute", top: 10, left: 10, display: "flex", fontSize: small ? 18 : 24, color: "#0a0a0a", background: "#ffb020", padding: "2px 12px", borderRadius: 20 }}>{it.code}</div>
               </div>
               <div style={{ display: "flex", fontSize: small ? 18 : 24, color: "#ffffff", marginTop: 8, maxWidth: cardW, overflow: "hidden", whiteSpace: "nowrap" }}>{it.name.slice(0, 26)}</div>
               {it.price ? <div style={{ display: "flex", fontSize: small ? 16 : 21, color: "#ffb020" }}>{it.price}</div> : null}
