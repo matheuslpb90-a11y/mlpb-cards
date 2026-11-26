@@ -291,7 +291,7 @@ function ItemEditor({ label, it, rules, lotOneReal, blobEnabled, onChange, onRem
           </p>
           <p className="sm:col-span-6 rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
             Valores: inicial {formatBRL(p.startCents)} · incremento {formatBRL(p.stepCents)} · arremate {formatBRL(p.buyoutCents)}
-            <span className="block text-slate-500">Enquete (Z-API clássica): {p.options.map((c) => formatBRL(c)).join(" · ")}</span>
+            <span className="block text-slate-500">Enquete ({p.options.length} lances): {p.options.map((c) => formatBRL(c)).join(" · ")}</span>
           </p>
         </div>
       </div>

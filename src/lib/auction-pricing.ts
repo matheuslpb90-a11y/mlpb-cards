@@ -12,33 +12,44 @@ export function autoStep(marketCents: number) {
   return 5000; // acima → R$ 50
 }
 
-const NICE = [100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000, 25000, 50000];
-const niceCeil = (c: number) => NICE.find((n) => n >= c) ?? Math.ceil(c / 50000) * 50000;
 const toReais = (c: number) => Math.max(100, Math.round(c / 100) * 100);
 
 export const MAX_POLL_OPTIONS = 12; // limite do WhatsApp
+/** Quantos lances cada enquete tem: o inicial (20% abaixo do mercado) e mais 4 subindo até o arremate. */
+export const POLL_OPTIONS = 5;
 
 export type Overrides = { start?: number | null; buyout?: number | null; step?: number | null };
 
-/** Calcula lance inicial, incremento, arremate e as opções da enquete de uma carta.
+/** Calcula lance inicial, incremento, arremate e as 5 opções da enquete de uma carta.
  *  Valores manuais da carta (overrides) prevalecem sobre as fórmulas. */
 export function priceItem(marketCents: number, rules: PricingRules, lotOneReal = false, o: Overrides = {}) {
-  let step = o.step && o.step > 0 ? o.step : rules.defaultStepCents && rules.defaultStepCents > 0 ? rules.defaultStepCents : autoStep(marketCents);
+  const N = POLL_OPTIONS;
+  const manualStep = o.step && o.step > 0 ? o.step : rules.defaultStepCents && rules.defaultStepCents > 0 ? rules.defaultStepCents : 0;
   const start =
     o.start && o.start > 0 ? o.start
     : rules.oneReal || lotOneReal ? 100
     : marketCents > 0 ? toReais((marketCents * (100 - rules.initialPct)) / 100) : 100;
-  let buyout =
-    o.buyout && o.buyout > 0 ? o.buyout
-    : marketCents > 0 ? toReais((marketCents * (100 + rules.buyoutPct)) / 100) : start + step * (MAX_POLL_OPTIONS - 1);
-  if (buyout <= start) buyout = start + step;
-  let count = Math.floor((buyout - start) / step) + 1;
-  if (count > MAX_POLL_OPTIONS) {
-    step = niceCeil(Math.ceil((buyout - start) / (MAX_POLL_OPTIONS - 1)));
-    count = Math.floor((buyout - start) / step) + 1;
+
+  let options: number[];
+  if (manualStep && !(o.buyout && o.buyout > 0)) {
+    // incremento fixo: inicial, +1x, +2x, +3x, +4x
+    options = Array.from({ length: N }, (_, i) => start + i * manualStep);
+  } else {
+    let buyout =
+      o.buyout && o.buyout > 0 ? o.buyout
+      : marketCents > 0 ? toReais((marketCents * (100 + rules.buyoutPct)) / 100) : start + (N - 1) * autoStep(marketCents);
+    if (buyout <= start) buyout = start + (N - 1) * 100;
+    // passos iguais do inicial até o arremate, em valores redondos (R$ 1, 5, 10 ou 50, conforme o tamanho)
+    const raw = (buyout - start) / (N - 1);
+    const unit = manualStep ? 100 : raw < 1000 ? 100 : raw < 5000 ? 500 : raw < 20000 ? 1000 : 5000;
+    const round = (c: number) => Math.max(100, Math.round(c / unit) * unit);
+    const step = manualStep || Math.max(unit, round(raw));
+    const first = o.start && o.start > 0 ? start : round(start);
+    options = Array.from({ length: N - 1 }, (_, i) => (i === 0 ? first : round(first + i * step)));
+    const last = o.buyout && o.buyout > 0 ? buyout : round(buyout);
+    options.push(Math.max(last, options[N - 2] + unit));
   }
-  const options: number[] = [];
-  for (let i = 0; i < count && options.length < MAX_POLL_OPTIONS - 1; i++) options.push(start + i * step);
-  if (options[options.length - 1] !== buyout) options.push(buyout);
-  return { startCents: start, stepCents: step, buyoutCents: buyout, options: options.slice(0, MAX_POLL_OPTIONS) };
+  options = [...new Set(options)].sort((a, b) => a - b);
+  const stepCents = options.length > 1 ? options[1] - options[0] : 100;
+  return { startCents: options[0], stepCents, buyoutCents: options[options.length - 1], options };
 }
