@@ -80,6 +80,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Link href="/grupo" className="rounded-lg px-3 py-2 hover:bg-slate-100">Como funciona o grupo</Link>
                 <Link href="/pontos" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100"><CoinIcon className="h-4 w-4 text-brand-amber" /> MLPB Points</Link>
                 <InstallAppLink className="rounded-lg px-3 py-2 hover:bg-slate-100" />
+                <Link href="/privacidade" className="rounded-lg px-3 py-2 hover:bg-slate-100">Privacidade</Link>
+                <Link href="/termos" className="rounded-lg px-3 py-2 hover:bg-slate-100">Termos</Link>
                 <a href={whatsappLink("Olá, MLPB Cards!")} target="_blank" rel="noreferrer" className="flex items-center gap-1 rounded-lg px-3 py-2 hover:bg-slate-100">
                   <WhatsIcon className="h-4 w-4 text-whats" /> Loja
                 </a>
