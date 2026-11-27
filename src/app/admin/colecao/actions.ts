@@ -31,19 +31,25 @@ export async function bulkSaveCardsAction(setName: string, otherSetNames: string
   const cardsIdx = setCards.length ? setCards : items.map((i) => ({ number: i.number, name: i.name }));
   const existing = await variantsForSet([name, ...otherSetNames], cardsIdx);
   let created = 0, updated = 0;
-  for (const i of ok) {
-    const same = existing.find((e) => numKey(e.number) === numKey(i.number) && e.language === i.language && e.finish === i.finish && e.condition === i.condition);
-    if (same) {
-      await db.card.update({ where: { id: same.id }, data: { stock: i.stock, priceCents: i.priceCents, active: true, ...(i.imageUrl ? { imageUrl: i.imageUrl } : {}) } });
-      updated++;
-    } else {
-      const rarity = i.tcgdexId ? await cardRarity(i.tcgdexId) : "";
-      await db.card.create({
-        data: { kind: "CARTA", game: "Pokémon", name: i.name, setName: name, number: i.number, rarity, language: i.language, finish: i.finish, condition: i.condition, priceCents: i.priceCents, stock: i.stock, imageUrl: i.imageUrl, active: true },
-      });
-      created++;
-    }
+  const plan = ok.map((i) => ({ i, same: existing.find((e) => numKey(e.number) === numKey(i.number) && e.language === i.language && e.finish === i.finish && e.condition === i.condition) }));
+  // raridade das cartas novas: busca várias ao mesmo tempo (antes era uma por uma, muito lento em coleções grandes)
+  const rarity = new Map<string, string>();
+  const need = [...new Set(plan.filter((p) => !p.same && p.i.tcgdexId).map((p) => p.i.tcgdexId))];
+  for (let k = 0; k < need.length; k += 10) {
+    await Promise.all(need.slice(k, k + 10).map(async (id) => rarity.set(id, await cardRarity(id).catch(() => ""))));
   }
+  const ops = plan.map(({ i, same }) => {
+    if (same) {
+      updated++;
+      return db.card.update({ where: { id: same.id }, data: { stock: i.stock, priceCents: i.priceCents, active: true, ...(i.imageUrl ? { imageUrl: i.imageUrl } : {}) } });
+    }
+    created++;
+    return db.card.create({
+      data: { kind: "CARTA", game: "Pokémon", name: i.name, setName: name, number: i.number, rarity: rarity.get(i.tcgdexId) ?? "", language: i.language, finish: i.finish, condition: i.condition, priceCents: i.priceCents, stock: i.stock, imageUrl: i.imageUrl, active: true },
+    });
+  });
+  // tudo de uma vez no banco (uma ida só, em vez de uma por carta)
+  for (let k = 0; k < ops.length; k += 100) await db.$transaction(ops.slice(k, k + 100));
   await logActivity("cards_bulk", `Coleção "${name}": ${created} carta(s) nova(s), ${updated} atualizada(s)`);
   revalidatePath("/");
   revalidatePath("/catalogo");

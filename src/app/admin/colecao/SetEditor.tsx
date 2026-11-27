@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { CONDITIONS, FINISHES, LANGUAGES, numKey, variantKey } from "@/lib/catalog";
 import { formatBRL, parseBRLToCents } from "@/lib/money";
 import { bulkSaveCardsAction } from "./actions";
@@ -79,10 +79,11 @@ export function SetEditor() {
   const qtyOf = (c: SetCard, r: Row) => (r.touchedQty ? r.qty : String(existingOf(c, r)?.stock ?? (r.sel ? 1 : 0)));
   const priceOf = (c: SetCard, r: Row) => (r.touchedPrice ? r.price : existingOf(c, r) ? toBRL(existingOf(c, r)!.priceCents) : r.price);
 
-  const update = (c: SetCard, patch: Partial<Row>) => setRows((p) => ({ ...p, [c.tcgdexId]: { ...rowOf(c), ...patch } }));
-  // trocar idioma/tipo/estado mostra o estoque daquela versão (zera o que foi digitado)
-  const changeVariant = (c: SetCard, patch: Partial<Row>) => update(c, { ...patch, touchedQty: false, touchedPrice: false, price: "" });
-
+  // funções estáveis (não mudam a cada tecla): assim só a carta editada é redesenhada
+  const updateId = useCallback(
+    (id: string, patch: Partial<Row>) => setRows((p) => ({ ...p, [id]: { ...(p[id] ?? { sel: false, ...defs, price: "", qty: "", touchedQty: false, touchedPrice: false }), ...patch } })),
+    [defs],
+  );
   function applyDefaults() {
     if (!set) return;
     setRows((p) => {
@@ -92,19 +93,21 @@ export function SetEditor() {
     });
   }
 
-  async function mypPrice(c: SetCard) {
-    const r = rowOf(c);
-    update(c, { price: "…", touchedPrice: true });
-    try {
-      const qs = new URLSearchParams({ myp: c.name, num: c.number, idioma: r.language, finish: r.finish });
-      const j = (await (await fetch(`/api/admin/buscar-carta?${qs}`)).json()) as { results?: { price: { cents: number } | null }[]; message?: string };
-      const best = (j.results ?? []).find((x) => x.price);
-      update(c, { price: best?.price ? toBRL(best.price.cents) : "", touchedPrice: true, sel: true });
-      if (!best?.price) setMsg({ error: `A MYP não tem preço para ${c.name} (${c.number}). Digite o preço.` });
-    } catch {
-      update(c, { price: "", touchedPrice: true });
-    }
-  }
+  const mypPrice = useCallback(
+    async (c: SetCard, r: Row) => {
+      updateId(c.tcgdexId, { price: "…", touchedPrice: true });
+      try {
+        const qs = new URLSearchParams({ myp: c.name, num: c.number, idioma: r.language, finish: r.finish });
+        const j = (await (await fetch(`/api/admin/buscar-carta?${qs}`)).json()) as { results?: { price: { cents: number } | null }[]; message?: string };
+        const best = (j.results ?? []).find((x) => x.price);
+        updateId(c.tcgdexId, { price: best?.price ? toBRL(best.price.cents) : "", touchedPrice: true, sel: true });
+        if (!best?.price) setMsg({ error: `A MYP não tem preço para ${c.name} (${c.number}). Digite o preço.` });
+      } catch {
+        updateId(c.tcgdexId, { price: "", touchedPrice: true });
+      }
+    },
+    [updateId],
+  );
 
   const shown = useMemo(() => {
     if (!set) return [];
@@ -140,7 +143,6 @@ export function SetEditor() {
     });
   }
 
-  const sel = "input !py-1 !px-2 text-xs";
   return (
     <div className="space-y-4 pb-28">
       <section className="card space-y-3 p-4">
@@ -195,51 +197,9 @@ export function SetEditor() {
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {shown.map((c) => {
-              const r = rowOf(c);
-              const ex = existingOf(c, r);
-              const others = (byNumber.get(numKey(c.number)) ?? []).filter((v) => v.stock > 0);
-              return (
-                <div key={c.tcgdexId} className={`relative space-y-1 rounded-xl border-2 bg-[#151515] p-2 ${r.sel ? "border-brand" : "border-transparent"}`}>
-                  <button type="button" onClick={() => update(c, { sel: !r.sel })} className="block w-full">
-                    <span className={`absolute left-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-md border-2 text-sm font-black ${r.sel ? "border-brand bg-brand text-black" : "border-white/60 bg-black/50"}`}>{r.sel ? "✓" : ""}</span>
-                    {c.image ? <img src={c.image} alt={c.name} loading="lazy" className="aspect-[63/88] w-full rounded-lg object-contain" /> : <div className="flex aspect-[63/88] items-center justify-center rounded-lg bg-black/40 text-3xl">🃏</div>}
-                  </button>
-                  <p className="truncate text-sm font-bold" title={c.name}>{c.name}</p>
-                  {c.namePt && c.namePt !== c.name && <p className="truncate text-[11px] text-slate-400" title={c.namePt}>{c.namePt}</p>}
-                  <p className="text-[11px] text-slate-500">{c.number}</p>
-                  {others.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {others.map((v) => (
-                        <button key={v.id} type="button" title="Carregar esta versão"
-                          onClick={() => changeVariant(c, { language: v.language, finish: v.finish, condition: v.condition, sel: true })}
-                          className="rounded bg-green-950/60 px-1 text-[10px] text-green-300">
-                          {short(v.language)}·{v.condition}{v.finish !== "Normal" ? `·${v.finish.replace(" Foil", "")}` : ""} ×{v.stock}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <select className={sel} value={r.language} onChange={(e) => changeVariant(c, { language: e.target.value })}>{LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.flag} {l.value}</option>)}</select>
-                  <div className="grid grid-cols-2 gap-1">
-                    <select className={sel} value={r.finish} onChange={(e) => changeVariant(c, { finish: e.target.value })}>{FINISHES.map((f) => <option key={f}>{f}</option>)}</select>
-                    <select className={sel} value={r.condition} onChange={(e) => changeVariant(c, { condition: e.target.value })}>{COND_SHORT.map((x) => <option key={x}>{x}</option>)}</select>
-                  </div>
-                  <p className={`text-[11px] ${ex ? "font-bold text-green-300" : "text-slate-500"}`}>
-                    {ex ? `📦 Em estoque: ${ex.stock} · ${formatBRL(ex.priceCents)}` : "📦 Em estoque: 0 (versão nova)"}
-                  </p>
-                  <div className="flex gap-1">
-                    <input className={`${sel} w-full font-bold text-brand`} inputMode="decimal" placeholder="Preço R$" value={priceOf(c, r)} onChange={(e) => update(c, { price: e.target.value, touchedPrice: true, sel: true })} />
-                    <button type="button" className="rounded border px-1 text-[10px] text-slate-400 hover:border-brand" title="Preço de referência da MYP Cards" onClick={() => mypPrice(c)}>MYP</button>
-                  </div>
-                  <div className="flex items-center justify-between rounded bg-black/30 px-1">
-                    <button type="button" className="px-2 text-lg text-brand" onClick={() => update(c, { qty: String(Math.max(0, (Number(qtyOf(c, r)) || 0) - 1)), touchedQty: true, sel: true })}>−</button>
-                    <input className="w-10 bg-transparent text-center font-bold outline-none" inputMode="numeric" value={qtyOf(c, r)} onChange={(e) => update(c, { qty: e.target.value.replace(/\D/g, ""), touchedQty: true, sel: true })} />
-                    <button type="button" className="px-2 text-lg text-brand" onClick={() => update(c, { qty: String((Number(qtyOf(c, r)) || 0) + 1), touchedQty: true, sel: true })}>+</button>
-                  </div>
-                  <p className="text-center text-[10px] text-slate-500">estoque total desta versão</p>
-                </div>
-              );
-            })}
+            {shown.map((c) => (
+              <CardTile key={c.tcgdexId} c={c} row={rows[c.tcgdexId]} defs={defs} versions={byNumber.get(numKey(c.number))} onUpdate={updateId} onMyp={mypPrice} />
+            ))}
           </div>
           {shown.length === 0 && <p className="card p-6 text-center text-sm text-slate-500">Nenhuma carta nesse filtro.</p>}
         </>
@@ -256,3 +216,61 @@ export function SetEditor() {
     </div>
   );
 }
+
+const EMPTY: Variant[] = [];
+const SEL = "input !py-1 !px-2 text-xs";
+
+/** Uma carta da grade. "memo": só é redesenhada quando os dados DELA mudam (não a cada tecla em outra carta). */
+const CardTile = memo(function CardTile({ c, row, defs, versions = EMPTY, onUpdate, onMyp }: {
+  c: SetCard; row: Row | undefined; defs: Defaults; versions?: Variant[];
+  onUpdate: (id: string, patch: Partial<Row>) => void; onMyp: (c: SetCard, r: Row) => void;
+}) {
+  const r: Row = row ?? { sel: false, ...defs, price: "", qty: "", touchedQty: false, touchedPrice: false };
+  const key = variantKey({ number: c.number, language: r.language, finish: r.finish, condition: r.condition });
+  const ex = versions.find((v) => variantKey(v) === key);
+  const qty = r.touchedQty ? r.qty : String(ex?.stock ?? (r.sel ? 1 : 0));
+  const price = r.touchedPrice ? r.price : ex ? toBRL(ex.priceCents) : r.price;
+  const others = versions.filter((v) => v.stock > 0);
+  const update = (patch: Partial<Row>) => onUpdate(c.tcgdexId, patch);
+  const changeVariant = (patch: Partial<Row>) => update({ ...patch, touchedQty: false, touchedPrice: false, price: "" });
+  return (
+    <div className={`relative space-y-1 rounded-xl border-2 bg-[#151515] p-2 ${r.sel ? "border-brand" : "border-transparent"}`}>
+      <button type="button" onClick={() => update({ sel: !r.sel })} className="block w-full">
+        <span className={`absolute left-3 top-3 z-10 flex h-6 w-6 items-center justify-center rounded-md border-2 text-sm font-black ${r.sel ? "border-brand bg-brand text-black" : "border-white/60 bg-black/50"}`}>{r.sel ? "✓" : ""}</span>
+        {c.image ? <img src={c.image} alt={c.name} loading="lazy" decoding="async" className="aspect-[63/88] w-full rounded-lg object-contain" /> : <div className="flex aspect-[63/88] items-center justify-center rounded-lg bg-black/40 text-3xl">🃏</div>}
+      </button>
+      <p className="truncate text-sm font-bold" title={c.name}>{c.name}</p>
+      {c.namePt && c.namePt !== c.name && <p className="truncate text-[11px] text-slate-400" title={c.namePt}>{c.namePt}</p>}
+      <p className="text-[11px] text-slate-500">{c.number}</p>
+      {others.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {others.map((v) => (
+            <button key={v.id} type="button" title="Carregar esta versão"
+              onClick={() => changeVariant({ language: v.language, finish: v.finish, condition: v.condition, sel: true })}
+              className="rounded bg-green-950/60 px-1 text-[10px] text-green-300">
+              {short(v.language)}·{v.condition}{v.finish !== "Normal" ? `·${v.finish.replace(" Foil", "")}` : ""} ×{v.stock}
+            </button>
+          ))}
+        </div>
+      )}
+      <select className={SEL} value={r.language} onChange={(e) => changeVariant({ language: e.target.value })}>{LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.flag} {l.value}</option>)}</select>
+      <div className="grid grid-cols-2 gap-1">
+        <select className={SEL} value={r.finish} onChange={(e) => changeVariant({ finish: e.target.value })}>{FINISHES.map((f) => <option key={f}>{f}</option>)}</select>
+        <select className={SEL} value={r.condition} onChange={(e) => changeVariant({ condition: e.target.value })}>{COND_SHORT.map((x) => <option key={x}>{x}</option>)}</select>
+      </div>
+      <p className={`text-[11px] ${ex ? "font-bold text-green-300" : "text-slate-500"}`}>
+        {ex ? `📦 Em estoque: ${ex.stock} · ${formatBRL(ex.priceCents)}` : "📦 Em estoque: 0 (versão nova)"}
+      </p>
+      <div className="flex gap-1">
+        <input className={`${SEL} w-full font-bold text-brand`} inputMode="decimal" placeholder="Preço R$" value={price} onChange={(e) => update({ price: e.target.value, touchedPrice: true, sel: true })} />
+        <button type="button" className="rounded border px-1 text-[10px] text-slate-400 hover:border-brand" title="Preço de referência da MYP Cards" onClick={() => onMyp(c, r)}>MYP</button>
+      </div>
+      <div className="flex items-center justify-between rounded bg-black/30 px-1">
+        <button type="button" className="px-2 text-lg text-brand" onClick={() => update({ qty: String(Math.max(0, (Number(qty) || 0) - 1)), touchedQty: true, sel: true })}>−</button>
+        <input className="w-10 bg-transparent text-center font-bold outline-none" inputMode="numeric" value={qty} onChange={(e) => update({ qty: e.target.value.replace(/\D/g, ""), touchedQty: true, sel: true })} />
+        <button type="button" className="px-2 text-lg text-brand" onClick={() => update({ qty: String((Number(qty) || 0) + 1), touchedQty: true, sel: true })}>+</button>
+      </div>
+      <p className="text-center text-[10px] text-slate-500">estoque total desta versão</p>
+    </div>
+  );
+});

@@ -34,10 +34,11 @@ export async function listSets(): Promise<TcgSet[]> {
 
 /** Uma coleção com todas as cartas (número no formato 001/217). */
 export async function getSet(id: string) {
-  const s = await get<RawSet & { releaseDate?: string; cards?: { id: string; localId: string; name: string; image?: string }[]; serie?: { name: string } }>(
-    `/en/sets/${encodeURIComponent(id)}`,
-  );
-  const pt = await get<{ name?: string; cards?: { id: string; name: string }[] }>(`/pt/sets/${encodeURIComponent(id)}`).catch(() => ({ name: "", cards: [] }));
+  // inglês e português ao mesmo tempo (antes era um depois do outro)
+  const [s, pt] = await Promise.all([
+    get<RawSet & { releaseDate?: string; cards?: { id: string; localId: string; name: string; image?: string }[]; serie?: { name: string } }>(`/en/sets/${encodeURIComponent(id)}`),
+    get<{ name?: string; cards?: { id: string; name: string }[] }>(`/pt/sets/${encodeURIComponent(id)}`).catch(() => ({ name: "", cards: [] as { id: string; name: string }[] })),
+  ]);
   const ptCard = new Map((pt.cards ?? []).map((c) => [c.id, c.name]));
   const official = s.cardCount?.official ?? 0;
   const pad = String(official || 0).length;
