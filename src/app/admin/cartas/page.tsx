@@ -44,7 +44,7 @@ export default async function AdminCards({ searchParams }: { searchParams: Promi
           <tbody className="divide-y">
             {cards.map((c) => (
               <tr key={c.id}>
-                <td className="w-12 p-2"><CardImage src={c.imageUrl} alt={c.name} /></td>
+                <td className="w-12 p-2"><CardImage src={c.imageUrl.replace(/\/high\.webp$/, "/low.webp")} alt={c.name} /></td>
                 <td className="p-2">
                   <p className="font-semibold">{c.name}</p>
                   <p className="text-xs text-slate-500">

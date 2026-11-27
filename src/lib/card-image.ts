@@ -12,23 +12,27 @@ export async function officialImage(name: string, number = "") {
   const total = Number((number.split("/")[1] ?? "").replace(/\D/g, "")) || 0;
   const clean = name.replace(/\s*\(.*?\)\s*/g, " ").trim();
   if (!clean || !n || !total) return "";
-  for (const lang of ["en", "pt"]) {
+  // inglês e português ao mesmo tempo; respostas guardadas por 1 dia (a mesma carta não é buscada de novo)
+  const opts = { signal: AbortSignal.timeout(6000), next: { revalidate: 86400 } };
+  const tryLang = async (lang: string) => {
     try {
-      const r = await fetch(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(clean)}`, { signal: AbortSignal.timeout(10000) });
+      const r = await fetch(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(clean)}`, opts);
       const list = (await r.json()) as { id: string; localId: string; image?: string }[];
       const same = Array.isArray(list) ? list.filter((c) => c.image && c.localId.replace(/^0+(?=\d)/, "").toLowerCase() === n) : [];
       const checked = await Promise.all(
         same.slice(0, 8).map(async (c) => {
-          const d = (await (await fetch(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(c.id)}`, { signal: AbortSignal.timeout(10000) })).json().catch(() => null)) as { set?: { cardCount?: { official?: number } } } | null;
+          const d = (await (await fetch(`https://api.tcgdex.net/v2/${lang}/cards/${encodeURIComponent(c.id)}`, opts)).json().catch(() => null)) as { set?: { cardCount?: { official?: number } } } | null;
           return d?.set?.cardCount?.official === total ? c : null;
         }),
       );
       const hits = checked.filter((c): c is NonNullable<typeof c> => !!c);
-      if (hits.length === 1) return `${hits[0].image}/high.webp`;
+      return hits.length === 1 ? `${hits[0].image}/high.webp` : "";
     } catch {
-      /* tenta o próximo idioma */
+      return "";
     }
-  }
+  };
+  const [en, pt] = await Promise.all([tryLang("en"), tryLang("pt")]);
+  if (en || pt) return en || pt;
   return "";
 }
 

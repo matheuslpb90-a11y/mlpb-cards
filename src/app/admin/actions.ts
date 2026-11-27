@@ -47,7 +47,15 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
   if (data.imageUrl && !/^(https?:\/\/|\/api\/imagens\/)/.test(data.imageUrl)) return { error: "A imagem deve ser um link http(s) ou uma foto enviada." };
 
   // foto da MYP não aparece no site: troca pela imagem oficial quando possível
-  if (data.imageUrl) data.imageUrl = await (await import("@/lib/card-image")).usableImage(data.imageUrl, [], data.name, data.number);
+  // (no máximo 5 segundos: se a base oficial demorar, salva assim mesmo)
+  if (data.imageUrl) {
+    const original = data.imageUrl;
+    const { usableImage } = await import("@/lib/card-image");
+    data.imageUrl = await Promise.race([
+      usableImage(original, [], data.name, data.number).catch(() => original),
+      new Promise<string>((ok) => setTimeout(() => ok(original), 5000)),
+    ]);
+  }
   const id = String(form.get("id") ?? "");
   const payload = { ...data, priceCents, compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null, active: active === "on", featured: featured === "on" };
   if (id) await db.card.update({ where: { id }, data: payload });
