@@ -33,8 +33,15 @@ const cardSchema = z.object({
   active: z.string().optional(),
 });
 
+// diagnóstico de lentidão: marca se este servidor acabou de "acordar" (primeira ação depois de um tempo parado)
+const g = globalThis as unknown as { __mlpbWarm?: boolean };
+
 export async function saveCardAction(_: State, form: FormData): Promise<State> {
+  const t0 = Date.now();
+  const cold = !g.__mlpbWarm;
+  g.__mlpbWarm = true;
   await requireAdmin();
+  const tAuth = Date.now();
   const parsed = cardSchema.safeParse(Object.fromEntries(form));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   const { price, compareAt, active, featured, ...data } = parsed.data;
@@ -56,6 +63,7 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
       new Promise<string>((ok) => setTimeout(() => ok(original), 5000)),
     ]);
   }
+  const tImg = Date.now();
   const id = String(form.get("id") ?? "");
   const payload = { ...data, priceCents, compareAtCents: compareAtCents && compareAtCents > priceCents ? compareAtCents : null, active: active === "on", featured: featured === "on" };
   if (id) await db.card.update({ where: { id }, data: payload });
@@ -67,7 +75,12 @@ export async function saveCardAction(_: State, form: FormData): Promise<State> {
     if (same) await db.card.update({ where: { id: same.id }, data: { ...payload, stock: same.stock + payload.stock } });
     else await db.card.create({ data: payload });
   }
-  await logActivity("card_saved", `${id ? "Editou" : "Cadastrou"} ${data.kind === "PRODUTO" ? "selado" : "carta"} "${data.name}" (${price})`);
+  const tDb = Date.now();
+  const secs = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+  await logActivity(
+    "card_saved",
+    `${id ? "Editou" : "Cadastrou"} ${data.kind === "PRODUTO" ? "selado" : "carta"} "${data.name}" (${price}) · ⏱ ${secs(tDb - t0)} [login ${secs(tAuth - t0)}, foto ${secs(tImg - tAuth)}, banco ${secs(tDb - tImg)}${cold ? ", servidor acordando" : ""}]`,
+  );
   revalidatePath("/");
   redirect(`/admin/cartas?tipo=${data.kind === "PRODUTO" ? "selados" : "cartas"}`);
 }
