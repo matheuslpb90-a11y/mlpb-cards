@@ -12,7 +12,13 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ setId: string }> }) {
   const { setId } = await params;
   const s = await getSet(decodeURIComponent(setId)).catch(() => null);
-  return { title: s ? `${s.namePt || s.nameEn} — Minha coleção | MLPB Cards` : "Coleção | MLPB Cards" };
+  if (!s) return { title: "Coleção | MLPB Cards" };
+  const nome = s.namePt || s.nameEn;
+  return {
+    title: `${nome}: lista de todas as cartas Pokémon | MLPB Cards`,
+    description: `Lista completa das cartas da coleção ${nome}${s.nameEn && s.nameEn !== nome ? ` (${s.nameEn})` : ""} do Pokémon TCG, com imagens e números. Marque as que você tem, monte sua lista de desejos e veja quais estão à venda.`,
+    alternates: { canonical: `/colecao/${encodeURIComponent(s.id)}` },
+  };
 }
 
 export default async function SetCollectionPage({ params }: { params: Promise<{ setId: string }> }) {

@@ -16,6 +16,21 @@ type SP = Promise<{
 
 const list = (v?: string) => (v ? v.split(",").map((s) => s.trim()).filter(Boolean) : []);
 
+export async function generateMetadata({ searchParams }: { searchParams: SP }) {
+  const sp = await searchParams;
+  const kind = kindFromSlug(sp.tipo);
+  const q = typeof sp.q === "string" ? sp.q.trim() : "";
+  const what = kind === "PRODUTO" ? "Produtos selados Pokémon (booster, ETB, box)" : kind ? "Cartas Pokémon avulsas" : "Cartas Pokémon e produtos selados";
+  const title = q ? `${q} — ${what} | MLPB Cards` : `${what} | MLPB Cards`;
+  const description = q
+    ? `Encontre ${q} na MLPB Cards: cartas Pokémon TCG com preço, estado e idioma. Envio para todo o Brasil.`
+    : kind === "PRODUTO"
+      ? "Compre produtos selados de Pokémon TCG: booster box, Elite Trainer Box, blisters e coleções especiais. Envio para todo o Brasil."
+      : "Compre cartas Pokémon avulsas em português, inglês e japonês: full arts, ex, ilustrações especiais e raras. Filtre por coleção, idioma, estado e preço.";
+  const canonical = kind ? `/catalogo?tipo=${sp.tipo}` : "/catalogo";
+  return { title, description, alternates: { canonical }, ...(q || sp.colecao || sp.idioma || sp.condicao ? { robots: { index: false, follow: true } } : {}) };
+}
+
 export default async function CatalogPage({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const kind = kindFromSlug(sp.tipo);

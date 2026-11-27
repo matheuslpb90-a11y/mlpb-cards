@@ -8,6 +8,7 @@ import { TiktokIcon, WhatsIcon, YoutubeIcon } from "@/components/SocialIcons";
 import { leilomaniaAuctions } from "@/lib/leilomania";
 import { fmtDate } from "@/lib/auctions";
 import { SafeImg } from "@/components/SafeImg";
+import { siteUrl } from "@/lib/orders";
 
 const mediaImages = (json: string) => {
   try {
@@ -54,6 +55,30 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-10">
+      <script
+        type="application/ld+json"
+        // dados para o Google: quem é a loja, redes sociais e a busca do site
+        dangerouslySetInnerHTML={{ __html: JSON.stringify([
+          {
+            "@context": "https://schema.org",
+            "@type": "OnlineStore",
+            name: "MLPB Cards",
+            url: siteUrl(),
+            logo: `${siteUrl()}/icons/icon-512.png`,
+            description: "Loja de cartas Pokémon TCG avulsas, produtos selados e leilões, com envio para todo o Brasil.",
+            areaServed: "BR",
+            sameAs: [s.youtubeUrl, s.tiktokUrl].filter(Boolean),
+          },
+          {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            name: "MLPB Cards",
+            url: siteUrl(),
+            inLanguage: "pt-BR",
+            potentialAction: { "@type": "SearchAction", target: `${siteUrl()}/catalogo?q={search_term_string}`, "query-input": "required name=search_term_string" },
+          },
+        ]).replace(/</g, "\\u003c") }}
+      />
       {/* Banner principal (textos e imagem editáveis em Painel → Aparência e links) */}
       <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-[#1a1008] via-black to-[#140b04] p-8 sm:p-12">
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand/25 blur-3xl" />

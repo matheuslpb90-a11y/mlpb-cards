@@ -11,8 +11,9 @@ import { whatsappLink } from "@/lib/whatsapp";
 import { InstallApp, InstallAppLink } from "@/components/InstallApp";
 
 export const metadata: Metadata = {
-  title: "MLPB Cards — Cartas Pokémon avulsas e selados",
-  description: "Cartas Pokémon avulsas e produtos selados. Compre pelo site ou direto pelo WhatsApp.",
+  title: "MLPB Cards — Loja de Cartas Pokémon TCG avulsas, selados e leilões",
+  description: "Compre cartas Pokémon avulsas, booster box, ETB e produtos selados no Brasil. Cartas em português, inglês e japonês, leilões semanais, lista de coleção grátis e envio para todo o Brasil.",
+  keywords: ["cartas pokémon", "carta pokemon", "pokémon tcg", "cartas pokémon avulsas", "comprar carta pokemon", "loja de cartas pokémon", "booster pokémon", "leilão cartas pokémon", "pokémon tcg brasil"],
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.mlpbcards.com.br"),
   applicationName: "MLPB Cards",
   appleWebApp: { capable: true, title: "MLPB Cards", statusBarStyle: "black" },
