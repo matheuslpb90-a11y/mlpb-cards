@@ -33,6 +33,14 @@ Script: `.claude/skills/binder-arte-expandida/scripts/binder.py` (Pillow + numpy
 5. **Entregar** com SendUserFile: `visao_geral.jpg` e o PDF. Explicar onde ficou cada carta.
 6. **Não** commitar as imagens geradas (são centenas de MB e fan art de terceiros) — `binder-artes/` está no `.gitignore`.
 
+## Variante: a arte já vem dividida em 3x3 (com a carta no meio)
+Prints de posts que já mostram a página pronta (9 pedaços separados por linhas brancas, ou foto de um binder com sleeves). Aí **não precisa expandir**:
+1. Achar as caixas de cada pedaço. Em montagens com linhas brancas, detectar as linhas (colunas/linhas de pixels com `min(RGB) > 215` em boa parte da altura/largura). Em foto de binder, desenhar uma régua sobre o print e anotar as caixas à mão.
+2. Para cada pedaço: recortar com uma margem (4 px em montagem digital; ~34 px em foto de binder, para tirar o brilho do plástico), aparar bordas uniformes (brancas, pretas ou sem textura), aparar mais 10–12 px, cortar no centro para a proporção 63:88, redimensionar para 744 x 1039 px (LANCZOS + nitidez leve).
+3. Colar os 9 pedaços lado a lado numa imagem 2232 x 3117 (o pedaço da carta pode ficar como está, ele não é impresso) e passar essa imagem no `montar`.
+4. Em foto de binder com sleeves, avisar que pode sobrar um leve reflexo nas bordas.
+Usado em 28/11/2026: Magikarp (cachoeira), Zorua de Hisui (lago), Kyogre + Groudon (2 cartas: linha do meio, esquerda e direita).
+
 ## Qualidade
 - PDF sempre sem perdas (img2pdf com PNG). Não usar o `save(...pdf)` do Pillow — ele recomprime em JPEG.
 - Prints de tela têm ~1100 px de largura; a ampliação para 300 dpi (~1,8x) é feita com LANCZOS + leve nitidez. Se o usuário tiver a arte original, use-a (melhor qualidade).
