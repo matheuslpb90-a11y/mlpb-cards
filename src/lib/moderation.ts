@@ -448,6 +448,7 @@ const HELP = [
   "*!timeout* @pessoa 30 — silencia por 30 minutos",
   "*!del* — responda a mensagem para apagar",
   "*!fechar* / *!abrir* — só admins falam / todos falam",
+  "*!status* — mostra se o grupo está fechado ou aberto",
   "*!all* texto — chama todos do grupo (sem mostrar os @)",
   "*!brother* @pessoa — libera os links do parceiro (nos dias/horários de parceiros)",
   "*!unbrother* @pessoa — tira da lista de parceiros",
@@ -522,7 +523,7 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     return say(g, v ? `💵 Dólar agora: *R$ ${v.toFixed(2).replace(".", ",")}*` : "Não consegui consultar o dólar agora.", [], msg.id).then(() => cmd);
   }
 
-  const ADMIN_CMDS = ["!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!bloquear", "!block", "!blacklist", "!desbloquear", "!unblock", "!bloqueados", "!escanear", "!varrer", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos", "!jogo"];
+  const ADMIN_CMDS = ["!status", "!ban", "!warn", "!warns", "!remove_warn", "!timeout", "!del", "!fechar", "!abrir", "!all", "!todos", "!bloquear", "!block", "!blacklist", "!desbloquear", "!unblock", "!bloqueados", "!escanear", "!varrer", "!brother", "!unbrother", "!brothers", "!leilomania", "!darpontos", "!jogo"];
   if (!ADMIN_CMDS.includes(cmd)) return null;
   if (!msg.fromMe && !(await isAdmin(c, g, msg.phone))) return say(g, "⛔ Esse comando é só para admins.", [], msg.id).then(() => `${cmd} (negado)`);
 
@@ -653,6 +654,17 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
       await del(msg.quotedId);
       await del(msg.id);
       return "!del";
+    case "!status": {
+      const { whapiCall } = await import("./whapi");
+      const info = await whapiCall<{ announcements?: boolean; announce?: boolean }>(`groups/${encodeURIComponent(g)}`).catch(() => null);
+      const locked = info ? !!(info.announcements ?? info.announce) : null;
+      const botOn = await isGroupClosed(g);
+      const lines = [
+        locked === null ? "❓ Não consegui consultar o WhatsApp agora." : locked ? "🔒 WhatsApp: *fechado* (só admins mandam mensagem)." : "🔓 WhatsApp: *aberto* (todos podem mandar mensagem).",
+        botOn ? "🤖 Bot: apagando mensagens de membros (modo fechado)." : "🤖 Bot: modo normal.",
+      ];
+      return say(g, lines.join("\n")).then(() => "!status");
+    }
     case "!fechar":
     case "!abrir": {
       const close = cmd === "!fechar";
