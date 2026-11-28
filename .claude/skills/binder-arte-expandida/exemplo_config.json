@@ -1,0 +1,106 @@
+{
+ "artes": [
+  {
+   "nome": "01_cidade_fogo",
+   "imagem": "exp/01_cidade_fogo.png",
+   "cartas": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "nome": "02_flores_sylveon",
+   "imagem": "exp/02_flores_sylveon.png",
+   "cartas": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "nome": "03_lagoa",
+   "imagem": "exp/03_lagoa.png",
+   "cartas": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "nome": "04_gengar",
+   "imagem": "exp/04_gengar.png",
+   "cartas": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "nome": "05_jirachi_galaxia",
+   "imagem": "exp/05_jirachi_galaxia.png",
+   "cartas": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "nome": "06_baloes_dia",
+   "imagem": "exp/06_baloes_dia.png",
+   "cartas": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "nome": "07_palco",
+   "imagem": "exp/07_palco.png",
+   "cartas": [
+    [
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "nome": "08_aves_lendarias",
+   "imagem": "exp/08_aves_lendarias.png",
+   "cartas": [
+    [
+     1,
+     0
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     1,
+     2
+    ]
+   ]
+  },
+  {
+   "nome": "09_meowth",
+   "imagem": "exp/09_meowth.png",
+   "cartas": [
+    [
+     0,
+     0
+    ],
+    [
+     2,
+     1
+    ]
+   ]
+  }
+ ]
+}
