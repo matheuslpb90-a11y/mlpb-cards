@@ -657,7 +657,8 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     case "!abrir": {
       const close = cmd === "!fechar";
       const applied = await setGroupClosed(g, close);
-      await say(g, close ? "🔒 Grupo fechado: só admins podem mandar mensagens. Mensagens de membros serão apagadas." : "🔓 Grupo aberto: todos podem mandar mensagens.");
+      await say(g, (close ? "🔒 Grupo fechado: só admins podem mandar mensagens." : "🔓 Grupo aberto: todos podem mandar mensagens.") +
+        (applied ? "" : close ? "\n\n⚠️ O WhatsApp não aplicou a trava (o número da loja precisa ser admin). Enquanto isso, o bot apaga as mensagens de membros." : "\n\n⚠️ O WhatsApp não reabriu o grupo: abra em Permissões do grupo → Enviar mensagens."));
       return applied ? cmd : `${cmd} (trava do WhatsApp falhou; bot apagando mensagens)`;
     }
     case "!all":

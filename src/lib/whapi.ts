@@ -122,19 +122,34 @@ export async function whapiRemoveParticipants(groupId: string, phones: string[])
   return whapiCall(`groups/${encodeURIComponent(groupId)}/participants`, { participants: phones.map((p) => p.replace(/\D/g, "")) }, "DELETE");
 }
 
-/** Fecha (só admins falam) ou abre o grupo. */
+/**
+ * Fecha (só admins mandam mensagem) ou abre o grupo, como a opção "Enviar mensagens" do WhatsApp.
+ * Whapi: PATCH /groups/{id} { setting: "send_messages", policy: "admins" | "anyone" }.
+ * Depois confere no grupo (campo "announcements") se a trava realmente foi aplicada.
+ */
 export async function whapiSetAnnounce(groupId: string, onlyAdmins: boolean) {
   const g = encodeURIComponent(groupId);
-  try {
-    return await whapiCall(`groups/${g}/setting`, { setting: "announcement", policy: onlyAdmins ? "admins" : "anyone" }, "PATCH");
-  } catch (e) {
-    // formato alternativo de algumas versões da API
+  const policy = onlyAdmins ? "admins" : "anyone";
+  const attempts: [string, Record<string, unknown>, "PATCH" | "PUT"][] = [
+    [`groups/${g}`, { setting: "send_messages", policy }, "PATCH"],
+    [`groups/${g}/setting`, { setting: "send_messages", policy }, "PATCH"],
+    [`groups/${g}`, { setting: "announcement", policy }, "PATCH"],
+  ];
+  let lastErr: unknown = null;
+  for (const [path, body, method] of attempts) {
     try {
-      return await whapiCall(`groups/${g}`, { announce: onlyAdmins }, "PUT");
-    } catch {
-      throw e;
+      await whapiCall(path, body, method);
+    } catch (e) {
+      lastErr = e;
+      continue;
     }
+    // confere se aplicou de verdade
+    const info = await whapiCall<{ announcements?: boolean; announce?: boolean }>(`groups/${g}`).catch(() => null);
+    const now = info ? !!(info.announcements ?? info.announce) : onlyAdmins;
+    if (now === onlyAdmins) return { ok: true, path };
+    lastErr = new Error(`pedido aceito em ${path}, mas o grupo continuou ${now ? "fechado" : "aberto"}`);
   }
+  throw lastErr ?? new Error("não foi possível mudar a configuração do grupo");
 }
 
 export async function whapiInviteLink(groupId: string) {
