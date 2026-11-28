@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { priceItem } from "@/lib/auction-pricing";
 import { brt, reaisToCents, type AuctionDraft } from "@/lib/auction-draft";
-import { closeAuction, markInvoicePaid, sendInvoice, startAuction } from "@/lib/auctions";
+import { closeAuction, markInvoicePaid, reopenAuctionGroup, sendInvoice, startAuction } from "@/lib/auctions";
 import { listGroups, groupsFromLogs, sendText, connectionStatus, probeOmni } from "@/lib/zapi";
 import { logActivity } from "@/lib/activity";
 
@@ -145,7 +145,10 @@ export async function auctionCommandAction(id: string, cmd: "iniciar" | "encerra
       if (a.status === "ATIVO" && a.endsAt > new Date()) await db.auction.update({ where: { id }, data: { endsAt: new Date() } });
       await closeAuction(id);
     }
-    if (cmd === "cancelar") await db.auction.update({ where: { id }, data: { status: "CANCELADO" } });
+    if (cmd === "cancelar") {
+      await db.auction.update({ where: { id }, data: { status: "CANCELADO" } });
+      if (a.status === "ATIVO" && a.mode === "POLL") await reopenAuctionGroup();
+    }
     if (cmd === "excluir") await db.auction.delete({ where: { id } });
     if (cmd === "visivel") await db.auction.update({ where: { id }, data: { visible: !a.visible } });
     if (cmd === "duplicar") {

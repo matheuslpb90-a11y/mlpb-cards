@@ -16,6 +16,29 @@ import {
   type WGroupInfo,
 } from "./whapi";
 
+// ---- grupo fechado: só admins falam. Além de pedir ao WhatsApp, o bot APAGA qualquer mensagem de membro ----
+// (garantia: mesmo que o WhatsApp não aplique a trava, ninguém consegue anunciar enquanto estiver fechado)
+async function closedGroups(): Promise<string[]> {
+  const s = await db.setting.findUnique({ where: { key: "closedGroups" } });
+  try { return s ? (JSON.parse(s.value) as string[]) : []; } catch { return []; }
+}
+export async function isGroupClosed(group: string) {
+  return (await closedGroups()).includes(group);
+}
+/** Fecha/abre o grupo. Devolve true se o WhatsApp aceitou a trava (se não, o bot apaga as mensagens assim mesmo). */
+export async function setGroupClosed(group: string, close: boolean) {
+  const list = (await closedGroups()).filter((x) => x !== group);
+  if (close) list.push(group);
+  await db.setting.upsert({ where: { key: "closedGroups" }, create: { key: "closedGroups", value: JSON.stringify(list) }, update: { value: JSON.stringify(list) } });
+  try {
+    await whapiSetAnnounce(group, close);
+    return true;
+  } catch (e) {
+    await log("erro-moderacao", { acao: close ? "fechar" : "abrir", error: String(e) });
+    return false;
+  }
+}
+
 // Moderação dos grupos do WhatsApp (estilo "Janet"), via Whapi.Cloud.
 // Configuração salva em Setting "modConfig" (JSON) e editada em Painel → Moderação.
 
@@ -262,6 +285,12 @@ export async function moderateMessage(msg: InMsg): Promise<string | null> {
   }
   if (msg.fromMe || (await isAdmin(c, msg.group, msg.phone))) return null;
   const k = phoneKey(msg.phone);
+
+  // grupo fechado (por !fechar ou durante o leilão): só admins falam, o resto é apagado
+  if (await isGroupClosed(msg.group)) {
+    await del(msg.id);
+    return "apagada (grupo fechado)";
+  }
 
   // lista negra: apaga e remove (caso tenha entrado antes de ser bloqueado)
   if (isBlacklisted(c, msg.phone)) {
@@ -627,14 +656,9 @@ async function runCommand(c: ModConfig, msg: InMsg, text: string): Promise<strin
     case "!fechar":
     case "!abrir": {
       const close = cmd === "!fechar";
-      try {
-        await whapiSetAnnounce(g, close);
-        await say(g, close ? "🔒 Grupo fechado: só admins podem mandar mensagens." : "🔓 Grupo aberto: todos podem mandar mensagens.");
-        return cmd;
-      } catch (e) {
-        await log("erro-moderacao", { acao: cmd, error: String(e) });
-        return say(g, "Não consegui mudar a configuração do grupo (o número da loja precisa ser admin).").then(() => `${cmd} (falhou)`);
-      }
+      const applied = await setGroupClosed(g, close);
+      await say(g, close ? "🔒 Grupo fechado: só admins podem mandar mensagens. Mensagens de membros serão apagadas." : "🔓 Grupo aberto: todos podem mandar mensagens.");
+      return applied ? cmd : `${cmd} (trava do WhatsApp falhou; bot apagando mensagens)`;
     }
     case "!all":
     case "!todos": {

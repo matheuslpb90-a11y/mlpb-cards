@@ -83,6 +83,12 @@ export async function startAuction(auctionId: string) {
   if (a.imageUrl) await sendImage(group, absolute(a.imageUrl), opening);
   else await sendText(group, opening);
 
+  // leilão por enquete: fecha o grupo (só admins falam; votar nas enquetes continua liberado)
+  if (mode === "POLL") {
+    await import("./moderation").then((m) => m.setGroupClosed(group, true)).catch((e) => log("erro-fechar-grupo", { error: String(e) }));
+    await sendText(group, "🔒 *Grupo fechado durante o leilão.* Só vale votar nas enquetes — mensagens serão apagadas. Abrimos de novo quando o leilão terminar! 🧡").catch(() => {});
+  }
+
   // lembretes: quem marcou "me avise" em cada carta
   const watchers = await import("./auction-watch").then((w) => w.watchersByCode(a.id)).catch(() => new Map<string, string[]>());
   const convoke = async (code: string, title: string) => {
@@ -343,6 +349,15 @@ export async function closeAuction(auctionId: string) {
   } catch (e) {
     await log("erro-resultado", { auction: a.code, error: String(e) });
   }
+  // reabre o grupo que foi fechado no início do leilão
+  if (a.mode === "POLL") await reopenAuctionGroup();
+}
+
+/** Reabre o grupo do leilão (fim ou cancelamento). */
+export async function reopenAuctionGroup() {
+  const g = await groupId();
+  await import("./moderation").then((m) => m.setGroupClosed(g, false)).catch((e) => log("erro-abrir-grupo", { error: String(e) }));
+  await sendText(g, "🔓 *Grupo aberto!* Já podem mandar mensagens de novo.").catch(() => {});
 }
 
 export async function sendInvoice(invoiceId: string) {
